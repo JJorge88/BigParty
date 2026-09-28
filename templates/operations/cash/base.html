@@ -1,0 +1,7 @@
+{% extends "operations/base.html" %}{% load static %}
+{% block title %}BIG PARTY · Caja{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/cash.css' %}">{% endblock %}
+{% block body_attributes %}class="cash-workstation" {% if authenticated %}data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'cash_operations:lock' %}" data-activity-url="{% url 'cash_operations:activity' %}" data-access-url="{% url 'cash_operations:access' %}"{% endif %}{% endblock %}
+{% block topbar %}<div class="cash-station">{{ register_name|default:"Estación de caja" }}</div>{% if authenticated %}<div class="cash-operator"><span><strong>{{ operator_name }}</strong><small>{{ operator_role }}</small></span><form method="post" action="{% url 'cash_operations:lock' %}" data-cash-form>{% csrf_token %}<button class="icon-button" aria-label="Bloquear caja" title="Bloquear caja"><svg aria-hidden="true"><use href="#icon-lock"/></svg></button></form></div>{% endif %}{% endblock %}
+{% block content %}<main id="main" class="cash-shell">{% for message in messages %}<p class="cash-feedback" role="status" data-feedback>{{ message }}</p>{% endfor %}{% block cash_content %}{% endblock %}</main>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/cash.js' %}"></script>{% if authenticated %}<script type="module" src="{% static 'js/operations/session.js' %}"></script>{% endif %}{% endblock %}

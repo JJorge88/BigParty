@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -54,6 +56,7 @@ class BusinessDayReopen(models.Model):
 
 
 class CashRegister(models.Model):
+    binding_version = models.UUIDField(default=uuid.uuid4, editable=False)
     name = models.CharField("nombre", max_length=100)
     code = models.SlugField("código", max_length=30, unique=True)
     area = models.ForeignKey("venues.Area", on_delete=models.PROTECT, related_name="cash_registers")
@@ -65,6 +68,7 @@ class CashRegister(models.Model):
         verbose_name = "Estación de caja"
         verbose_name_plural = "Estaciones de caja"
         ordering = ("code",)
+        permissions = [("configure_cash_register_device", "Puede configurar navegadores de caja")]
 
     def __str__(self):
         return self.name
@@ -82,8 +86,19 @@ class CashRegister(models.Model):
     def save(self, *args, **kwargs):
         from .guards import lock_operation_gate
         lock_operation_gate()
+        changed = False
+        if self.pk:
+            previous = type(self).objects.select_for_update().get(pk=self.pk)
+            changed = any(getattr(previous, key) != getattr(self, key) for key in ("area_id", "code", "is_active"))
+            if changed:
+                self.binding_version = uuid.uuid4()
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = set(kwargs["update_fields"]) | {"binding_version"}
         self.full_clean()
-        return super().save(*args, **kwargs)
+        result = super().save(*args, **kwargs)
+        if changed:
+            self.cash_access_sessions.filter(revoked_at__isnull=True).update(revoked_at=timezone.now())
+        return result
 
 
 class CashSession(models.Model):

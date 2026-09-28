@@ -609,3 +609,9 @@
     grid-template-columns:repeat(4,1fr);
   }
 }
+
+/* Ajustes de continuidad 2D: misma columna de resumen en todos los métodos. */
+.account-detail {min-width:0}
+#back-account {border-color:transparent;background:transparent;color:var(--muted);font-size:13px;font-weight:400;padding:8px 10px;min-height:40px}
+.account-page input:focus-visible {outline:2px solid #b4a17c;outline-offset:2px}
+.account-page .financial-panel {min-width:0}

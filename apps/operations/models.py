@@ -73,3 +73,31 @@ class OperationalSession(models.Model):
         verbose_name = "Sesión operativa"
         verbose_name_plural = "Sesiones operativas"
         constraints = [models.UniqueConstraint(fields=("device", "binding_hash"), condition=models.Q(revoked_at__isnull=True), name="operations_one_session_per_browser")]
+
+
+class CashPinAttempt(models.Model):
+    register = models.ForeignKey("cash.CashRegister", on_delete=models.PROTECT)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    failed_attempts = models.PositiveSmallIntegerField(default=0)
+    locked_until = models.DateTimeField(null=True, blank=True)
+    last_failed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("register", "user"), name="operations_cash_pin_register_user")]
+
+
+class CashAccessSession(models.Model):
+    token_hash = models.CharField(max_length=64, unique=True, editable=False)
+    binding_hash = models.CharField(max_length=64, editable=False)
+    auth_hash = models.CharField(max_length=64, editable=False)
+    register = models.ForeignKey("cash.CashRegister", on_delete=models.PROTECT, related_name="cash_access_sessions")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    business_day = models.ForeignKey("cash.BusinessDay", on_delete=models.PROTECT, null=True, blank=True)
+    cash_session = models.ForeignKey("cash.CashSession", on_delete=models.PROTECT, null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    last_activity_at = models.DateTimeField(default=timezone.now)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        permissions = [("request_cash_withdrawal", "Puede solicitar retiros desde caja")]
+        constraints = [models.UniqueConstraint(fields=("register", "binding_hash"), condition=models.Q(revoked_at__isnull=True), name="operations_cash_access_browser")]

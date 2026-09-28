@@ -1638,13 +1638,154 @@ vertical, junto al detalle del recorrido, están en [Verificación de Fase 2C](d
 Los datos temporales se eliminan al terminar. La validación en tablet Android física queda
 pendiente de la revisión operativa del local.
 
+## Fase 2D — Estación de caja Windows
+
+La interfaz operativa está en **`/caja/`**. Reutiliza CashRegister, BusinessDay,
+CashSession, CashHandoff y CashMovement. Las herramientas de `/dev/caja/` permanecen.
+
+### Configurar la computadora y habilitar usuarios
+
+1. Crear o revisar el CashRegister activo y su área en Django Admin.
+2. Dar al administrador de configuración acceso staff y el permiso
+   **`cash.configure_cash_register_device`**.
+3. En esa computadora, abrir **`/caja/configurar/`**, ingresar al acceso administrativo
+   y seleccionar la estación física: Sport Bar, Discoteca o Premium.
+4. Preparar usuarios activos CAJERO o GERENTE con un PIN de **4 a 6 dígitos** y los
+   permisos de las acciones que realmente realizarán. El rol no concede permisos.
+5. Volver a `/caja/` y seleccionar el cajero. El PIN abre un acceso operativo
+   independiente; no inicia una sesión Django Admin ni una sesión de mesero.
+
+| Acción | Permiso requerido |
+| --- | --- |
+| Configurar navegador | `cash.configure_cash_register_device` + usuario staff |
+| Abrir caja | `cash.open_cash_session` |
+| Recibir entregas | `cash.receive_waiter_cash` |
+| Solicitar retiro | `operations.request_cash_withdrawal` |
+| Autorizar retiro con PIN | `cash.approve_cash_withdrawal` |
+| Consultar movimientos | `cash.view_cashmovement` |
+| Contar, consultar resultado y cerrar | `cash.close_cash_session` |
+
+`cash.view_cash_session_financials` sigue protegiendo las consultas administrativas
+existentes. Tenerlo **no revela totales en Caja activa**. El resultado del cierre
+requiere el permiso de cierre y que el conteo ya esté registrado, como exige el
+servicio de caja existente. No se otorgan permisos automáticamente a usuarios reales.
+
+Sin estación válida solo aparece el aviso de configuración; no hay acciones de caja.
+La configuración persiste un año en una cookie firmada, HttpOnly y SameSite=Lax,
+restringida a `/caja/` y Secure cuando la configuración de producción lo exige.
+No se usa localStorage como autoridad. Cambiar el código, área o estado de una caja
+mediante su modelo rota la versión de vinculación y revoca accesos; una estación
+inactiva o con área inactiva no puede usarse. Se conservan las restricciones históricas
+que impiden cambiar código/área con historial o desactivar una caja abierta.
+
+### PIN, jornada y bloqueo
+
+Se reutilizan `User.check_pin()` y los hashes existentes. Los tokens de acceso solo
+se guardan como hash y quedan ligados a estación, navegador, usuario y jornada.
+Cinco fallos bloquean **estación + usuario** por cinco minutos; no bloquean globalmente
+la cuenta ni otras estaciones. El PIN de autorización de retiros comparte ese control.
+Cambiar contraseña/PIN, desactivar al usuario o retirar sus permisos invalida el acceso.
+
+El timeout de caja es **10 minutos**, separado de los 2 minutos del mesero.
+Se configura centralmente en `config/settings/base.py` mediante
+`CASH_IDLE_TIMEOUT_SECONDS`, `CASH_PIN_MAX_ATTEMPTS`, `CASH_PIN_LOCK_SECONDS` y
+`CASH_REGISTER_COOKIE_AGE`. El servidor valida la vigencia; la actividad real de teclado,
+mouse o desplazamiento actualiza el acceso. Las páginas privadas no se almacenan en caché.
+
+Se necesita una jornada OPEN. Sin ella aparece:
+**No hay una jornada abierta. Solicita a Gerencia abrir la jornada.**
+La caja no incorpora una pantalla para abrir jornadas. Un cambio de jornada obliga
+a volver a ingresar con PIN.
+
+### Apertura y Caja activa
+
+**Abrir caja** solicita un fondo inicial mayor o igual a cero y llama a
+`open_cash_session()`. Estación, titular y jornada proceden del servidor. Enter confirma;
+no hay teclado táctil. La restricción existente impide dos sesiones abiertas en una caja.
+
+Después de abrir, la pantalla solo presenta acciones:
+**Venta rápida** y **Mesas** deshabilitadas con aviso de siguiente fase;
+**Efectivo de meseros**, **Movimientos**, **Retiro de efectivo** y **Cerrar caja** según permisos.
+No muestra fondo inicial, dinero en caja, esperado, diferencias, ventas ni acumulados.
+
+La protección de privacidad es también de datos: las vistas construyen una lista
+explícita de campos seguros y no pasan CashSession ni `get_cash_session_summary()`
+a las plantillas. HTML y JSON previos al conteo no contienen el esperado, ni oculto.
+
+**Cambio de cajero:** en esta fase únicamente el titular puede continuar operando
+la CashSession abierta desde la interfaz normal. Otro usuario ve quién la abrió y
+puede cambiar de usuario; no se cambia silenciosamente el titular ni se concede una
+excepción por ser gerente. Una autorización de retiro no cambia el acceso actual.
+
+### Entregas de meseros y retiros
+
+**Efectivo de meseros** consulta `get_pending_cash_handoffs()` de la jornada y muestra
+mesero, mesa, monto y hora, sin total pendiente. La confirmación pequeña llama a
+`confirm_cash_handoff()`. La fila recibida desaparece y se muestra **Efectivo recibido**.
+Las entregas de una jornada pueden recibirse en cualquiera de sus cajas autorizadas,
+respetando el backend existente. Dos cajas compitiendo por la misma entrega producen
+una recepción y el mensaje **Este efectivo ya fue recibido en otra caja.**
+
+**Retiro de efectivo** requiere monto positivo, motivo, solicitante actual y selección
+de una persona activa con permiso de aprobación. Esa persona introduce su PIN;
+no basta escribir un nombre ni tener rol GERENTE. Cambio, Compra operativa, Entrega
+a Gerencia y Otro son atajos de texto; Otro exige redactar un motivo.
+
+`create_cash_withdrawal()` valida fondos y registra `created_by` como solicitante,
+`approved_by` como aprobador verificado y la auditoría existente. No se muestra el
+saldo disponible aunque falten fondos. Un formulario firmado está ligado al acceso,
+la CashSession y su último movimiento: si cambia la caja o se repite la confirmación,
+se rechaza y se pide actualizar. No hay reintento automático de una respuesta de red
+incierta. **Movimientos** muestra cada operación en orden, referencia y monto con signo,
+sin sumas, saldo corrido ni fondo inicial.
+
+### Cierre ciego y comprobante
+
+1. **Cerrar caja:** contar físicamente el efectivo e introducirlo en un campo vacío.
+   Esta pantalla no consulta ni envía esperado, ventas, entregas o retiros.
+2. **Registrar conteo:** `submit_blind_cash_count()` congela el conteo y los movimientos.
+   No permite sustituirlo ni seguir recibiendo o retirando dinero.
+3. **Resultado del cierre:** ahora `get_blind_close_result()` puede revelar esperado,
+   contado y diferencia. Caja cuadrada permite cerrar sin motivo; un faltante o
+   sobrante exige **Motivo de diferencia**, también validado en el backend.
+4. **Cerrar caja:** `close_cash_session()` persiste CLOSED y datos congelados.
+5. **Caja cerrada:** muestra estación, titular, hora, contado y diferencia.
+   **Ver comprobante** abre HTML; no genera PDF ni recibos de venta.
+6. **Finalizar sesión:** revoca el acceso y vuelve al selector. Un siguiente cajero
+   puede abrir una nueva CashSession. Formularios de la anterior siguen rechazados.
+
+Las entregas pendientes que nunca pertenecieron a esta caja no bloquean su cierre;
+permanecen como pendientes de la jornada. El conteo y todas las mutaciones exigen
+POST, CSRF, identidad configurada, acceso vigente, jornada y permisos. Ningún
+`cash_session` enviado por el navegador puede elegir una sesión de otra estación.
+La serialización usa la puerta de operaciones existente antes de bloquear estación
+y acceso, en el mismo orden que los servicios contables.
+
+### Validación y archivos
+
+**545 pruebas Django y 6 JavaScript aprobadas.** La fase agrega 61 pruebas Django,
+incluidas cuatro carreras con conexiones separadas. Se completó el recorrido manual
+con una base desechable, pago real desde la interfaz del mesero, recepción, retiro,
+cierre con faltante, comprobante y nueva sesión con cierre cuadrado.
+
+Pantallas verificadas a **1280×800, 1366×768 y 1920×1080**. La prueba física en Windows
+queda para el local. Detalle del recorrido y las siete capturas reales en
+[Verificación de Fase 2D](docs/phase-2d/verification.md).
+
+Archivos principales: `apps/operations/cash_security.py`, `cash_views.py`,
+`cash_urls.py`, los modelos y migraciones de `cash` y `operations`,
+`templates/operations/cash/`, `static/css/operations/cash.css`,
+`static/js/operations/cash.js`, `test_cash_workstation.py` y `test_cash_concurrency.py`.
+Los ajustes de 2C están limitados a `static/css/operations/account.css`.
+
 ## Git y alcance
 
 `.env`, `.venv`, cachés, archivos temporales, medios locales y estáticos recopilados
 se excluyen de Git. `.env.example`, las dependencias y las migraciones sí se versionan.
 No subir credenciales ni archivos de entorno reales.
 
-La entrega finaliza en la Fase 2C: Ver cuenta, selección, pagos y cierre explícito.
-Mover productos/mesas, unir mesas, caja visual, aprobación visual de Gerencia, impresoras reales,
-reservas, eventos, QR, dashboard ejecutivo, PDF finales, nodo local, hardware, websockets
-y sincronización offline permanecen fuera de alcance. Esperar revisión antes de continuar a Caja visual.
+La entrega finaliza en la Fase 2D: estación de caja, recepción, retiros y cierre ciego.
+Venta rápida, catálogo desde caja, cobro rápido y cargar a mesa quedan para Fase 2E.
+Mover productos/mesas, unir mesas, Gerencia visual, impresoras reales, reservas, eventos,
+QR, dashboard ejecutivo, PDF, nodo local, hardware, websockets y sincronización offline
+permanecen fuera de alcance. Esperar revisión antes de continuar.
