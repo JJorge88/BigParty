@@ -41,11 +41,11 @@ def amounts(summary):
     return {key: money_label(value) for key, value in summary.items()}
 
 
-def account_state(order, user, account=None):
+def account_state(order, user, account=None, *, include_drafts=False):
     target = account or order
     selected = order.billing_mode == "SINGLE" or account is not None
-    summary = get_financial_summary(target) if selected else {key: ZERO for key in get_financial_summary(order)}
-    lines = order.lines.filter(status="SENT").prefetch_related("modifiers").order_by("pk")
+    summary = get_financial_summary(target, include_drafts=include_drafts) if selected else {key: ZERO for key in get_financial_summary(order)}
+    lines = order.lines.filter(status__in=["SENT", "DRAFT"] if include_drafts else ["SENT"]).prefetch_related("modifiers").order_by("pk")
     if account:
         lines = lines.filter(subaccount=account)
     elif not selected:
@@ -54,7 +54,7 @@ def account_state(order, user, account=None):
     line_ids = []
     for line in lines:
         line_ids.append(line.pk)
-        coverage = get_line_payment_quantities(line)
+        coverage = get_line_payment_quantities(line, include_drafts=include_drafts)
         units = coverage["units"]
         eligible = [unit for unit in units if unit["available"] > ZERO and unit["confirmed"] == ZERO and unit["pending"] == ZERO]
         settled = all(unit["balance"] == ZERO and unit["pending"] == ZERO for unit in units)
@@ -83,7 +83,7 @@ def account_state(order, user, account=None):
         accounts.append({"id": sub.pk, "name": sub.name, "closed": sub.status == "CLOSED",
             "balance": money_label(financial["outstanding_balance"]),
             "pending": financial["pending_verification"] > ZERO})
-    return {"table_name": order.primary_table.name, "area": order.area.name, "billing_mode": order.billing_mode,
+    return {"table_name": order.display_name, "area": order.area.name, "billing_mode": order.billing_mode,
         "selected_account": account.pk if account else None,
         "selected_name": account.name if account else "Una sola cuenta" if selected else "Selecciona una cuenta",
         "account_closed": bool(account and account.status == "CLOSED"), "accounts": accounts,
@@ -97,7 +97,7 @@ def account_state(order, user, account=None):
 
 
 def financial_revision(order):
-    ledger = unit_ledger(order)
+    ledger = unit_ledger(order, include_drafts=order.order_type == "QUICK_SALE")
     data = [[*key, str(unit["price"]), str(unit["confirmed"]), str(unit["pending"]),
              str(unit["adjustment"]), str(unit["refunded"]), unit["line"].subaccount_id] for key, unit in ledger.items()]
     # Los identificadores detectan también un pago seguido de rechazo que restituye el saldo.
@@ -108,7 +108,7 @@ def financial_revision(order):
 
 def signed_plan(context, order, account, plan):
     return signing.dumps({**plan, "order": order.pk, "account": account.pk if account else None,
-        "session": context["session"].pk, "revision": financial_revision(order)}, salt=QUOTE_SALT, compress=True)
+        "session": context["session"].pk, "kind": context.get("kind", "waiter"), "revision": financial_revision(order)}, salt=QUOTE_SALT, compress=True)
 
 
 def read_plan(value, context, order, account, *, current=True):
@@ -117,7 +117,7 @@ def read_plan(value, context, order, account, *, current=True):
     except (signing.BadSignature, TypeError, ValueError):
         raise ValidationError("La confirmación venció. Revisa el monto y prepara el pago nuevamente.")
     if (plan.get("order") != order.pk or plan.get("account") != (account.pk if account else None)
-        or plan.get("session") != context["session"].pk):
+        or plan.get("session") != context["session"].pk or plan.get("kind", "waiter") != context.get("kind", "waiter")):
         raise ValidationError("Esta confirmación no pertenece a tu cuenta o sesión actual.")
     if current and plan["revision"] != financial_revision(order):
         raise ValidationError(STALE_MESSAGE)
@@ -137,7 +137,7 @@ def prepare_payment(context, order, account, data):
         if mode == "selection":
             raise ValidationError("Vuelve a la cuenta para cambiar los productos seleccionados.")
     quote = payments.get_payment_quote(account or order, mode=mode, selection=selection,
-        amount=data.get("amount"), unit_keys=keys)
+        amount=data.get("amount"), unit_keys=keys, include_drafts=order.order_type == "QUICK_SALE")
     plan = {"mode": mode, "selection": selection if mode == "selection" else None,
         "amount": str(quote["amount"]), "scope_keys": keys or quote["unit_keys"], "restricted": keys is not None}
     token = signed_plan(context, order, account, plan)

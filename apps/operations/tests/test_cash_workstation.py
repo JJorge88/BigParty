@@ -237,7 +237,8 @@ class CashWorkstationTests(CashTestCase):
         self.open_cash()
         for json in (False, True): self.assertPrivate(self.page("activa", json))
         response = self.page("activa")
-        self.assertContains(response, "siguiente fase")
+        self.assertNotContains(response, "Disponible en la siguiente fase")
+        self.assertContains(response, "Venta rápida")
         self.assertNotIn("session", response.context)
 
     def test_only_original_holder_operates_existing_session(self):

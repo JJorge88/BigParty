@@ -1,4 +1,4 @@
-# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D, 1E, 2A, 2B y 2C
+# BIG PARTY — Fases 0 a 2E
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
@@ -1789,3 +1789,128 @@ Venta rápida, catálogo desde caja, cobro rápido y cargar a mesa quedan para F
 Mover productos/mesas, unir mesas, Gerencia visual, impresoras reales, reservas, eventos,
 QR, dashboard ejecutivo, PDF, nodo local, hardware, websockets y sincronización offline
 permanecen fuera de alcance. Esperar revisión antes de continuar.
+
+## Fase 2E — Venta rápida y mesas desde caja
+
+Las tarjetas de Caja activa permiten iniciar ventas rápidas o cargar productos a una mesa
+ocupada del área de la estación. Conservan el acceso a efectivo de meseros y la privacidad
+de 2D: no muestran fondo, efectivo esperado, diferencias ni acumulados de ventas.
+
+### Una sola arquitectura de órdenes
+
+`TableOrder` incorpora `OrderType.TABLE` (valor de todas las órdenes existentes) y
+`OrderType.QUICK_SALE`. Solo `QUICK_SALE` admite `primary_table=NULL`; exige jornada,
+sesión de caja y modalidad `SINGLE`. La restricción `orders_type_origin_valid` protege
+estas combinaciones en PostgreSQL. La venta rápida conserva `OrderLine`, composición,
+modificadores, precios congelados, pagos, inventario e historial existentes. No existe un
+segundo sistema de ventas.
+
+Cada venta conserva el número real de orden, área, jornada, `cash_session` de origen,
+`opened_by` y responsable. `customer_alias` es opcional (100 caracteres), se confirma
+antes del primer pago y se audita al cambiar. No se solicitan teléfono, correo ni documento.
+`fulfilled_at` registra la liberación del pedido al completar la venta, no una confirmación
+física de entrega.
+
+### Catálogo compartido
+
+- `/caja/venta-rapida/`: nueva venta y continuación de borradores o pagos pendientes de la sesión actual.
+- `/caja/orden/<id>/pedido/`: catálogo y carrito; encabezado de caja y distribución aproximada 70/30.
+- `/caja/orden/<id>/cuenta/`: cobro de venta rápida con la interfaz de 2C.
+- `/caja/orden/<id>/completada/`: número, total individual, métodos y aviso de Cocina.
+- `/caja/mesas/`: búsqueda inmediata, estado, responsable, total y tiempo de mesas de la misma área.
+
+Las plantillas de caja extienden `operations/order.html` y `operations/account.html`.
+Se comparten `ordering.js`, `account.js`, componentes, categorías, filtros, diálogos,
+modificadores, notas, cantidades y precios por área. `catalog_actions.py` concentra las
+acciones comunes. Los estilos adicionales de caja son ajustes de disposición; no se
+mantienen tres catálogos independientes. La búsqueda recibe foco inicial, los botones son
+accesibles con teclado y los diálogos conservan Tab/Enter/Esc.
+
+### Confirmación y cobro transaccionales
+
+1. Crear y editar un borrador no descuenta inventario ni crea comandas.
+2. **Cobrar** abre una cotización de solo lectura que incluye los borradores de la venta.
+3. El primer pago valida sesión, jornada, permisos, estado y confirmación firmada. Dentro
+   de una sola transacción, reutiliza `send_order` con preparación diferida, valida stock
+   real bloqueado, consume componentes y registra el pago mediante los servicios existentes.
+4. Un fallo de inventario, importe recibido o pago revierte líneas, stock, movimientos y pago.
+5. Un pago parcial o pendiente inmoviliza stock una sola vez. La venta sigue abierta; no
+   se libera Cocina ni se indica entrega. Después del primer pago se bloquea la edición
+   del carrito y del alias para conservar el importe ya confirmado.
+6. Con saldo cero, sin pagos pendientes y sin borradores, `payments.close_order` crea una
+   única comanda lógica de Cocina cuando corresponde, registra `fulfilled_at` y cierra.
+
+Esta estrategia reutiliza la contabilidad que opera sobre líneas `SENT`. El descuento de
+stock representa reserva mientras el pago no se completa. No hay transacciones abiertas
+entre acciones del navegador. El bloqueo de jornada y los bloqueos de orden/productos
+mantienen el orden de adquisición usado por el backend existente.
+
+| Método | Resultado |
+| --- | --- |
+| Efectivo | Sesión `OPEN` actual, `DIRECT_CASH_PAYMENT`, `NOT_REQUIRED`; nunca handoff. |
+| Tarjeta | Confirmación después de la aprobación en terminal bancaria externa; sin voucher. |
+| Transferencia / depósito | `Payment.PENDING`; referencia obligatoria, aviso persistente de no entregar. |
+| Mixto | Un método por operación; stock una sola vez y cierre al completar el saldo confirmado. |
+
+Gerencia podrá confirmar o rechazar transferencias con los servicios existentes. Tras
+confirmación, el cierre libera Cocina; si se rechaza, el saldo puede cobrarse nuevamente
+sin descontar stock dos veces. La interfaz final de Gerencia sigue pendiente. Caja solo
+continúa ventas de su sesión de origen, mientras permanece abierta y sin conteo; resolver
+ventas pendientes de una sesión ya finalizada corresponde al flujo posterior de Gerencia.
+
+### Rutas de preparación y carga a mesas
+
+| Contexto | `AREA_BAR` | `KITCHEN` | `NONE` |
+| --- | --- | --- | --- |
+| Venta rápida completada | Entrega directa, sin ticket | Ticket lógico al completar el cobro | Sin ticket |
+| `TAKE_AT_BAR` en mesa | Entrega directa, sin ticket | Ticket lógico al confirmar adición | Sin ticket |
+| `NORMAL_TABLE_SEND` en mesa | Ticket lógico de barra del área | Ticket lógico de Cocina | Sin ticket |
+
+Todos los casos consumen el inventario aplicable, aunque no generen ticket. Los combos
+consumen y enrutan cada componente. `PreparationTicket` conserva snapshots de número de
+orden, caja y alias para ventas rápidas; el diseño y envío a impresoras sigue fuera de alcance.
+
+Las mesas libres o fuera de servicio no aceptan carga. Las ocupadas, con pago parcial o
+pendiente, conservan su cuenta existente. El selector cambia el botón entre **Cargar a Mesa…**
+y **Enviar pedido a Mesa…**. No existe cobro de mesa en estas rutas. Solo se confirma la
+adición nueva, sin volver a emitir productos anteriores.
+
+En `SPLIT` se exige seleccionar una subcuenta abierta. Las cerradas no admiten nuevos
+productos; **+ Nueva cuenta** reutiliza el servicio existente. `OrderLine.draft_origin`
+separa los borradores de caja (`cash:<CashSession.id>`) de los de tablet (cadena vacía),
+y `fulfillment_mode` conserva el modo confirmado para operaciones posteriores. Caja y
+mesero no mezclan, modifican ni envían por accidente los borradores del otro. Un cambio de
+PIN conserva los borradores de la misma sesión de caja, pero invalida confirmaciones viejas.
+
+### Permisos, aislamiento y repetición
+
+| Operación | Permisos adicionales a acceso válido y sesión abierta |
+| --- | --- |
+| Crear / continuar venta rápida | `orders.create_quick_sale`; crear también exige `orders.add_order_line` |
+| Ver mesas / cargar desde caja | `orders.add_products_from_cash_register` |
+| Cotizar / editar productos | `orders.add_order_line` |
+| Confirmar adición | `orders.send_order` |
+| Subcuentas | `orders.manage_subaccounts` |
+| Registrar venta rápida | `payments.record_payment`, `payments.close_order`, `orders.send_order` |
+
+El rol por sí solo no concede estos permisos. Se comprueban estación configurada y activa,
+usuario titular, área, jornada, sesión `OPEN` sin conteo, orden activa y pertenencia. Los
+cambios requieren POST y CSRF. Las confirmaciones firmadas incorporan acceso, orden,
+subcuenta y versión; los pagos también distinguen acceso de caja y tablet. Un reintento o
+estado obsoleto no duplica pagos, inventario ni comandas. La UI pide actualizar ante un
+conflicto. Los servicios de pagos también impiden handoffs para efectivo de venta rápida.
+
+### Migración y validación de 2E
+
+Migración nueva: `orders.0005_alter_tableorder_options_orderline_draft_origin_and_more`.
+No se modificaron migraciones históricas ni se reinició la base de datos.
+
+Validación final: **611 pruebas Django y 6 JavaScript aprobadas**; `manage.py check`,
+`makemigrations --check --dry-run` y `git diff --check` correctos. Las 66 pruebas nuevas
+cubren ventas, rutas, inventario, pagos, permisos, CSRF, aislamiento, subcuentas y carreras
+reales entre conexiones PostgreSQL: último stock, pago duplicado, caja+mesero y cierre+adición.
+
+Los recorridos manuales y seis capturas reales de 1280 × 800 están documentados en
+[Verificación de Fase 2E](docs/phase-2e/verification.md). Se usó y eliminó una base temporal
+separada de los datos reales. La fase termina aquí: no incluye impresoras, recibos/PDF,
+Gerencia final, reservas, eventos, QR, offline ni sincronización cloud.

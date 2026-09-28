@@ -23,7 +23,7 @@ from . import cash_security as security
 
 NO_DAY = "No hay una jornada abierta. Solicita a Gerencia abrir la jornada."
 SCREENS = {"abrir", "activa", "meseros", "retiro", "movimientos", "cierre", "resultado", "cerrada", "comprobante"}
-PERMISSIONS = {"abrir": "cash.open_cash_session", "meseros": "cash.receive_waiter_cash",
+PERMISSIONS = {"quick": "orders.create_quick_sale", "tables": "orders.add_products_from_cash_register", "abrir": "cash.open_cash_session", "meseros": "cash.receive_waiter_cash",
     "retiro": "operations.request_cash_withdrawal", "movimientos": "cash.view_cashmovement",
     "cierre": "cash.close_cash_session", "resultado": "cash.close_cash_session",
     "cerrada": "cash.close_cash_session", "comprobante": "cash.close_cash_session"}
@@ -172,7 +172,7 @@ def withdrawal_version(context):
 
 
 def handoff_rows(day):
-    return [{"id": row.pk, "waiter": security.name(row.waiter), "table": row.payment.order.primary_table.name,
+    return [{"id": row.pk, "waiter": security.name(row.waiter), "table": row.payment.order.display_name,
              "amount": row.amount, "time": row.created_at} for row in get_pending_cash_handoffs(day=day)]
 
 
@@ -181,7 +181,7 @@ def movement_rows(session):
     for row in session.movements.select_related("payment__order__primary_table", "handoff__waiter").order_by("created_at", "pk"):
         reference = row.reason
         if row.payment_id:
-            reference = row.payment.order.primary_table.name
+            reference = row.payment.order.display_name
         if row.handoff_id:
             reference = f"{security.name(row.handoff.waiter)} · {reference}"
         result.append({"time": row.created_at, "type": row.get_movement_type_display(), "reference": reference,

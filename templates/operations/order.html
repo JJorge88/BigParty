@@ -14,33 +14,33 @@
 {% endblock %}
 {% block content %}
 <main id="main" class="ordering-shell">
-  <div class="order-heading">
+  {% block order_heading %}<div class="order-heading">
     <div class="order-title"><a href="{% url 'operations:tables' %}" class="back-tables">← Mesas</a><h1>{{ order.primary_table.name }}</h1><span class="area-label">{{ area.name }}</span></div>
     <div class="order-heading-tools">{% if can_view_account %}<a class="button button--ghost" id="order-account-link" href="{% url 'operations:account' order.pk %}">Ver cuenta</a>{% endif %}<button class="icon-button" id="refresh-order" aria-label="Actualizar pedido"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button></div>
   </div>
-  <div id="order-error" class="order-error" role="alert" hidden></div>
+  {% endblock %}<div id="order-error" class="order-error" role="alert" hidden></div>
   <section id="split-section" class="split-section" aria-label="Cuentas separadas" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}>
     <div id="account-tabs" class="account-tabs"></div>
     <button type="button" class="button button--ghost" id="new-account">+ Nueva cuenta</button>
   </section>
   <div class="order-layout">
     <section class="catalog-section" aria-labelledby="catalog-title">
-      <div class="catalog-heading"><div><p class="eyebrow">AGREGAR PEDIDO</p><h2 id="catalog-title">Catálogo</h2></div>
+      <div class="catalog-heading"><div><p class="eyebrow">{{ catalog_eyebrow|default:"AGREGAR PEDIDO" }}</p><h2 id="catalog-title">Catálogo</h2></div>
         <label class="search product-search"><span class="sr-only">Buscar producto</span><svg aria-hidden="true"><use href="#icon-search"/></svg><input class="input" id="product-search" type="search" placeholder="Buscar producto" autocomplete="off"></label>
       </div>
       <div id="category-tabs" class="category-tabs" role="group" aria-label="Categorías de productos"></div>
       <div id="account-needed" class="account-needed" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}><svg aria-hidden="true"><use href="#icon-split"/></svg><p>Crea una cuenta o selecciona una para comenzar el pedido.</p></div>
       <div id="product-grid" class="product-grid"></div>
       <div id="catalog-empty" class="empty-state" hidden><h3>No encontramos productos</h3><p>Prueba otro nombre o categoría.</p></div>
-      <p class="catalog-footnote">Los productos se envían a preparación al tocar «Enviar pedido».</p>
+      {% block catalog_footnote %}<p class="catalog-footnote">Los productos se envían a preparación al tocar «Enviar pedido».</p>{% endblock %}
     </section>
     <aside class="current-order" id="current-order" aria-labelledby="current-title">
-      <button type="button" class="cart-toggle" id="cart-toggle" aria-expanded="false" aria-controls="cart-content"><span>Pedido actual <span id="mobile-count" class="quantity-badge">0</span></span><strong id="mobile-total">Q0.00</strong><span id="cart-toggle-label">Ver pedido ↑</span></button>
+      <button type="button" class="cart-toggle" id="cart-toggle" aria-expanded="false" aria-controls="cart-content"><span>{{ cart_title|default:"Pedido actual" }} <span id="mobile-count" class="quantity-badge">0</span></span><strong id="mobile-total">Q0.00</strong><span id="cart-toggle-label">Ver pedido ↑</span></button>
       <div class="cart-content" id="cart-content">
-        <div class="cart-heading"><div><p class="eyebrow" id="cart-context">Una sola cuenta</p><h2 id="current-title">Pedido actual</h2></div><span class="quantity-badge" id="draft-count">0</span></div>
-        <div id="draft-lines" class="draft-lines"></div>
+        <div class="cart-heading"><div><p class="eyebrow" id="cart-context">Una sola cuenta</p><h2 id="current-title">{{ cart_title|default:"Pedido actual" }}</h2></div><span class="quantity-badge" id="draft-count">0</span></div>
+        {% block cart_fields %}{% endblock %}<div id="draft-lines" class="draft-lines"></div>
         <div class="cart-empty" id="draft-empty"><svg aria-hidden="true"><use href="#icon-single"/></svg><h3>Tu pedido empieza aquí</h3><p>Selecciona productos del catálogo para agregarlos.</p></div>
-        <div class="cart-footer"><div class="cart-total"><span>Total pendiente</span><strong id="draft-total">Q0.00</strong></div><button type="button" class="button button--primary button--wide" id="send-order" disabled>Enviar pedido <svg aria-hidden="true"><use href="#icon-enter"/></svg></button><p>Solo los productos pendientes de esta cuenta.</p></div>
+        <div class="cart-footer"><div class="cart-total"><span>{{ total_label|default:"Total pendiente" }}</span><strong id="draft-total">Q0.00</strong></div><button type="button" class="button button--primary button--wide" id="send-order" disabled>{{ send_label|default:"Enviar pedido" }} <svg aria-hidden="true"><use href="#icon-enter"/></svg></button><p>{{ cart_hint|default:"Solo los productos pendientes de esta cuenta." }}</p></div>
       </div>
     </aside>
   </div>

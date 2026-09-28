@@ -1,0 +1,14 @@
+{% extends 'operations/order.html' %}{% load static %}
+{% block title %}{{ order.display_name }} · Caja · BIG PARTY{% endblock %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/operations/cash.css' %}"><link rel="stylesheet" href="{% static 'css/operations/cash-ordering.css' %}">{% endblock %}
+{% block body_attributes %}class="ordering-page cash-workstation cash-catalog" data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'cash_operations:lock' %}" data-activity-url="{% url 'cash_operations:activity' %}" data-access-url="{% url 'cash_operations:access' %}" data-order-url="{{ order_url }}"{% endblock %}
+{% block topbar %}{% include 'operations/cash/operator_header.html' %}{% endblock %}
+{% block order_heading %}
+<div class="order-heading"><div class="order-title"><a class="back-tables" href="{{ back_url }}">{% if quick_sale %}← Ventas rápidas{% else %}← Mesas{% endif %}</a><h1>{% if quick_sale %}Venta rápida{% else %}{{ order.display_name }}{% endif %}</h1><span class="area-label">{% if quick_sale %}Pedido {{ order.order_number }}{% else %}{{ order.area.name }}{% endif %}</span></div>
+<div class="order-heading-tools"><a class="cash-back" href="{% url 'cash_operations:page' 'activa' %}">← Volver a caja</a>{% if quick_sale %}<a class="button button--ghost" href="{{ account_url }}">Ver cobro</a>{% endif %}<button class="icon-button" id="refresh-order" aria-label="Actualizar pedido"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button></div></div>
+{% endblock %}
+{% block catalog_footnote %}<p class="catalog-footnote">{% if quick_sale %}Bebidas de entrega directa. Cocina recibe el pedido al completar el pago.{% else %}El consumo se suma a la cuenta de la mesa. Aquí no se realiza ningún cobro.{% endif %}</p>{% endblock %}
+{% block cart_fields %}
+{% if quick_sale %}<div class="cash-alias"><label class="field-label" for="customer-alias">Alias del cliente <span class="muted">· Opcional</span></label><input class="input" id="customer-alias" maxlength="100" placeholder="Útil para identificar comida" value="{{ order.customer_alias }}"></div>
+{% else %}<fieldset class="fulfillment-selector"><legend>¿Cómo se entrega?</legend><label><input type="radio" name="fulfillment_mode" value="TAKE_AT_BAR" checked><span>Se lo lleva el cliente<small>Bebidas directas · Comida a Cocina</small></span></label><label><input type="radio" name="fulfillment_mode" value="NORMAL_TABLE_SEND"><span>Enviar a mesa<small>Preparación en barra y Cocina</small></span></label></fieldset>{% endif %}
+{% endblock %}

@@ -7,6 +7,10 @@ ACTIVE_STATUSES = ("OPEN", "PARTIALLY_PAID", "PAYMENT_PENDING")
 
 
 class TableOrder(models.Model):
+    class OrderType(models.TextChoices):
+        TABLE = "TABLE", "Mesa"
+        QUICK_SALE = "QUICK_SALE", "Venta rápida"
+
     class Status(models.TextChoices):
         OPEN = "OPEN", "Abierta"
         PARTIALLY_PAID = "PARTIALLY_PAID", "Parcialmente pagada"
@@ -19,8 +23,12 @@ class TableOrder(models.Model):
         SINGLE = "SINGLE", "Una sola cuenta"
         SPLIT = "SPLIT", "Cuentas separadas"
 
+    order_type = models.CharField(max_length=10, choices=OrderType.choices, default=OrderType.TABLE)
+    customer_alias = models.CharField("alias del cliente", max_length=100, blank=True)
+    cash_session = models.ForeignKey("cash.CashSession", on_delete=models.PROTECT, null=True, blank=True, related_name="quick_sales")
+    fulfilled_at = models.DateTimeField(null=True, blank=True)
     business_day = models.ForeignKey("cash.BusinessDay", verbose_name="jornada", on_delete=models.PROTECT, null=True, blank=True, related_name="orders")
-    primary_table = models.ForeignKey("tables.VenueTable", verbose_name="mesa principal", on_delete=models.PROTECT, related_name="primary_orders")
+    primary_table = models.ForeignKey("tables.VenueTable", verbose_name="mesa principal", on_delete=models.PROTECT, related_name="primary_orders", null=True, blank=True)
     tables = models.ManyToManyField("tables.VenueTable", through="OrderTableLink", related_name="orders", verbose_name="mesas vinculadas")
     area = models.ForeignKey("venues.Area", verbose_name="área de origen", on_delete=models.PROTECT)
     responsible_waiter = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="responsable", on_delete=models.PROTECT, related_name="responsible_orders")
@@ -39,18 +47,25 @@ class TableOrder(models.Model):
         verbose_name_plural = "Cuentas de mesa"
         ordering = ("-opened_at", "-pk")
         permissions = [
+            ("create_quick_sale", "Puede crear ventas rápidas"),
+            ("add_products_from_cash_register", "Puede cargar productos a mesas desde caja"),
             ("open_table_order", "Puede abrir mesas"), ("add_order_line", "Puede agregar y corregir productos"),
             ("send_order", "Puede enviar pedidos"), ("cancel_sent_order_line", "Puede anular productos enviados"),
             ("move_order_table", "Puede mover cuentas de mesa"), ("merge_orders", "Puede unir mesas y cuentas"),
             ("manage_subaccounts", "Puede gestionar subcuentas"),
         ]
         constraints = [
+            models.CheckConstraint(condition=models.Q(order_type="TABLE", primary_table__isnull=False, cash_session__isnull=True) | models.Q(order_type="QUICK_SALE", primary_table__isnull=True, cash_session__isnull=False, business_day__isnull=False, billing_mode="SINGLE"), name="orders_type_origin_valid"),
             models.UniqueConstraint(fields=("primary_table",), condition=models.Q(status__in=ACTIVE_STATUSES), name="orders_one_active_primary"),
             models.CheckConstraint(condition=models.Q(status__in=["OPEN", "PARTIALLY_PAID", "PAYMENT_PENDING", "CLOSED", "CANCELLED", "MERGED"]), name="orders_status_valid"),
             models.CheckConstraint(condition=models.Q(billing_mode__in=["SINGLE", "SPLIT"]), name="orders_billing_mode_valid"),
             models.CheckConstraint(condition=~models.Q(pk=models.F("merged_into")), name="orders_not_merged_into_self"),
             models.CheckConstraint(condition=models.Q(status="MERGED", merged_into__isnull=False) | (~models.Q(status="MERGED") & models.Q(merged_into__isnull=True)), name="orders_merge_target_consistent"),
         ]
+
+    @property
+    def display_name(self):
+        return self.primary_table.name if self.primary_table_id else f"Pedido {self.order_number}"
 
     @property
     def order_number(self):
@@ -110,6 +125,12 @@ class OrderLine(models.Model):
         SENT = "SENT", "Enviada"
         CANCELLED = "CANCELLED", "Cancelada"
 
+    class FulfillmentMode(models.TextChoices):
+        NORMAL_TABLE_SEND = "NORMAL_TABLE_SEND", "Enviar a mesa"
+        TAKE_AT_BAR = "TAKE_AT_BAR", "Se lo lleva el cliente"
+
+    draft_origin = models.CharField(max_length=64, blank=True, default="")
+    fulfillment_mode = models.CharField(max_length=20, choices=FulfillmentMode.choices, default=FulfillmentMode.NORMAL_TABLE_SEND)
     order = models.ForeignKey(TableOrder, verbose_name="cuenta", on_delete=models.PROTECT, related_name="lines")
     subaccount = models.ForeignKey(SubAccount, verbose_name="subcuenta", on_delete=models.PROTECT, null=True, blank=True, related_name="lines")
     product = models.ForeignKey("catalog.Product", verbose_name="producto", on_delete=models.PROTECT)
@@ -191,6 +212,9 @@ class PreparationTicket(models.Model):
     sequence_number = models.PositiveIntegerField("secuencia", validators=[MinValueValidator(1)])
     ticket_type = models.CharField("tipo", max_length=12, choices=TicketType.choices)
     status = models.CharField("estado", max_length=10, choices=Status.choices, default=Status.CREATED)
+    order_number_snapshot = models.CharField(max_length=20, blank=True)
+    cash_register_snapshot = models.CharField(max_length=100, blank=True)
+    customer_alias_snapshot = models.CharField(max_length=100, blank=True)
     table_name_snapshot = models.CharField("mesa al emitir", max_length=100)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, verbose_name="emitida por", on_delete=models.PROTECT)
     created_at = models.DateTimeField("emisión", auto_now_add=True)

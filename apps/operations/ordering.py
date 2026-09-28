@@ -91,15 +91,15 @@ def catalog_data(area, *, category="", search=""):
     return result
 
 
-def order_state(order, user, account=None, *, category="", search=""):
-    drafts = order.lines.filter(status="DRAFT", subaccount=account).prefetch_related("modifiers").order_by("created_at", "pk")
+def order_state(order, user, account=None, *, category="", search="", draft_origin=""):
+    drafts = order.lines.filter(status="DRAFT", subaccount=account, draft_origin=draft_origin).prefetch_related("modifiers").order_by("created_at", "pk")
     if order.billing_mode == "SPLIT" and account is None:
         drafts = drafts.none()
-    total = get_subaccount_pending_total(account) if account else get_order_pending_total(order) if order.billing_mode == "SINGLE" else 0
+    total = sum(line.subtotal for line in drafts)
     lines = [{"id": line.pk, "name": line.product_name_snapshot, "quantity": line.quantity,
         "modifiers": [modifier.option_name_snapshot for modifier in line.modifiers.all()],
         "notes": line.notes, "unit_price": money_label(line.unit_price), "subtotal": money_label(line.subtotal)} for line in drafts]
-    return {"order_id": order.pk, "table_name": order.primary_table.name, "area": order.area.name,
+    return {"order_id": order.pk, "table_name": order.display_name, "area": order.area.name,
         "billing_mode": order.billing_mode, "selected_account": account.pk if account else None,
         "selected_name": account.name if account else "Una sola cuenta" if order.billing_mode == "SINGLE" else "Selecciona una cuenta",
         "accounts": [{"id": sub.pk, "name": sub.name, "closed": sub.status == "CLOSED", "total": money_label(get_subaccount_grand_total(sub))}

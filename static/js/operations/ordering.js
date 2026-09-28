@@ -25,7 +25,7 @@ const search = $('product-search');
 const contextReady = () => !blocked && state.has_open_day && (state.billing_mode === 'SINGLE' || state.selected_account !== null);
 
 function payload(data, account = state.selected_account) {
-  const body = new URLSearchParams({subaccount: account || ''});
+  const body = new URLSearchParams({subaccount: account || '', send_token: state.send_token || ''});
   Object.entries(data).forEach(([key, value]) => {
     if (Array.isArray(value)) value.forEach(item => body.append(key, item));
     else body.set(key, value);
@@ -138,7 +138,7 @@ function renderDrafts() {
 function render() {
   const accountLink = $('order-account-link');
   if (accountLink) accountLink.href = baseUrl.replace('/pedido/', '/cuenta/') + (state.selected_account ? `?subaccount=${state.selected_account}` : '');
-  renderCategories(); renderAccounts(); renderProducts(); renderDrafts(); updateControls();
+  renderCategories(); renderAccounts(); renderProducts(); renderDrafts(); updateControls(); fulfillmentLabel();
   if (!state.has_open_day) showError('No hay una jornada abierta. Solicita a Gerencia revisar la jornada.');
 }
 
@@ -161,6 +161,7 @@ function mutate(action, data, {closeProduct = false} = {}) {
     try {
       if (blocked) return false;
       const result = await request(`${baseUrl}${action}/`, {method: 'POST', data: body});
+      if (result.ok && result.data.next) { location.assign(result.data.next); return true; }
       if (result.data.state) state = result.data.state;
       if (result.ok) {
         showError('');
@@ -240,7 +241,18 @@ function configureProduct(item) {
 }
 search.addEventListener('input', renderProducts);
 $('refresh-order').addEventListener('click', () => loadAccount());
-$('send-order').addEventListener('click', () => { if (!pending) mutate('enviar', {}); });
+$('send-order').addEventListener('click', () => {
+  if (pending) return;
+  if (state.cash_mode === 'quick') mutate('cobrar', {alias: $('customer-alias')?.value || ''});
+  else mutate('enviar', {fulfillment_mode: document.querySelector('[name=fulfillment_mode]:checked')?.value || 'NORMAL_TABLE_SEND'});
+});
+function fulfillmentLabel() {
+  if (state.cash_mode !== 'table') return;
+  const taking = document.querySelector('[name=fulfillment_mode]:checked')?.value === 'TAKE_AT_BAR';
+  $('send-order').textContent = `${taking ? 'Cargar a' : 'Enviar pedido a'} ${state.table_name}`;
+}
+document.querySelectorAll('[name=fulfillment_mode]').forEach(input => input.addEventListener('change', fulfillmentLabel));
+
 $('new-account').addEventListener('click', () => { $('account-name').value = ''; $('account-error').hidden = true; accountDialog.showModal(); $('account-name').focus(); });
 $('account-form').addEventListener('submit', async event => {
   event.preventDefault(); if (pending) return;
@@ -270,3 +282,5 @@ $('cart-toggle').addEventListener('click', () => {
 });
 document.addEventListener('keydown', event => { if (event.key === 'Escape') { $('current-order').classList.remove('is-expanded'); $('cart-toggle').setAttribute('aria-expanded', 'false'); text('cart-toggle-label', 'Ver pedido ↑'); } });
 render();
+
+if (state.cash_mode) search.focus();

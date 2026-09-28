@@ -91,6 +91,10 @@ function render() {
   text('financial-total', summary.charge_total); text('financial-paid', summary.confirmed_paid); text('financial-balance', summary.outstanding_balance);
   text('financial-reserved', summary.pending_verification); text('financial-available', summary.available_to_pay);
   show('reserved-summary', state.has_pending); show('draft-warning', state.has_drafts); show('pending-warning', state.has_pending);
+  if (state.quick_sale) {
+    text('pending-warning', 'Pago pendiente de verificación por Gerencia. No entregar todavía.');
+    text('scope-complete', state.has_pending ? 'Pago pendiente de verificación. La venta sigue abierta; no entregar todavía.' : 'Pago registrado. Revisa el saldo para completar la venta.');
+  }
   show('gross-row', state.has_adjustments || state.has_refunds); text('gross-value', summary.gross_total);
   show('adjustments-row', state.has_adjustments); text('adjustments-value', `−${summary.adjustments}`);
   show('refunds-row', state.has_refunds); text('refunds-value', `−${summary.refunds}`);
@@ -105,11 +109,11 @@ function render() {
   document.querySelectorAll('.add-products').forEach(link => { link.href = state.order_url; link.hidden = !state.can_add || view !== 'account'; });
   show('consumption-view', view === 'account'); show('division-view', view === 'divide'); show('payment-view', view === 'payment');
   show('back-account', view !== 'account'); show('account-actions', view === 'account');
-  show('divide-account', state.billing_mode === 'SINGLE'); show('close-section', state.can_close && view !== 'divide');
+  show('divide-account', state.billing_mode === 'SINGLE' && !state.quick_sale); show('close-section', state.can_close && view !== 'divide');
   show('paid-account-note', state.account_closed); show('collect-all', !state.account_closed && !state.can_close);
   text('collect-all', state.selected_account ? `Cobrar a ${state.selected_name}` : 'Cobrar');
   text('view-title', view === 'divide' ? 'Dividir cuenta' : view === 'payment' ? (mixed ? 'Pago mixto' : `Cobrar ${state.table_name}`) : 'Ver cuenta');
-  text('view-eyebrow', view === 'divide' ? 'SELECCIÓN POR CANTIDAD' : view === 'payment' ? state.selected_name : 'CONSUMO DE LA MESA');
+  text('view-eyebrow', view === 'divide' ? 'SELECCIÓN POR CANTIDAD' : view === 'payment' ? state.selected_name : state.quick_sale ? 'VENTA RÁPIDA' : 'CONSUMO DE LA MESA');
   const unpaid = $('unpaid-lines'), paid = $('paid-lines'); unpaid.replaceChildren(); paid.replaceChildren();
   state.lines.forEach(line => (line.settled ? paid : unpaid).append(lineCard(line)));
   show('paid-section', !!paid.children.length); text('paid-count', `${paid.children.length} productos`);
@@ -134,6 +138,7 @@ async function refresh(account = state.selected_account) {
   if (busy) return; busy = true; clearQuote(); controls();
   try {
     const result = await request(`${url}?${new URLSearchParams({subaccount:account || ''})}`);
+    if (result.ok && result.data.next) { location.replace(result.data.next); return; }
     if (!result.ok) { blocked = true; error(result.data.message || 'Vuelve a mesas para consultar la cuenta.'); }
     else { state = result.data.state; blocked = false; error(); show('payment-feedback', false); view = 'account'; resetPayment(); selection.clear(); }
   } catch { blocked = true; error('No pudimos conectar. Actualiza la cuenta antes de continuar.'); }
@@ -189,6 +194,7 @@ $('payment-form').addEventListener('submit', async event => {
   busy = true; controls(); error();
   try {
     const result = await request(`${url}${method}/`, {method:'POST', data:data({token:quote.token, received:$('cash-received').value, reference:$('payment-reference').value})});
+    if (result.ok && result.data.next) { location.replace(result.data.next); return; }
     if (result.data.state) state = result.data.state;
     clearQuote();
     if (!result.ok) { if (!result.data.state) blocked = true; error(result.data.message || 'No pudimos registrar el pago. Actualiza la cuenta.'); view = 'account'; resetPayment(); }
@@ -211,6 +217,7 @@ $('close-account').addEventListener('click', async () => {
   if (busy) return; busy = true; controls(); error();
   try {
     const result = await request(`${url}cerrar/`, {method:'POST', data:data()});
+    if (result.ok && result.data.next) { location.replace(result.data.next); return; }
     if (result.ok) {
       ['account-layout','accounts-section','draft-warning','pending-warning','payment-feedback'].forEach(id => show(id,false));
       document.querySelectorAll('.add-products').forEach(link => { link.hidden = true; });
@@ -222,3 +229,5 @@ $('close-account').addEventListener('click', async () => {
 $('refresh-account').addEventListener('click', () => refresh());
 $('back-account').addEventListener('click', accountView); $('cancel-payment').addEventListener('click', accountView);
 render();
+
+if (state.quick_sale && state.can_pay) $('collect-all').click();

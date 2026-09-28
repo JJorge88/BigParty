@@ -185,7 +185,7 @@ def get_order_product_quote(product, area, quantity=1, *, modifier_option_ids=No
 
 
 @transaction.atomic
-def add_product_to_order(order, product, quantity, user, *, subaccount=None, modifier_option_ids=None, notes=""):
+def add_product_to_order(order, product, quantity, user, *, subaccount=None, modifier_option_ids=None, notes="", draft_origin=""):
     _require(user, "add_order_line")
     _quantity(quantity)
     current = _locked_order(order)
@@ -198,7 +198,7 @@ def add_product_to_order(order, product, quantity, user, *, subaccount=None, mod
     notes = _text(notes)
     specs = sorted(_component_specs(product))
     modifier_specs = [(option.pk, option.name, option.price_delta) for option in options]
-    candidates = current.lines.filter(status="DRAFT", product=product, subaccount=account, notes=notes,
+    candidates = current.lines.filter(status="DRAFT", draft_origin=draft_origin, product=product, subaccount=account, notes=notes,
                                      unit_price=price, base_unit_price=base_price,
                                      product_name_snapshot=product.name, is_combo_snapshot=product.is_combo).prefetch_related("modifiers", "components")
     line = None
@@ -213,7 +213,7 @@ def add_product_to_order(order, product, quantity, user, *, subaccount=None, mod
     if line is None:
         line = _save(OrderLine(order=current, subaccount=account, product=product, product_name_snapshot=product.name,
                                is_combo_snapshot=product.is_combo, quantity=quantity, base_unit_price=base_price,
-                               unit_price=price, notes=notes, created_by=user))
+                               unit_price=price, notes=notes, created_by=user, draft_origin=draft_origin))
         for option in options:
             OrderLineModifier.objects.create(order_line=line, modifier_option=option,
                 option_name_snapshot=option.name, price_delta_snapshot=option.price_delta)
@@ -284,11 +284,13 @@ def update_order_note(order, note, user):
 
 
 def _ticket(order, lines, kind, user, reason=""):
+    if order.order_type == "QUICK_SALE" and order.fulfilled_at is None and kind != "NEW":
+        return None
     items = []
     for line in lines:
         options = ", ".join(item.option_name_snapshot for item in line.modifiers.all())
         for component in line.components.all():
-            if component.route_snapshot == "NONE":
+            if component.route_snapshot == "NONE" or (component.route_snapshot == "AREA_BAR" and (line.fulfillment_mode == "TAKE_AT_BAR" or order.order_type == "QUICK_SALE")):
                 continue
             description = line.product_name_snapshot
             if line.is_combo_snapshot:
@@ -301,7 +303,9 @@ def _ticket(order, lines, kind, user, reason=""):
     # La fila de la cuenta está bloqueada durante toda la operación.
     sequence = (order.tickets.aggregate(last=Max("sequence_number"))["last"] or 0) + 1
     ticket = PreparationTicket.objects.create(order=order, sequence_number=sequence, ticket_type=kind,
-        created_by=user, table_name_snapshot=order.primary_table.name)
+        created_by=user, table_name_snapshot=order.primary_table.name if order.primary_table_id else "",
+        order_number_snapshot=order.order_number, customer_alias_snapshot=order.customer_alias,
+        cash_register_snapshot=order.cash_session.register.name if order.cash_session_id else "")
     for line, component, description in items:
         PreparationTicketItem.objects.create(ticket=ticket, order_line=line, route=component.route_snapshot,
             area=order.area, quantity=line.quantity * component.quantity_per_unit,
@@ -316,10 +320,18 @@ def _locked_products(lines):
 
 
 @transaction.atomic
-def send_order(order, user, *, subaccount=None):
+def send_order(order, user, *, subaccount=None, draft_origin="", fulfillment_mode="NORMAL_TABLE_SEND", defer_ticket=False):
     _require(user, "send_order")
     current = _locked_order(order)
-    drafts = current.lines.filter(status="DRAFT")
+    if fulfillment_mode not in OrderLine.FulfillmentMode.values:
+        raise ValidationError("Selecciona un modo de entrega válido.")
+    if fulfillment_mode == "TAKE_AT_BAR" and not (user.has_perm("orders.add_products_from_cash_register") or user.has_perm("orders.create_quick_sale")):
+        raise PermissionDenied("No tienes permiso para entregar productos desde barra.")
+    if defer_ticket and current.order_type != "QUICK_SALE":
+        raise ValidationError("Solo una venta rápida puede esperar el pago antes de emitir cocina.")
+    if current.order_type == "QUICK_SALE" and (not defer_ticket or fulfillment_mode != "TAKE_AT_BAR"):
+        raise ValidationError("La venta rápida se confirma desde su flujo de cobro.")
+    drafts = current.lines.filter(status="DRAFT", draft_origin=draft_origin)
     if subaccount is not None:
         account = _subaccount(current, subaccount)
         drafts = drafts.filter(subaccount=account)
@@ -354,9 +366,10 @@ def send_order(order, user, *, subaccount=None):
                 item.stock_deducted = True
                 item.save(update_fields=["stock_deducted"])
         line.status = "SENT"
+        line.fulfillment_mode = fulfillment_mode
         _save(line)
-    ticket = _ticket(current, lines, kind, user)
-    _log(current, user, "ORDER_SENT", f"Pedido enviado: {len(lines)} líneas", line_ids=[line.pk for line in lines], ticket_id=ticket.pk if ticket else None)
+    ticket = None if defer_ticket else _ticket(current, lines, kind, user)
+    _log(current, user, "ORDER_SENT", f"Pedido enviado: {len(lines)} líneas", line_ids=[line.pk for line in lines], ticket_id=ticket.pk if ticket else None, fulfillment_mode=fulfillment_mode, draft_origin=draft_origin, preparation_deferred=defer_ticket)
     return ticket
 
 
@@ -412,7 +425,8 @@ def _clone_line(line, quantity, destination, user):
     clone = _save(OrderLine(order=line.order, subaccount=destination, product=line.product,
         product_name_snapshot=line.product_name_snapshot, is_combo_snapshot=line.is_combo_snapshot,
         quantity=quantity, unit_price=line.unit_price, base_unit_price=line.base_unit_price, notes=line.notes,
-        status=line.status, created_by=user, source_line=line.source_line or line))
+        status=line.status, created_by=user, source_line=line.source_line or line,
+        draft_origin=line.draft_origin, fulfillment_mode=line.fulfillment_mode))
     for item in line.modifiers.all():
         OrderLineModifier.objects.create(order_line=clone, modifier_option_id=item.modifier_option_id,
             option_name_snapshot=item.option_name_snapshot, price_delta_snapshot=item.price_delta_snapshot)
@@ -456,6 +470,8 @@ def move_line_to_subaccount(line, destination, user, *, quantity=None):
 def move_order_to_table(order, destination_table, user):
     _require(user, "move_order_table")
     current = _locked_order(order)
+    if current.order_type != "TABLE":
+        raise ValidationError("Una venta rápida no se puede trasladar a una mesa.")
     tables = {table.pk: table for table in VenueTable.objects.filter(
         pk__in=[current.primary_table_id, destination_table.pk]).order_by("pk").select_for_update()}
     destination = tables[destination_table.pk]
@@ -479,6 +495,8 @@ def move_order_to_table(order, destination_table, user):
 def join_table_to_order(order, table, user):
     _require(user, "merge_orders")
     current = _locked_order(order)
+    if current.order_type != "TABLE":
+        raise ValidationError("Una venta rápida no admite mesas.")
     table = VenueTable.objects.select_for_update().get(pk=table.pk)
     _valid_table(table, current.area_id)
     if table.order_links.filter(released_at__isnull=True).exists():
@@ -500,6 +518,8 @@ def merge_orders(primary_order, secondary_order, user):
     primary, secondary = orders[primary_order.pk], orders[secondary_order.pk]
     _active(primary)
     _active(secondary)
+    if primary.order_type != "TABLE" or secondary.order_type != "TABLE":
+        raise ValidationError("Solo se pueden unir cuentas de mesas.")
     if any(o.payments.exists() or o.adjustments.exists() for o in (primary, secondary)):
         raise ValidationError("No se pueden unir cuentas con historial financiero. Une las cuentas antes de cobrar o ajustar.")
     if primary.area_id != secondary.area_id:

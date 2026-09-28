@@ -19,7 +19,7 @@ from .security import digest, user_auth_hash, initials, PIN_MESSAGE, LOCKED_MESS
 REGISTER_COOKIE = "bigparty_cash_register"
 ACCESS_COOKIE = "bigparty_cash_access"
 REGISTER_SALT = "bigparty.cash-register.v1"
-OPERATING_PERMISSIONS = ("cash.open_cash_session", "cash.receive_waiter_cash", "cash.close_cash_session",
+OPERATING_PERMISSIONS = ("orders.create_quick_sale", "orders.add_products_from_cash_register", "cash.open_cash_session", "cash.receive_waiter_cash", "cash.close_cash_session",
                          "cash.view_cashmovement", "operations.request_cash_withdrawal")
 
 

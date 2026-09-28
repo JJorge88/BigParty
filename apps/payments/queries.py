@@ -9,9 +9,9 @@ from .models import Payment, PaymentAllocation, AdjustmentAllocation, RefundAllo
 ZERO = Decimal("0.00")
 
 
-def unit_ledger(order):
+def unit_ledger(order, *, include_drafts=False):
     units = {}
-    for line in order.lines.filter(status="SENT").order_by("pk"):
+    for line in order.lines.filter(status__in=["SENT", "DRAFT"] if include_drafts else ["SENT"]).order_by("pk"):
         for number in range(1, line.quantity + 1):
             units[(line.pk, number)] = dict(line=line, unit_number=number, price=line.unit_price,
                 confirmed=ZERO, pending=ZERO, adjustment=ZERO, refunded=ZERO)
@@ -41,9 +41,9 @@ def _scope(target):
     return (target.order, target.pk) if isinstance(target, SubAccount) else (target, None)
 
 
-def get_financial_summary(target):
+def get_financial_summary(target, *, include_drafts=False):
     order, account_id = _scope(target)
-    units = [u for u in unit_ledger(order).values() if account_id is None or u["line"].subaccount_id == account_id]
+    units = [u for u in unit_ledger(order, include_drafts=include_drafts).values() if account_id is None or u["line"].subaccount_id == account_id]
     total = lambda key: sum((u[key] for u in units), ZERO)
     return {"gross_total": total("price"), "adjustments": total("adjustment"),
             "refunds": total("refunded"), "charge_total": total("charge"),
@@ -73,8 +73,8 @@ get_subaccount_pending_payment_total = get_order_pending_payment_total
 get_subaccount_balance = get_order_balance
 
 
-def get_line_payment_quantities(line):
-    units = [u for u in unit_ledger(line.order).values() if u["line"].pk == line.pk]
+def get_line_payment_quantities(line, *, include_drafts=False):
+    units = [u for u in unit_ledger(line.order, include_drafts=include_drafts).values() if u["line"].pk == line.pk]
     return {
         "total_quantity": line.quantity,
         "confirmed_quantity": sum(u["balance"] == ZERO and u["confirmed"] > ZERO for u in units),
@@ -104,7 +104,7 @@ def get_receipt_data(target):
         return sum((row.amount for row in rows if row.order_line_id in line_ids), ZERO)
     summary = get_financial_summary(target)
     return {
-        "order_number": order.order_number, "table": order.primary_table.name,
+        "order_number": order.order_number, "table": order.display_name,
         "tables": list(order.table_links.filter(Q(released_at__isnull=True) | Q(released_at=order.closed_at)).values_list("table__name", flat=True)),
         "subaccount": target.name if account_id else None,
         "date": order.closed_at or order.opened_at, "status": order.status,

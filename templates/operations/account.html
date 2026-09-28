@@ -13,11 +13,11 @@
 {% endblock %}
 {% block content %}
 <main id="main" class="ordering-shell account-shell">
-  <div class="order-heading">
+  {% block account_heading %}<div class="order-heading">
     <div class="order-title"><a class="back-tables" href="{% url 'operations:tables' %}">← Mesas</a><h1>{{ order.primary_table.name }}</h1><span class="area-label">{{ area.name }}</span></div>
     <div class="order-heading-tools"><a class="button button--ghost add-products" href="{% url 'operations:order' order.pk %}">Agregar productos</a><button class="icon-button" id="refresh-account" aria-label="Actualizar cuenta"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button></div>
   </div>
-  <div id="account-error" class="order-error" role="alert" hidden></div>
+  {% endblock %}<div id="account-error" class="order-error" role="alert" hidden></div>
   <div id="payment-feedback" class="payment-feedback" role="status" hidden></div>
   <section id="accounts-section" class="split-section" aria-label="Cuentas separadas" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}><div id="financial-accounts" class="account-tabs"></div></section>
   <div id="draft-warning" class="account-notice" hidden>Hay productos pendientes de enviar. Todavía no se pueden cobrar.</div>

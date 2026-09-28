@@ -56,8 +56,8 @@ def _locked_target(target):
     return order, account
 
 
-def _available_units(order, account=None, *, unit_keys=None):
-    ledger = {key: unit for key, unit in unit_ledger(order).items()
+def _available_units(order, account=None, *, unit_keys=None, include_drafts=False):
+    ledger = {key: unit for key, unit in unit_ledger(order, include_drafts=include_drafts).items()
               if account is None or unit["line"].subaccount_id == account.pk}
     if unit_keys is not None:
         if (not isinstance(unit_keys, (list, tuple)) or not unit_keys or
@@ -103,7 +103,7 @@ def _distribute(units, amount):
     return result
 
 
-def get_payment_quote(target, *, mode="full", selection=None, amount=None, unit_keys=None):
+def get_payment_quote(target, *, mode="full", selection=None, amount=None, unit_keys=None, include_drafts=False):
     """Vista previa que comparte exactamente las reglas de asignación del pago.
 
     unit_keys permite completar por monto las mismas unidades de una selección mixta,
@@ -111,7 +111,7 @@ def get_payment_quote(target, *, mode="full", selection=None, amount=None, unit_
     """
     account = target if isinstance(target, SubAccount) else None
     order = account.order if account else target
-    units = _available_units(order, account, unit_keys=unit_keys)
+    units = _available_units(order, account, unit_keys=unit_keys, include_drafts=include_drafts)
     if mode == "selection":
         allocations = _select(units, selection)
     elif mode in ("full", "amount"):
@@ -194,6 +194,9 @@ def _create(order, account, allocations, method, user, *, reference="", notes=""
         raise ValidationError("La sesión de caja solo corresponde a cobros en efectivo.")
     if method == "CASH" and cash_session is None and user.role != "MESERO":
         raise ValidationError("El cobro directo en efectivo requiere una sesión de caja explícita.")
+    if order.order_type == "QUICK_SALE" and method == "CASH":
+        if cash_session is None or cash_session.pk != order.cash_session_id:
+            raise ValidationError("La venta rápida requiere su sesión de caja de origen; no admite entregas de mesero.")
     pending = method in ("TRANSFER", "DEPOSIT")
     if pending and not reference:
         raise ValidationError("La transferencia o depósito necesita una referencia.")
@@ -336,6 +339,14 @@ def close_order(order, user):
     _refresh(current, user, close_empty=True)
     if not can_close_order(current):
         raise ValidationError("No se puede cerrar: hay borradores, saldo, pagos pendientes o inconsistencias.")
+    if current.order_type == "QUICK_SALE" and not current.fulfilled_at:
+        from apps.orders.services import _ticket
+        lines = list(current.lines.filter(status="SENT").prefetch_related("components", "modifiers"))
+        if not lines:
+            raise ValidationError("Agrega productos antes de completar la venta.")
+        _ticket(current, lines, "NEW", user)
+        current.fulfilled_at = timezone.now()
+        current.save(update_fields=["fulfilled_at"])
     current.status, current.closed_at = "CLOSED", timezone.now()
     current.save(update_fields=["status", "closed_at", "updated_at"])
     current.table_links.filter(released_at__isnull=True).update(released_at=current.closed_at)

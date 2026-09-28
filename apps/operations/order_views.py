@@ -57,40 +57,12 @@ def order_action(request, order_id, action):
     try:
         if action != "cuenta":
             account = ops.selected_account(order, request.POST.get("subaccount"), required=True)
-        message, destinations = "Pedido actualizado", []
-        if action in ("agregar", "cotizar"):
-            product = ops.product_for_order(request.POST.get("product"))
-            quantity = ops.positive_id(request.POST.get("quantity", "1"), "La cantidad")
-            if quantity > 9999:
-                raise ValidationError("La cantidad máxima por operación es 9999.")
-            modifiers = [ops.positive_id(value, "La opción") for value in request.POST.getlist("modifiers")]
-            if action == "cotizar":
-                quote = services.get_order_product_quote(product, order.area, quantity, modifier_option_ids=modifiers)
-                return JsonResponse({"success": True, "message": "", "quote": {"total": money_label(quote["total"]),
-                    "unit_price": money_label(quote["unit_price"])}, "destinations": []})
-            services.add_product_to_order(order, product, quantity, context["user"], subaccount=account,
-                modifier_option_ids=modifiers, notes=request.POST.get("notes", ""))
-            message = f"{product.name} agregado"
-        elif action in ("aumentar", "reducir", "eliminar", "nota"):
-            line = order.lines.filter(pk=ops.positive_id(request.POST.get("line"), "El producto"), status="DRAFT", subaccount=account).first()
-            if line is None:
-                raise ValidationError("Este producto ya fue enviado, retirado o pertenece a otra cuenta. Actualiza el pedido.")
-            function = {"aumentar": services.increase_draft_line, "reducir": services.decrease_draft_line,
-                "eliminar": services.remove_draft_line, "nota": services.update_draft_line_note}[action]
-            if action == "nota":
-                function(line, request.POST.get("notes", ""), context["user"])
-            else:
-                function(line, context["user"])
-        elif action == "cuenta":
-            account = services.create_subaccount(order, request.POST.get("name", ""), context["user"])
-            message = "Cuenta creada"
-        elif action == "enviar":
-            if not order.lines.filter(status="DRAFT", subaccount=account).exists():
-                raise ValidationError("No hay productos pendientes para enviar.")
-            addition = order.activities.filter(activity_type="ORDER_SENT").exists()
-            ticket = services.send_order(order, context["user"], subaccount=account)
-            destinations = ops.ticket_destinations(ticket, order.area)
-            message = " · ".join(["Pedido enviado"] + (["Adición"] if addition else []) + destinations)
+        from .catalog_actions import apply_action
+        result = apply_action(order, context["user"], account, action, request.POST)
+        account = result.pop("account")
+        if "quote" in result:
+            return JsonResponse({"success": True, "message": "", "destinations": [], **result})
+        message, destinations = result["message"], result["destinations"]
         order.refresh_from_db()
         if account:
             account.refresh_from_db()

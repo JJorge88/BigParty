@@ -1,0 +1,3 @@
+<div class="cash-station">{{ register_name }}</div>
+<div class="cash-operator"><span><strong>{{ operator_name }}</strong><small>{{ operator_role }}</small></span>
+<form method="post" action="{% url 'cash_operations:lock' %}">{% csrf_token %}<button class="icon-button" aria-label="Bloquear caja"><svg aria-hidden="true"><use href="#icon-lock"/></svg></button></form></div>
