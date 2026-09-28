@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>BIG PARTY · Pagos</title>
+<style>body{font-family:system-ui;max-width:1100px;margin:2rem auto;padding:1rem}table{border-collapse:collapse;width:100%}th,td{padding:.5rem;border:1px solid #ccc;text-align:left}section{margin:2rem 0;padding:1rem;border:1px solid #ccc}label{display:block}input,select,textarea{max-width:100%}.errorlist{color:#a00}</style></head><body>
+<h1>Pagos · comprobación de desarrollo</h1><p>Registro interno. No procesa cobros bancarios ni realiza entregas de caja.</p>
+{% for message in messages %}<p>{{ message }}</p>{% endfor %}
+<form method="get">{{ selection.as_p }}<button>Consultar cuenta</button></form>
+{% if selected %}
+<h2>{{ selected }} · {{ selected.primary_table }} · {{ selected.get_status_display }}</h2>
+<p>Consumo enviado: Q{{ summary.gross_total }} · Descuentos/cortesías: Q{{ summary.adjustments }} · Reembolsos: Q{{ summary.refunds }}</p>
+<p>Cargo neto: Q{{ summary.charge_total }} · Pagado confirmado neto: Q{{ summary.confirmed_paid }} · Pendiente de verificar: Q{{ summary.pending_verification }}</p>
+<p><strong>Saldo confirmado: Q{{ summary.outstanding_balance }} · Disponible para cobrar: Q{{ summary.available_to_pay }}</strong></p>
+<p>Puede cerrar: {{ can_close|yesno:"Sí,No" }}</p>
+<table><tr><th>Línea</th><th>Producto</th><th>Subcuenta</th><th>Cantidad</th><th>Precio capturado</th></tr>
+{% for line in lines %}<tr><td>{{ line.pk }}</td><td>{{ line.product_name_snapshot }}</td><td>{{ line.subaccount|default:"Sin subcuenta" }}</td><td>{{ line.quantity }}</td><td>Q{{ line.unit_price }}</td></tr>{% empty %}<tr><td colspan="5">Sin consumos enviados</td></tr>{% endfor %}</table>
+<h3>Subcuentas</h3>{% for account, totals in subaccounts %}<p>{{ account }} · {{ account.get_status_display }} · Saldo Q{{ totals.outstanding_balance }} · Pendiente de verificar Q{{ totals.pending_verification }}</p>{% empty %}<p>Sin subcuentas</p>{% endfor %}
+<h3>Historial de pagos</h3><table><tr><th>Pago</th><th>Fecha</th><th>Método</th><th>Monto</th><th>Estado</th><th>Registrado / confirmado por</th><th>Referencia</th></tr>
+{% for payment in history %}<tr><td>{{ payment.pk }}</td><td>{{ payment.created_at }}</td><td>{{ payment.get_method_display }}</td><td>Q{{ payment.amount }}</td><td>{{ payment.get_status_display }}</td><td>{{ payment.recorded_by }} / {{ payment.confirmed_by|default:"Pendiente" }}</td><td>{{ payment.reference }}</td></tr>{% empty %}<tr><td colspan="7">Sin pagos</td></tr>{% endfor %}</table>
+{% endif %}
+{% for action,label,form in operations %}<section><h2>{{ label }}</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="{{ action }}">{{ form.as_p }}<button>{{ label }}</button></form></section>{% endfor %}
+</body></html>

@@ -6,6 +6,7 @@ class InventoryMovement(models.Model):
     class MovementType(models.TextChoices):
         RECEIPT = "RECEIPT", "Entrada"
         ADJUSTMENT = "ADJUSTMENT", "Ajuste"
+        REFUND_RETURN = "REFUND_RETURN", "Devolución por reembolso"
         SALE = "SALE", "Venta (consumo enviado)"
         CANCELLATION_RETURN = "CANCELLATION_RETURN", "Devolución por anulación"
 
@@ -29,9 +30,10 @@ class InventoryMovement(models.Model):
             ("adjust_inventory", "Puede realizar ajustes de inventario"),
         ]
         constraints = [
-            models.CheckConstraint(condition=models.Q(movement_type__in=["RECEIPT", "ADJUSTMENT", "SALE", "CANCELLATION_RETURN"]), name="inventory_movement_type_valid"),
+            models.CheckConstraint(condition=models.Q(movement_type__in=["RECEIPT", "ADJUSTMENT", "SALE", "CANCELLATION_RETURN", "REFUND_RETURN"]), name="inventory_movement_type_valid"),
             models.CheckConstraint(condition=~models.Q(movement_type="SALE") | models.Q(quantity_delta__lt=0), name="inventory_sale_negative"),
             models.CheckConstraint(condition=~models.Q(movement_type="CANCELLATION_RETURN") | models.Q(quantity_delta__gt=0), name="inventory_return_positive"),
+            models.CheckConstraint(condition=~models.Q(movement_type="REFUND_RETURN") | models.Q(quantity_delta__gt=0), name="inventory_refund_return_positive"),
             models.CheckConstraint(condition=~models.Q(quantity_delta=0), name="inventory_delta_nonzero"),
             models.CheckConstraint(condition=models.Q(stock_after=models.F("stock_before") + models.F("quantity_delta")), name="inventory_balance_consistent"),
             models.CheckConstraint(condition=~models.Q(movement_type="RECEIPT") | models.Q(quantity_delta__gt=0), name="inventory_receipt_positive"),

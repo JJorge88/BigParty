@@ -243,6 +243,7 @@ def remove_draft_line(line, user):
     current.status = "CANCELLED"
     _save(current)
     _log(order, user, "LINE_CANCELLED", "Producto pendiente retirado, sin consumo de inventario", line_id=current.pk)
+    _refresh_financial_state(order, user)
     return current
 
 
@@ -348,6 +349,7 @@ def cancel_sent_line(line, user, reason):
     if not reason:
         raise ValidationError("Indica el motivo de anulación.")
     current, order = _locked_line(line, ["SENT"])
+    _require_no_financial_history(current)
     products = _locked_products([current])
     for item in current.components.all():
         if item.stock_deducted:
@@ -359,6 +361,7 @@ def cancel_sent_line(line, user, reason):
     current.status = "CANCELLED"
     _save(current)
     _log(order, user, "LINE_CANCELLED", f"Producto enviado anulado: {reason}", line_id=current.pk, reason=reason, ticket_id=ticket.pk if ticket else None)
+    _refresh_financial_state(order, user)
     return current
 
 
@@ -374,6 +377,17 @@ def update_sent_line_note(line, notes, user):
         _log(order, user, "NOTE_UPDATED", "Nota adicional de producto enviado", line_id=current.pk,
              before=before, after=current.notes, ticket_id=ticket.pk if ticket else None)
     return current
+
+
+def _refresh_financial_state(order, user):
+    if order.payments.exists() or order.adjustments.exists():
+        from apps.payments.services import refresh_order_payment_status
+        refresh_order_payment_status(order, user)
+
+
+def _require_no_financial_history(line):
+    if line.paymentallocation_set.exists() or line.adjustmentallocation_set.exists():
+        raise ValidationError("La línea tiene historial financiero: no se puede trasladar ni anular; utiliza el flujo de reembolso cuando corresponda.")
 
 
 def _clone_line(line, quantity, destination, user):
@@ -397,6 +411,7 @@ def move_line_to_subaccount(line, destination, user, *, quantity=None):
     current, order = _locked_line(line, ["DRAFT", "SENT"])
     if order.billing_mode != "SPLIT" or destination is None:
         raise ValidationError("Selecciona una subcuenta de destino en una cuenta separada.")
+    _require_no_financial_history(current)
     target = _subaccount(order, destination)
     quantity = current.quantity if quantity is None else quantity
     _quantity(quantity)
@@ -415,6 +430,7 @@ def move_line_to_subaccount(line, destination, user, *, quantity=None):
         _save(current)
     _log(order, user, "LINE_MOVED", f"{quantity} unidades trasladadas a {target.name}",
          line_id=current.pk, destination_line_id=result.pk, from_subaccount=origin, to_subaccount=target.pk, quantity=quantity)
+    _refresh_financial_state(order, user)
     return result
 
 
@@ -463,6 +479,8 @@ def merge_orders(primary_order, secondary_order, user):
     primary, secondary = orders[primary_order.pk], orders[secondary_order.pk]
     _active(primary)
     _active(secondary)
+    if any(o.payments.exists() or o.adjustments.exists() for o in (primary, secondary)):
+        raise ValidationError("No se pueden unir cuentas con historial financiero. Une las cuentas antes de cobrar o ajustar.")
     if primary.area_id != secondary.area_id:
         raise ValidationError("Solo se pueden unir cuentas de la misma área.")
     if primary.subaccounts.filter(status="CLOSED").exists() or secondary.subaccounts.filter(status="CLOSED").exists():

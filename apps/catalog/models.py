@@ -82,7 +82,7 @@ class Product(ValidatedModel):
         if self.pk:
             if self.is_combo or not self.track_inventory:
                 pending_consumption = self.inventory_movements.filter(
-                    movement_type__in=["SALE", "CANCELLATION_RETURN"],
+                    movement_type__in=["SALE", "CANCELLATION_RETURN", "REFUND_RETURN"],
                 ).aggregate(total=models.Sum("quantity_delta"))["total"] or 0
                 if pending_consumption < 0:
                     raise ValidationError({"track_inventory":

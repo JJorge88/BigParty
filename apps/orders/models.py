@@ -228,6 +228,12 @@ class PreparationTicketItem(models.Model):
 
 class OrderActivity(models.Model):
     class ActivityType(models.TextChoices):
+        PAYMENT_RECORDED = "PAYMENT_RECORDED", "Pago registrado"
+        PAYMENT_CONFIRMED = "PAYMENT_CONFIRMED", "Pago confirmado"
+        PAYMENT_REJECTED = "PAYMENT_REJECTED", "Pago rechazado"
+        ADJUSTMENT_APPLIED = "ADJUSTMENT_APPLIED", "Descuento o cortesía"
+        REFUND = "REFUND", "Reembolso"
+        CLOSED = "CLOSED", "Cuenta cerrada"
         OPENED = "OPENED", "Mesa abierta"
         PRODUCT_ADDED = "PRODUCT_ADDED", "Producto agregado"
         ORDER_SENT = "ORDER_SENT", "Pedido enviado"

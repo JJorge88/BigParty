@@ -1,11 +1,12 @@
-# BIG PARTY — Fases 0, 1A, 1B y 1C
+# BIG PARTY — Fases 0, 1A, 1B, 1C y 1D
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
 soporte seguro de PIN, auditoría y una página de comprobación. La Fase 1A añade la
 configuración física de áreas, zonas y mesas. La Fase 1B añade catálogo e inventario global.
 La Fase 1C incorpora cuentas de mesa, subcuentas, consumo enviado y comandas lógicas.
-No incluye pagos, caja ni impresión física.
+La Fase 1D añade pagos, descuentos, reembolsos y cierre de cuentas.
+No incluye sesiones de caja ni impresión física.
 
 ## Requisitos
 
@@ -147,14 +148,16 @@ para sustituir el modelo de usuario después de cargar datos.
 │   ├── tables/       # Mesas, servicios y vista de desarrollo
 │   ├── catalog/      # Categorías, productos, precios, modificadores y combos
 │   ├── inventory/    # Movimientos y servicios de inventario global
-│   └── orders/       # Cuentas, subcuentas, consumo y comandas lógicas
+│   ├── orders/       # Cuentas, subcuentas, consumo y comandas lógicas
+│   └── payments/     # Pagos, descuentos, reembolsos y liquidación
 ├── templates/
 │   ├── base.html
 │   ├── core/home.html
 │   ├── tables/configuration.html
 │   ├── catalog/development.html
 │   ├── inventory/development.html
-│   └── orders/development.html
+│   ├── orders/development.html
+│   └── payments/development.html
 ├── static/css/base.css
 ├── media/.gitkeep
 ├── requirements/{base,dev,prod}.txt
@@ -550,9 +553,8 @@ Otros usuarios con permisos pueden operar la misma cuenta; no se restringe al re
 La transferencia formal de responsable no está implementada.
 
 Estados preparados: `OPEN`, `PARTIALLY_PAID`, `PAYMENT_PENDING`, `CLOSED`, `CANCELLED`
-y `MERGED`. Los tres primeros son activos. No existen servicios de cobro ni cierre;
-los estados de pago están reservados para esa fase. Un cierre futuro deberá liberar
-los vínculos vigentes dentro de la misma transacción.
+y `MERGED`. Los tres primeros son activos. La Fase 1D incorpora cobro y cierre mediante `payments`;
+el cierre libera los vínculos vigentes dentro de la misma transacción.
 
 `SINGLE` mantiene todas las líneas sin subcuenta. `SPLIT` permite crear subcuentas con
 `create_subaccount(order, name, user)` y también mantener líneas **Sin subcuenta**;
@@ -625,8 +627,8 @@ cuando hay preparación y devuelve el stock realmente descontado mediante
 Una segunda anulación no devuelve stock otra vez.
 
 **Decisión de esta fase:** toda anulación de una línea enviada devuelve stock, sin distinguir
-si físicamente ya se preparó/consumió. Esa distinción y los reembolsos de dinero quedan para
-una fase futura. No se permite desactivar el control de inventario ni convertir en combo
+si físicamente ya se preparó/consumió. Esa distinción permanece pendiente para cancelaciones operativas;
+la Fase 1D incorpora reembolsos separados con devolución física opcional. No se permite desactivar el control de inventario ni convertir en combo
 un producto con consumo enviado neto sin reintegrar: evitaría cumplir su posible devolución.
 
 ### Subcuentas, traslado de mesa y unión
@@ -702,6 +704,223 @@ Migraciones nuevas: `inventory.0002_order_consumption`, `orders.0001_initial` y
 `orders.0002_relational_integrity`. No se modificaron migraciones históricas ni se
 crearon órdenes, mesas o productos de demostración en la base local.
 
+## Fase 1D: pagos, división de pago y liquidación
+
+### Registros y asignaciones por unidad
+
+`apps/payments` añade `Payment`, `PaymentAllocation`, `OrderAdjustment`,
+`AdjustmentAllocation`, `PaymentRefund` y `RefundAllocation`. Todos los importes son
+`Decimal` con dos decimales; los servicios rechazan floats, valores no finitos,
+importes no positivos y más de dos decimales. No hay dependencias nuevas.
+
+`Payment` representa dinero y conserva cuenta, subcuenta opcional, método, estado,
+monto original, usuario de registro, usuario/fecha de confirmación, referencia,
+notas y metadatos. No guarda precios recibidos del cliente.
+
+Cada `PaymentAllocation` identifica una línea y **una posición de unidad física**
+(`unit_number`, de 1 a `OrderLine.quantity`), con el monto aplicado. Seleccionar dos
+cervezas genera dos asignaciones, cada una con `quantity=1`; un pago por monto genera
+asignaciones con `quantity=None`. Esto significa cobertura monetaria, no fracciones
+físicas del producto. Las asignaciones de descuentos usan la misma estructura.
+La combinación cabecera/línea/unidad es única dentro de cada pago o ajuste.
+
+La distribución por monto recorre líneas por ID y unidades de menor a mayor.
+Ejemplo: una cerveza Q25 puede tener Q10.13 en efectivo y Q14.87 en tarjeta,
+sin cambiar su cantidad ni su precio. Las cantidades pagadas se derivan sumando
+cobertura por unidad; no se suman columnas `quantity` de pagos por monto.
+`get_line_payment_quantities(line)` expone unidades completas cubiertas, unidades
+con verificación pendiente, unidades con saldo, cobertura parcial e importes por unidad.
+Los conteos de cobertura parcial y pendiente pueden referirse a la misma unidad.
+
+Solo se cobra `SENT`. Los precios provienen de `OrderLine.unit_price`, incluidos
+los modificadores capturados; `DRAFT` y `CANCELLED` no crean cargos financieros.
+Los totales operativos de `orders` siguen incluyendo borradores cuando corresponde;
+para cobros se usan exclusivamente las consultas de `payments`.
+
+### Servicios de pago y saldos
+
+Los siguientes servicios reciben `target` como `TableOrder` o `SubAccount`:
+
+```python
+from decimal import Decimal
+from apps.payments import services as payments
+
+payments.create_selected_payment(order,
+    [{"line_id": linea.pk, "quantity": 2}], "CASH", user)
+payments.create_amount_payment(order, Decimal("200.00"), "CASH", user)
+payments.pay_full_balance(order, "CARD", user, card_approved=True)
+payments.pay_cash(order, Decimal("85.00"), user, received_amount=Decimal("100.00"))
+```
+
+Son alternativas de uso, no una secuencia obligatoria. `pay_full_balance` calcula el
+saldo **disponible no reservado** desde el servidor. Los servicios aceptan
+`reference`, `notes`, `received_amount` y `card_approved` cuando corresponde.
+La selección de artículos escoge unidades sin pagos confirmados ni pendientes, en
+orden de posición. Si una unidad tiene cobertura monetaria parcial, se completa
+con pago por monto o saldo total. Un descuento previo reduce el monto pagable de esa unidad.
+
+En `SINGLE`, `Payment.subaccount` siempre es nula. En `SPLIT` se puede cobrar una
+subcuenta específica o la cuenta completa, incluidas líneas sin subcuenta. Un cobro
+por subcuenta jamás puede seleccionar líneas de otra. Los saldos por subcuenta se
+calculan desde las asignaciones, también cuando el pago se registró para toda la cuenta.
+
+Consultas de orden y sus equivalentes `get_subaccount_*`:
+
+| Consulta | Significado |
+| --- | --- |
+| `get_order_charge_total` | Consumo enviado menos descuentos/cortesías y créditos por reembolso |
+| `get_order_confirmed_paid_total` | Dinero confirmado menos reembolsos |
+| `get_order_pending_payment_total` | Dinero registrado pendiente de verificación |
+| `get_order_balance` | Cargo neto menos dinero confirmado neto |
+
+`get_financial_summary(target)` añade bruto, ajustes, reembolsos y
+`available_to_pay = outstanding_balance - pending_verification`.
+Un pago pendiente no reduce el saldo confirmado; **reserva** la cobertura de sus
+unidades para impedir que otro pago o descuento la use. Rechazarlo libera esa reserva.
+
+### Métodos, verificación y efectivo por entregar
+
+- `CASH`: confirmado inmediatamente. Si se indica `received_amount`, debe alcanzar
+  el pago. Se conserva en metadatos; `payment.change_due` devuelve el cambio.
+  Pago Q85, recibido Q100 y cambio Q15 registra únicamente Q85 de ingreso.
+- `CARD`: requiere `card_approved=True`, declaración del operador de que la terminal
+  externa aprobó el cobro. No se solicitan banco, voucher, autorización ni datos de tarjeta.
+- `TRANSFER` y `DEPOSIT`: referencia obligatoria e inicio `PENDING`.
+  `confirm_pending_payment(payment, user)` confirma con actor y fecha;
+  `reject_pending_payment(payment, user, reason)` exige motivo y conserva el pago rechazado.
+  No hay integración bancaria ni envío real de dinero.
+
+Pago mixto significa varios `Payment`: por ejemplo Q200 en efectivo + Q300 en tarjeta.
+No existe `MixedPayment`. Los métodos son `TextChoices`; se podrán habilitar o
+inhabilitar en una fase posterior, sin crear ahora configuración de caja.
+
+`recorded_by` identifica quién cobró. Efectivo registrado por rol `MESERO` queda con
+`cash_handoff_status=PENDING`; otros roles quedan `NOT_REQUIRED`. El estado `DELIVERED`
+está preparado, pero **no existe servicio de entrega a caja**. Esto no concede permiso
+de cobro por rol: siempre se requiere `payments.record_payment`. Un reembolso no cambia
+el estado de entrega del pago original; caja deberá conciliar el importe original y
+sus reembolsos separados cuando se implemente esa fase.
+
+### Estados y cierre
+
+`refresh_order_payment_status(order)` deriva `PAYMENT_PENDING` si hay pagos pendientes,
+`PARTIALLY_PAID` si existe pago confirmado/reembolsado y, en otro caso, `OPEN`.
+Una cuenta pagada completamente permanece activa hasta su cierre explícito; el estado
+`PARTIALLY_PAID` se utiliza también en ese intervalo, y el saldo Q0 indica liquidación.
+La variante con `user` permite registrar cierres derivados de subcuentas.
+Nunca reabre una cuenta o subcuenta cerrada.
+
+Las operaciones financieras cierran automáticamente subcuentas con consumo cuando
+su saldo es cero, no hay verificación pendiente y no existen borradores. Se registra
+`closed_at` y actividad. Retirar el último borrador, anular una línea sin historial
+financiero o trasladar el saldo no pagado también recalcula este cierre. Una nueva
+consumición de la misma persona requiere otra subcuenta.
+
+`can_close_order(order)` indica si `close_order(order, user)` puede completar el cierre.
+El cierre explícito exige ausencia de borradores, saldo cero, ningún pago pendiente
+e integridad entre cabeceras/asignaciones. Cierra las subcuentas restantes vacías o
+con importe cero dentro de la misma transacción, y verifica las condiciones antes de
+marcar `CLOSED`. Libera todos los vínculos vigentes: cualquiera de sus mesas vuelve a
+estar disponible y puede abrir una cuenta nueva. No elimina vínculos históricos.
+
+### Descuentos y cortesías
+
+```python
+payments.apply_order_adjustment(order, user,
+    amount=Decimal("10.00"), reason="Promoción autorizada")
+payments.apply_order_adjustment(subaccount, user, adjustment_type="COURTESY",
+    selection=[{"line_id": linea.pk, "quantity": 1}], reason="Atención al cliente")
+```
+
+Requieren `apply_order_adjustment` y motivo; un rol de Gerente por sí solo no autoriza.
+El permiso debe concederse solo a las personas autorizadas. Se guarda el importe
+resultante y su distribución exacta; no se altera `unit_price`, no se crea un pago y
+no se reintegra inventario. Un ajuste no puede superar el saldo libre de pagos y reservas.
+No hay edición ni eliminación de ajustes desde el administrador.
+
+### Reembolsos y devolución física
+
+```python
+payments.refund_payment(payment, user, amount=Decimal("10.00"),
+    reason="Compensación autorizada")
+payments.refund_payment(payment, user, allocation_ids=[allocation.pk],
+    return_to_inventory=True, reason="Producto devuelto intacto")
+```
+
+Exigen `refund_payment`, motivo y pago confirmado. Se conserva cada reembolso y sus
+asignaciones al pago original. La suma jamás puede superar lo cobrado neto disponible.
+Un reembolso parcial mantiene `CONFIRMED`; al devolver todo el pago queda `REFUNDED`.
+
+**Decisión financiera:** cada reembolso representa también una reducción comercial del
+cargo por el mismo importe. Los informes muestran separadamente consumo bruto,
+descuentos/cortesías, reembolsos, cargo neto y dinero neto recibido. Devolver Q10 de un
+consumo pagado de Q25 deja cargo neto Q15, cobrado neto Q15 y saldo Q0. No genera una
+nueva deuda ni reabre subcuentas; se admite después del cierre de la orden. No existe
+un flujo de reversión para volver a cobrar ese mismo importe en esta fase.
+
+Un reembolso por monto se distribuye contra asignaciones originales en orden estable
+y **obliga `return_to_inventory=False`**. No supone devolución física.
+La devolución de inventario exige asignaciones de unidades completas pagadas íntegramente
+por ese pago, sin reembolsos anteriores sobre la unidad. Puede incluir descuentos previos:
+se devuelve solo el dinero efectivamente pagado y la unidad física completa.
+Una unidad cuyo pago se dividió entre varios pagos solo admite reembolso monetario en
+esta fase; la devolución física conjunta requeriría un flujo adicional coordinado.
+
+Si se autoriza la devolución física, se reintegran únicamente los componentes cuya
+línea capturó `stock_deducted=True`, usando su composición original y creando
+`InventoryMovement.REFUND_RETURN` con cuenta, línea, pago, reembolso y unidad.
+Productos sin control no generan movimiento. Bloqueos y asignaciones impiden devolver
+stock dos veces. La protección del catálogo considera también estas devoluciones.
+
+La cancelación operativa de `orders` sigue siendo independiente y devuelve stock según
+la regla de la Fase 1C. Una línea con cualquier asignación financiera, incluso de pago
+rechazado, no puede anularse ni moverse entre subcuentas: se conserva la relación histórica.
+Rechazar un pago sí permite cobrar de nuevo sus unidades. Una cuenta con historial
+financiero no puede fusionarse con otra; la unión debe hacerse antes de cobrar o ajustar.
+El traslado físico de una cuenta a una mesa libre de su misma área continúa permitido.
+
+### Integridad, auditoría y acceso
+
+Todas las escrituras bloquean primero `TableOrder` con `select_for_update` y se confirman
+mediante `transaction.atomic`; comparten ese bloqueo con las operaciones de `orders`.
+Verificar/rechazar/reembolsar bloquea después el pago; devolver stock bloquea productos
+por ID. Esto serializa cobros, reservas, ajustes, cierres, anulaciones y devoluciones.
+Se comprueban montos de cabecera contra detalles y cobertura de cada unidad, además de
+restricciones de base para importes positivos, tipos, confirmación, entrega de efectivo
+y unicidad de asignaciones. No se soportan escrituras financieras directas por ORM/SQL.
+
+Permisos individuales, sin asignación automática por rol:
+`record_payment`, `verify_transfer_payment`, `reject_transfer_payment`,
+`apply_order_adjustment`, `refund_payment`, `close_order`, bajo `payments`.
+
+Cada operación crea `OrderActivity` y `AuditLog`: `PAYMENT_RECORDED`,
+`PAYMENT_CONFIRMED`, `PAYMENT_REJECTED`, `ADJUSTMENT_APPLIED`, `REFUND` y `CLOSED`.
+Los seis modelos financieros son de solo lectura en el administrador, incluso para
+superusuarios. Los servicios son la única entrada soportada para cambios.
+
+`get_payment_history(order)` devuelve pagos cronológicos con método, importe original,
+estado, autores, referencia, fechas y relación de reembolsos.
+`get_receipt_data(order_or_subaccount)` devuelve datos para futura impresión: mesas,
+número de orden, líneas y precios capturados, cobertura, ajustes, pagos, reembolsos,
+totales netos y fecha. Conserva `Decimal`; el consumidor puede serializarlo con
+`DjangoJSONEncoder`. No genera PDF ni imprime. Para subcuentas incluye el importe
+aplicado a esa subcuenta y el importe original completo del pago por separado.
+
+### Vista de desarrollo y migraciones
+
+<http://127.0.0.1:8000/dev/pagos/> permite seleccionar orden, consultar saldos y
+subcuentas, pagar todo el saldo disponible, un monto o artículos seleccionados,
+registrar los cuatro métodos, confirmar/rechazar pendientes y cerrar la orden.
+La selección de artículos usa un campo JSON sencillo solo para esta herramienta dev.
+Requiere sesión, staff activo, `DEBUG=True`, `payments.view_payment`, permiso de cada
+operación y CSRF. El backend calcula los precios y verifica pertenencia de subcuentas.
+Descuentos y reembolsos se prueban mediante servicios; no hay interfaz final.
+
+Migraciones nuevas: `orders.0003_alter_orderactivity_activity_type`,
+`inventory.0003_refund_return` y `payments.0001_initial`. No se editaron migraciones
+anteriores, no se reinició la base y no se insertaron pagos ni consumos de demostración.
+Para otra copia existente: ejecutar `python manage.py migrate` antes de utilizarla.
+
 ## Pruebas y comprobaciones
 
 Con PostgreSQL disponible y `.venv` activado:
@@ -713,7 +932,7 @@ python manage.py test
 python -m pip check
 ```
 
-Las 186 pruebas cubren carga de la página y del administrador, formularios de usuarios,
+Las 264 pruebas cubren carga de la página y del administrador, formularios de usuarios,
 roles, permisos individuales, PIN con hash y sal, confirmación y conservación del PIN,
 creación de auditoría y protección frente a cambios y borrado, CSRF y archivos estáticos.
 También cubren áreas, zonas, mesas, validaciones Python y constraints PostgreSQL,
@@ -727,6 +946,10 @@ anulaciones, devolución de componentes, movimientos parciales, uniones, totales
 administración de solo lectura y vistas dev. También prueba con conexiones independientes
 doble apertura, doble envío, adiciones simultáneas, competencia por el último stock y
 doble anulación. Las 133 pruebas anteriores siguen pasando.
+La Fase 1D añade 78 pruebas de saldos, pagos por artículos y montos, cambio, reservas
+por verificar, cobros mixtos, cierres, descuentos, reembolsos, devolución de inventario,
+recibos, permisos, admin, CSRF y concurrencia real de pagos/ajustes/anulaciones.
+Las 186 pruebas anteriores siguen incluidas.
 Se ejecutan sobre una base PostgreSQL temporal separada; Django la elimina al finalizar.
 
 ## Git y alcance
@@ -735,6 +958,7 @@ Se ejecutan sobre una base PostgreSQL temporal separada; Django la elimina al fi
 se excluyen de Git. `.env.example`, las dependencias y las migraciones sí se versionan.
 No subir credenciales ni archivos de entorno reales.
 
-La entrega finaliza en la Fase 1C: órdenes y subcuentas. Pagos, caja, cierres,
-reservas reales, eventos, mapa visual, APIs, sincronización y despliegue requieren
-autorización para fases posteriores.
+La entrega finaliza en la Fase 1D: pagos y cierre de cuentas. Sesiones de caja,
+apertura/arqueo/cierre de caja, entrega de efectivo, retiros, cierre de jornada,
+reservas, eventos, QR, interfaz final, impresoras y sincronización offline permanecen
+fuera de alcance y requieren autorización para fases posteriores.
