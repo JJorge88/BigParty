@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Órdenes · BIG PARTY{% endblock %}
+{% block content %}
+  <h1>Órdenes y subcuentas: comprobación de desarrollo</h1>
+  <p>Operaciones sin cobro. Los envíos descuentan inventario global.</p>
+  {% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}
+  <form method="get">{{ selection.as_p }}<button type="submit">Consultar</button></form>
+  {% if selected %}
+    <h2>{{ selected }} · {{ selected.primary_table.name }}</h2>
+    <p>{{ selected.get_status_display }} · {{ selected.get_billing_mode_display }} · Responsable: {{ selected.responsible_waiter }}</p>
+    <p>{{ selected.general_note }}</p>
+    <p>Pendiente: Q{{ pending|floatformat:2 }} · Enviado: Q{{ committed|floatformat:2 }}</p>
+    <table>
+      <thead><tr><th>Producto</th><th>Subcuenta</th><th>Cantidad</th><th>Precio</th><th>Subtotal</th><th>Estado</th><th>Nota</th></tr></thead>
+      <tbody>{% for line in lines %}<tr>
+        <td>{{ line.product_name_snapshot }}</td><td>{{ line.subaccount|default:"Sin subcuenta" }}</td>
+        <td>{{ line.quantity }}</td><td>Q{{ line.unit_price|floatformat:2 }}</td><td>Q{{ line.subtotal|floatformat:2 }}</td>
+        <td>{{ line.get_status_display }}</td><td>{{ line.notes }}</td>
+      </tr>{% empty %}<tr><td colspan="7">Sin productos.</td></tr>{% endfor %}</tbody>
+    </table>
+    <h3>Comandas lógicas</h3>
+    <ul>{% for ticket in tickets %}<li>{{ ticket }} · {{ ticket.table_name_snapshot }}</li>{% empty %}<li>Sin comandas.</li>{% endfor %}</ul>
+    <h3>Historial operativo</h3>
+    <ul>{% for activity in timeline %}<li>{{ activity.created_at|date:"d/m/Y H:i:s" }} · {{ activity.user }} · {{ activity.description }}</li>{% empty %}<li>Sin actividad.</li>{% endfor %}</ul>
+  {% endif %}
+  {% for action, label, form in operations %}
+    <h2>{{ label }}</h2>
+    <form method="post">{% csrf_token %}<input type="hidden" name="action" value="{{ action }}">{{ form.as_p }}<button type="submit">{{ label }}</button></form>
+  {% endfor %}
+  <p><a href="{% url 'admin:index' %}">Administración</a></p>
+{% endblock %}

@@ -6,9 +6,11 @@ class InventoryMovement(models.Model):
     class MovementType(models.TextChoices):
         RECEIPT = "RECEIPT", "Entrada"
         ADJUSTMENT = "ADJUSTMENT", "Ajuste"
+        SALE = "SALE", "Venta (consumo enviado)"
+        CANCELLATION_RETURN = "CANCELLATION_RETURN", "Devolución por anulación"
 
     product = models.ForeignKey("catalog.Product", verbose_name="producto", on_delete=models.PROTECT, related_name="inventory_movements")
-    movement_type = models.CharField("tipo", max_length=10, choices=MovementType.choices)
+    movement_type = models.CharField("tipo", max_length=25, choices=MovementType.choices)
     quantity_delta = models.IntegerField("variación")
     stock_before = models.PositiveIntegerField("existencias anteriores")
     stock_after = models.PositiveIntegerField("existencias posteriores")
@@ -27,7 +29,9 @@ class InventoryMovement(models.Model):
             ("adjust_inventory", "Puede realizar ajustes de inventario"),
         ]
         constraints = [
-            models.CheckConstraint(condition=models.Q(movement_type__in=["RECEIPT", "ADJUSTMENT"]), name="inventory_movement_type_valid"),
+            models.CheckConstraint(condition=models.Q(movement_type__in=["RECEIPT", "ADJUSTMENT", "SALE", "CANCELLATION_RETURN"]), name="inventory_movement_type_valid"),
+            models.CheckConstraint(condition=~models.Q(movement_type="SALE") | models.Q(quantity_delta__lt=0), name="inventory_sale_negative"),
+            models.CheckConstraint(condition=~models.Q(movement_type="CANCELLATION_RETURN") | models.Q(quantity_delta__gt=0), name="inventory_return_positive"),
             models.CheckConstraint(condition=~models.Q(quantity_delta=0), name="inventory_delta_nonzero"),
             models.CheckConstraint(condition=models.Q(stock_after=models.F("stock_before") + models.F("quantity_delta")), name="inventory_balance_consistent"),
             models.CheckConstraint(condition=~models.Q(movement_type="RECEIPT") | models.Q(quantity_delta__gt=0), name="inventory_receipt_positive"),

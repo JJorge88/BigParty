@@ -80,6 +80,13 @@ class Product(ValidatedModel):
     def clean(self):
         super().clean()
         if self.pk:
+            if self.is_combo or not self.track_inventory:
+                pending_consumption = self.inventory_movements.filter(
+                    movement_type__in=["SALE", "CANCELLATION_RETURN"],
+                ).aggregate(total=models.Sum("quantity_delta"))["total"] or 0
+                if pending_consumption < 0:
+                    raise ValidationError({"track_inventory":
+                        "No puedes quitar el inventario propio mientras exista consumo enviado sin reintegrar."})
             if self.is_combo and self.used_in_combos.exists():
                 raise ValidationError({"is_combo": "Un componente de otro combo no puede convertirse en combo."})
             if not self.is_combo and self.combo_components.exists():

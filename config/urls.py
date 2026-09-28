@@ -16,4 +16,5 @@ if settings.DEBUG:
     urlpatterns += [path("dev/mesas/", include("apps.tables.urls"))]
     urlpatterns += [path("dev/catalogo/", include("apps.catalog.urls"))]
     urlpatterns += [path("dev/inventario/", include("apps.inventory.urls"))]
+    urlpatterns += [path("dev/ordenes/", include("apps.orders.urls"))]
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

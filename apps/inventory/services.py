@@ -13,8 +13,8 @@ def _require_permission(user, permission):
         raise PermissionDenied("No tienes permiso para realizar este movimiento de inventario.")
 
 
-def _record_movement(product, delta, user, reason, movement_type):
-    # Llamado exclusivamente dentro de las transacciones públicas de este módulo.
+def _record_movement(product, delta, user, reason, movement_type, *, metadata=None):
+    # Uso interno de servicios transaccionales; orders comprueba su permiso operativo.
     current = Product.objects.select_for_update().get(pk=product.pk)
     if not current.track_inventory or current.is_combo:
         raise ValidationError("Solo se pueden mover existencias de productos con control de inventario propio.")
@@ -26,7 +26,7 @@ def _record_movement(product, delta, user, reason, movement_type):
     current.save(update_fields=["stock_quantity", "updated_at"])
     movement = InventoryMovement(
         product=current, movement_type=movement_type, quantity_delta=delta,
-        stock_before=before, stock_after=after, reason=reason, user=user,
+        stock_before=before, stock_after=after, reason=reason, user=user, metadata=metadata or {},
     )
     movement.full_clean()
     movement.save()
