@@ -16,7 +16,7 @@
 <main id="main" class="ordering-shell">
   <div class="order-heading">
     <div class="order-title"><a href="{% url 'operations:tables' %}" class="back-tables">← Mesas</a><h1>{{ order.primary_table.name }}</h1><span class="area-label">{{ area.name }}</span></div>
-    <div class="order-heading-tools"><span class="draft-saved"><i class="status-dot"></i> Borradores guardados</span><button class="icon-button" id="refresh-order" aria-label="Actualizar pedido"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button></div>
+    <div class="order-heading-tools">{% if can_view_account %}<a class="button button--ghost" id="order-account-link" href="{% url 'operations:account' order.pk %}">Ver cuenta</a>{% endif %}<button class="icon-button" id="refresh-order" aria-label="Actualizar pedido"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button></div>
   </div>
   <div id="order-error" class="order-error" role="alert" hidden></div>
   <section id="split-section" class="split-section" aria-label="Cuentas separadas" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}>

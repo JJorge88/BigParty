@@ -100,6 +100,8 @@ function updatePanel() {
   status.replaceChildren(element('i', 'status-dot'), document.createTextNode(table.state_label));
   text('panel-waiter', table.responsible);
   text('panel-total', table.total);
+  const accountLink = document.getElementById('view-account-link');
+  if (accountLink && table.order_id) accountLink.href = `/operacion/orden/${table.order_id}/cuenta/`;
   const addOrderLink = document.getElementById('add-order-link');
   if (addOrderLink && table.order_id) addOrderLink.href = `/operacion/orden/${table.order_id}/pedido/`;
   ['panel-time-row', 'panel-waiter-row', 'panel-total-row'].forEach(id => { document.getElementById(id).hidden = !occupied; });

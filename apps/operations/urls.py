@@ -1,9 +1,11 @@
 from django.urls import path
 from . import views
-from . import order_views
+from . import order_views, account_views
 
 app_name = "operations"
 urlpatterns = [
+    path("operacion/orden/<int:order_id>/cuenta/", account_views.account_page, name="account"),
+    path("operacion/orden/<int:order_id>/cuenta/<str:action>/", account_views.account_action, name="account-action"),
     path("dispositivo/configurar/", views.configure_device, name="configure-device"),
     path("operacion/", views.index, name="index"),
     path("operacion/acceso/", views.access, name="access"),

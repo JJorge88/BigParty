@@ -20,6 +20,7 @@ from .forms import DeviceConfigurationForm
 from .queries import get_operational_map
 from .services import open_operational_table
 from .ordering import can_order
+from .accounting import can_view_account
 
 
 def _json(request):
@@ -120,6 +121,7 @@ def tables(request):
         "operator_name": context["user"].get_full_name().strip() or context["user"].username,
         "can_open": context["user"].has_perm("orders.open_table_order"),
         "can_order": can_order(context["user"]),
+        "can_view_account": can_view_account(context["user"]),
         "idle_timeout": settings.OPERATIONAL_IDLE_TIMEOUT_SECONDS})
 
 

@@ -136,6 +136,8 @@ function renderDrafts() {
   text('cart-context', state.selected_name);
 }
 function render() {
+  const accountLink = $('order-account-link');
+  if (accountLink) accountLink.href = baseUrl.replace('/pedido/', '/cuenta/') + (state.selected_account ? `?subaccount=${state.selected_account}` : '');
   renderCategories(); renderAccounts(); renderProducts(); renderDrafts(); updateControls();
   if (!state.has_open_day) showError('No hay una jornada abierta. Solicita a Gerencia revisar la jornada.');
 }

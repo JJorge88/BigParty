@@ -161,8 +161,7 @@
 <button class="button button--primary button--wide" id="open-table-button" type="button">Abrir mesa</button>
 <div id="future-actions">
 {% if can_order %}<a class="button button--primary button--wide" id="add-order-link">Agregar pedido</a>{% else %}<p class="muted">No tienes permiso para gestionar pedidos.</p>{% endif %}
-<button class="button button--ghost button--wide" disabled style="margin-top:12px">Ver cuenta</button>
-<p class="soon-note">Ver cuenta estará disponible próximamente.</p>
+{% if can_view_account %}<a class="button button--ghost button--wide" id="view-account-link" style="margin-top:12px">Ver cuenta</a>{% endif %}
 </div>
 <p class="muted" id="panel-no-permission" hidden>No tienes permiso para abrir mesas.</p>
 </div>

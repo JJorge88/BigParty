@@ -26,9 +26,10 @@ def positive_id(value, label="La selección"):
     return int(value)
 
 
-def operational_order(context, order_id, *, write=False, permission=None):
+def operational_order(context, order_id, *, write=False, permission=None, access_check=can_order):
     user = context["user"]
-    if (permission and not user.has_perm("orders." + permission)) or (not permission and not can_order(user)):
+    permission_name = permission if permission and "." in permission else "orders." + (permission or "")
+    if (permission and not user.has_perm(permission_name)) or (not permission and not access_check(user)):
         raise PermissionDenied("No tienes permiso para realizar esta acción.")
     order = TableOrder.objects.filter(pk=order_id, area=context["area"]).select_related("area", "primary_table", "business_day").first()
     if order is None:

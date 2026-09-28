@@ -56,8 +56,19 @@ def _locked_target(target):
     return order, account
 
 
-def _available_units(order, account=None):
-    return [u for u in unit_ledger(order).values() if (account is None or u["line"].subaccount_id == account.pk) and u["available"] > ZERO]
+def _available_units(order, account=None, *, unit_keys=None):
+    ledger = {key: unit for key, unit in unit_ledger(order).items()
+              if account is None or unit["line"].subaccount_id == account.pk}
+    if unit_keys is not None:
+        if (not isinstance(unit_keys, (list, tuple)) or not unit_keys or
+            any(not isinstance(key, (list, tuple)) or len(key) != 2 or
+                any(type(value) is not int for value in key) for key in unit_keys)):
+            raise ValidationError("La selección de consumo no es válida.")
+        keys = [tuple(key) for key in unit_keys]
+        if len(keys) != len(set(keys)) or any(key not in ledger for key in keys):
+            raise ValidationError("El consumo seleccionado cambió. Vuelve a revisar la cuenta.")
+        ledger = {key: ledger[key] for key in keys}
+    return [unit for unit in ledger.values() if unit["available"] > ZERO]
 
 
 def _select(units, selection):
@@ -90,6 +101,29 @@ def _distribute(units, amount):
     if remaining:
         raise ValidationError("El importe supera el saldo disponible; los pagos pendientes también reservan saldo.")
     return result
+
+
+def get_payment_quote(target, *, mode="full", selection=None, amount=None, unit_keys=None):
+    """Vista previa que comparte exactamente las reglas de asignación del pago.
+
+    unit_keys permite completar por monto las mismas unidades de una selección mixta,
+    incluidas unidades que ya recibieron un abono. No reserva ni registra dinero.
+    """
+    account = target if isinstance(target, SubAccount) else None
+    order = account.order if account else target
+    units = _available_units(order, account, unit_keys=unit_keys)
+    if mode == "selection":
+        allocations = _select(units, selection)
+    elif mode in ("full", "amount"):
+        value = _money(amount if mode == "amount" else sum((u["available"] for u in units), ZERO))
+        allocations = _distribute(units, value)
+    else:
+        raise ValidationError("Elige cómo deseas pagar la cuenta.")
+    line_amounts = {}
+    for unit, value, _ in allocations:
+        line_amounts[unit["line"].pk] = line_amounts.get(unit["line"].pk, ZERO) + value
+    return {"amount": sum((value for _, value, _ in allocations), ZERO), "line_amounts": line_amounts,
+            "unit_keys": [(unit["line"].pk, unit["unit_number"]) for unit, _, _ in allocations]}
 
 
 def _assert_ledger(order):
@@ -204,11 +238,11 @@ def create_selected_payment(target, selection, method, user, **options):
 
 
 @transaction.atomic
-def create_amount_payment(target, amount, method, user, **options):
+def create_amount_payment(target, amount, method, user, *, unit_keys=None, **options):
     _require(user, "record_payment")
     amount = _money(amount)
     order, account = _locked_target(target)
-    return _create(order, account, _distribute(_available_units(order, account), amount), method, user, **options)
+    return _create(order, account, _distribute(_available_units(order, account, unit_keys=unit_keys), amount), method, user, **options)
 
 
 @transaction.atomic

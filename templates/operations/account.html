@@ -1,0 +1,77 @@
+{% extends 'operations/base.html' %}{% load static %}
+{% block title %}{{ order.primary_table.name }} · Cuenta · BIG PARTY{% endblock %}
+{% block styles %}
+<link rel="stylesheet" href="{% static 'css/operations/ordering.css' %}">
+<link rel="stylesheet" href="{% static 'css/operations/account.css' %}">
+{% endblock %}
+{% block body_attributes %}class="ordering-page account-page" data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'operations:lock' %}" data-activity-url="{% url 'operations:activity' %}" data-access-url="{% url 'operations:access' %}" data-account-url="{% url 'operations:account' order.pk %}"{% endblock %}
+{% block topbar %}
+<div class="topbar-area"><svg aria-hidden="true"><use href="#icon-area"/></svg>{{ area.name }}</div>
+<form method="post" action="{% url 'operations:lock' %}">{% csrf_token %}
+  <button class="operator" type="submit" aria-label="Cambiar usuario, {{ operator_name }}"><span class="avatar">{{ operator_name|slice:':1' }}</span><span class="operator-copy"><span class="operator-name">{{ operator_name }}</span><span class="operator-hint">Mesero · Cambiar usuario</span></span><svg aria-hidden="true"><use href="#icon-chevron"/></svg></button>
+</form>
+{% endblock %}
+{% block content %}
+<main id="main" class="ordering-shell account-shell">
+  <div class="order-heading">
+    <div class="order-title"><a class="back-tables" href="{% url 'operations:tables' %}">← Mesas</a><h1>{{ order.primary_table.name }}</h1><span class="area-label">{{ area.name }}</span></div>
+    <div class="order-heading-tools"><a class="button button--ghost add-products" href="{% url 'operations:order' order.pk %}">Agregar productos</a><button class="icon-button" id="refresh-account" aria-label="Actualizar cuenta"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button></div>
+  </div>
+  <div id="account-error" class="order-error" role="alert" hidden></div>
+  <div id="payment-feedback" class="payment-feedback" role="status" hidden></div>
+  <section id="accounts-section" class="split-section" aria-label="Cuentas separadas" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}><div id="financial-accounts" class="account-tabs"></div></section>
+  <div id="draft-warning" class="account-notice" hidden>Hay productos pendientes de enviar. Todavía no se pueden cobrar.</div>
+  <div id="pending-warning" class="account-notice" hidden>Pago pendiente de verificación por Gerencia.</div>
+  <div id="account-layout" class="account-layout">
+    <section class="account-detail">
+      <div class="account-section-heading"><div><p class="eyebrow" id="view-eyebrow">CONSUMO DE LA MESA</p><h2 id="view-title">Ver cuenta</h2></div><button class="button button--ghost" id="back-account" hidden>← Volver a cuenta</button></div>
+      <section id="consumption-view">
+        <div id="account-empty" class="empty-state" hidden><h3 id="account-empty-title">Sin consumo enviado</h3><p>El consumo aparecerá aquí después de enviar el pedido.</p></div>
+        <div id="unpaid-lines" class="account-lines"></div>
+        <details id="paid-section" class="paid-section" hidden><summary>Pagados <span id="paid-count"></span></summary><div id="paid-lines" class="account-lines"></div></details>
+        <div class="payment-history"><h3>Pagos</h3><div id="payment-history"></div></div>
+      </section>
+      <section id="division-view" hidden>
+        <p class="view-description">Elige los productos y cantidades que pagará esta persona.</p>
+        <div id="selection-lines" class="account-lines"></div>
+        <p class="selection-note">Las unidades con abonos se completan desde Cobrar o Pago mixto.</p>
+      </section>
+      <section id="payment-view" hidden>
+        <div class="payment-amount"><span id="payment-amount-label">Monto a pagar</span><strong id="payment-amount">—</strong></div>
+        <div id="mixed-entry" class="mixed-entry" hidden><label class="field-label" for="mixed-amount">Monto a registrar</label><input class="input money-input" id="mixed-amount" inputmode="decimal" placeholder="0.00" autocomplete="off"><p class="muted">Registra un método a la vez. Los pagos por verificar reservan su saldo.</p></div>
+        <div class="payment-methods" id="payment-methods" role="group" aria-label="Método de pago">
+          <button type="button" data-method="efectivo"><span class="method-symbol" aria-hidden="true">Q</span>Efectivo</button>
+          <button type="button" data-method="tarjeta"><svg aria-hidden="true"><use href="#icon-card"/></svg>Tarjeta</button>
+          <button type="button" data-method="transferencia"><svg aria-hidden="true"><use href="#icon-transfer"/></svg>Transferencia</button>
+          <button type="button" data-method="deposito"><svg aria-hidden="true"><use href="#icon-bank"/></svg>Depósito</button>
+          <button type="button" id="mixed-method"><svg aria-hidden="true"><use href="#icon-split"/></svg>Pago mixto</button>
+        </div>
+        <form id="payment-form" class="payment-form" hidden>
+          <h3 id="method-title"></h3>
+          <div id="cash-fields" hidden><label class="field-label" for="cash-received">Recibido</label><div class="money-field"><span>Q</span><input class="input money-input" id="cash-received" inputmode="decimal" placeholder="0.00" autocomplete="off"></div><div id="quick-cash" class="quick-cash"></div><div class="cash-change"><span>Cambio</span><strong id="cash-change">—</strong></div></div>
+          <div id="card-fields" class="method-note" hidden><p>Realiza el cobro en la terminal bancaria.</p><p>Confirma aquí únicamente después de que la terminal apruebe el cobro.</p></div>
+          <div id="reference-fields" hidden><label class="field-label" for="payment-reference">Referencia</label><input class="input" id="payment-reference" maxlength="200" autocomplete="off" placeholder="Referencia de la operación"><p class="method-note">Pago pendiente de verificación por Gerencia.</p></div>
+          <button id="confirm-payment" class="button button--primary button--wide" type="submit" disabled>Confirmar pago</button>
+        </form>
+        <div id="scope-complete" class="payment-feedback" hidden>La selección ya quedó cubierta. Vuelve a la cuenta para revisar el resultado.</div>
+        <button id="cancel-payment" class="button button--ghost button--wide">Cancelar / volver a cuenta</button>
+      </section>
+    </section>
+    <aside class="financial-panel">
+      <p class="eyebrow" id="financial-context">UNA SOLA CUENTA</p><h2>Resumen de cuenta</h2>
+      <div id="summary-breakdown" class="summary-breakdown"><div id="gross-row" hidden><span>Subtotal</span><strong id="gross-value"></strong></div><div id="adjustments-row" hidden><span>Descuentos / cortesías</span><strong id="adjustments-value"></strong></div><div id="refunds-row" hidden><span>Reembolsos</span><strong id="refunds-value"></strong></div></div>
+      <dl class="financial-totals"><div><dt>Total</dt><dd id="financial-total">Q0.00</dd></div><div><dt>Pagado</dt><dd id="financial-paid">Q0.00</dd></div><div class="balance-row"><dt>Pendiente</dt><dd id="financial-balance">Q0.00</dd></div></dl>
+      <div id="reserved-summary" class="reserved-summary" hidden><div><span>Pendiente de verificación</span><strong id="financial-reserved"></strong></div><div><span>Saldo disponible para cobrar</span><strong id="financial-available"></strong></div></div>
+      <div id="selection-summary" class="selection-summary" hidden><span>Seleccionado</span><strong id="selection-total">Q0.00</strong><button id="continue-payment" class="button button--primary button--wide" disabled>Continuar al pago</button></div>
+      <div id="account-actions" class="financial-actions"><button id="collect-all" class="button button--primary button--wide">Cobrar</button><button id="divide-account" class="button button--wide">Dividir cuenta</button><a class="button button--ghost button--wide add-products" href="{% url 'operations:order' order.pk %}">Agregar productos</a></div>
+      <div id="close-section" class="close-section" hidden><p>Cuenta pagada</p><button id="close-account" class="button button--primary button--wide">Cerrar cuenta</button></div>
+      <p id="paid-account-note" class="paid-account-note" hidden>Esta cuenta está pagada.</p>
+      <div id="mixed-history" class="mixed-history" hidden><h3>Pagos registrados</h3><div id="mixed-payment-history"></div></div>
+    </aside>
+  </div>
+  <section id="closed-view" class="closed-view" hidden><span class="closed-check">✓</span><p class="eyebrow">CUENTA CERRADA</p><h2>{{ order.primary_table.name }} disponible</h2><p>El consumo quedó liquidado y la mesa está libre.</p><a class="button button--primary" href="{% url 'operations:tables' %}">Volver a mesas</a></section>
+  <noscript><p class="form-error">Activa JavaScript para revisar y cobrar la cuenta.</p></noscript>
+</main>
+{{ state|json_script:'account-state' }}
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/account.js' %}"></script>{% endblock %}

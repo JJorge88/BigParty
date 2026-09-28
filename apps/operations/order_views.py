@@ -7,6 +7,7 @@ from django.views.decorators.http import require_GET, require_POST
 from apps.orders import services
 from . import ordering as ops
 from .queries import money_label
+from .accounting import can_view_account
 from .views import operational_required, _json
 
 
@@ -34,7 +35,7 @@ def order_page(request, order_id):
         return JsonResponse({"success": True, "state": state, "message": "", "destinations": []})
     return render(request, "operations/order.html", {**context, "order": order, "state": state,
         "operator_name": context["user"].get_full_name().strip() or context["user"].username,
-        "idle_timeout": settings.OPERATIONAL_IDLE_TIMEOUT_SECONDS})
+        "idle_timeout": settings.OPERATIONAL_IDLE_TIMEOUT_SECONDS, "can_view_account": can_view_account(context["user"])})
 
 
 @require_POST

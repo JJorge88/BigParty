@@ -1,4 +1,4 @@
-# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D, 1E, 2A y 2B
+# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D, 1E, 2A, 2B y 2C
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
@@ -9,7 +9,8 @@ La Fase 1D añade pagos, descuentos, reembolsos y cierre de cuentas.
 La Fase 1E incorpora caja física, entregas de efectivo, conteo ciego y jornadas.
 La Fase 2A inicia la interfaz operativa del mesero: dispositivo, PIN, mapa y apertura de mesas.
 La Fase 2B añade catálogo y pedidos visuales, modificadores, adiciones y selección de subcuentas.
-Ver cuenta y cobro visual quedan para las siguientes fases; no incluye impresión física.
+La Fase 2C incorpora Ver cuenta, selección por cantidades, pagos y cierre explícito.
+Caja visual e impresión física quedan para las siguientes fases.
 
 ## Requisitos
 
@@ -1210,7 +1211,7 @@ python manage.py test
 python -m pip check
 ```
 
-Las 431 pruebas Django cubren carga de la página y del administrador, formularios de usuarios,
+Las 484 pruebas Django cubren carga de la página y del administrador, formularios de usuarios,
 roles, permisos individuales, PIN con hash y sal, confirmación y conservación del PIN,
 creación de auditoría y protección frente a cambios y borrado, CSRF y archivos estáticos.
 También cubren áreas, zonas, mesas, validaciones Python y constraints PostgreSQL,
@@ -1499,13 +1500,151 @@ La [verificación de Fase 2B](docs/phase-2b/verification.md) detalla resultados 
 Los datos de demostración se eliminan; las imágenes conservan únicamente datos de prueba.
 La prueba en hardware Android físico queda pendiente de la validación operativa del local.
 
+## Fase 2C — Ver cuenta, dividir y cobrar
+
+### Entrada, permisos y navegación
+
+**Mesa ocupada → Ver cuenta** abre `/operacion/orden/<id>/cuenta/`. El pedido incluye
+una acción discreta **Ver cuenta**, conservando la subcuenta seleccionada; desde la
+cuenta se vuelve a **Agregar productos**. Se mantiene el acceso operativo por PIN,
+área de dispositivo y usuario, independiente del administrador.
+
+| Acción | Permiso existente |
+| --- | --- |
+| Consultar cuenta | `payments.view_payment`, `payments.record_payment` o `payments.close_order` |
+| Preparar selección y registrar un pago | `payments.record_payment` |
+| Cerrar la orden liquidada | `payments.close_order` |
+
+No se asignan permisos automáticamente por rol ni se crean modelos o migraciones nuevas.
+Se validan dispositivo, sesión, área, orden activa, mesa vinculada, subcuenta y permiso
+por acción. Las escrituras bloquean jornada y orden antes de invocar los servicios financieros.
+
+### Consumo y resumen financiero
+
+**Total** es `charge_total` de `get_financial_summary()`: SENT válido, menos ajustes y
+reembolsos según el registro financiero existente. **Pagado** muestra el confirmado neto;
+**Pendiente** incluye el saldo reservado por pagos aún no verificados. Cuando hay reservas,
+se muestran separadamente **Pendiente de verificación** y **Saldo disponible para cobrar**.
+JavaScript no calcula esos importes.
+
+Los DRAFT no se incluyen en cargos ni pagos; aparece «Hay productos pendientes de enviar».
+Se muestran cantidad original, nombre, modificadores, nota, precio unitario, subtotal y
+cobertura por unidades. Una línea parcialmente pagada permanece unida; las saldadas se
+conservan en **Pagados**, colapsada inicialmente. Descuentos, cortesías y reembolsos
+creados mediante las herramientas autorizadas se reflejan en importes e historial,
+sin ofrecer acciones para aplicarlos desde la tablet.
+
+### Dividir por cantidades y cobrar saldo
+
+En SINGLE, **Dividir cuenta** permite seleccionar cantidades sin cambiar `billing_mode`.
+`get_line_payment_quantities()` consulta PaymentAllocation y el registro por unidad:
+las unidades con pagos confirmados o reservas no se ofrecen como totalmente impagadas.
+Una unidad con abono se completa mediante pago por monto o saldo total. Los ajustes
+reducen su importe elegible y los reembolsos siguen la semántica financiera existente.
+
+El servidor cotiza selección y subtotal por línea mediante `get_payment_quote()`, que
+comparte `_select`/`_distribute` con los servicios de registro. No hay subtotales Q0 grandes
+en productos no seleccionados; **Continuar al pago** requiere selección válida y positiva.
+**Cobrar** sin división prepara el saldo disponible completo y usa `pay_full_balance()`.
+Las selecciones se conservan al volver mientras sigan disponibles; una actualización
+elimina o limita cantidades que otro usuario ya pagó.
+
+### Métodos y efectivo del mesero
+
+- **Efectivo:** monto preparado por servidor, recibido manual o botones rápidos y cambio
+  visual calculado en centavos. El backend vuelve a validar recibido y monto. Se registra
+  CASH/CONFIRMED, `cash_handoff_status=PENDING`, mediante los servicios existentes.
+  Se crea la entrega pendiente del mesero y no se asocia el pago a una CashSession.
+- **Tarjeta:** muestra «Realiza el cobro en la terminal bancaria». El botón confirma un
+  cobro ya aprobado en esa terminal y registra CARD/CONFIRMED. No se solicita voucher,
+  banco, autorización ni datos de la tarjeta.
+- **Transferencia y depósito:** exigen referencia y crean PENDING. Se informa que Gerencia
+  debe verificar el pago; el monto queda reservado y no puede cobrarse otra vez. La mesa
+  muestra Pago pendiente. Si el servicio de Gerencia rechaza después la operación,
+  **Actualizar cuenta** muestra Rechazado y el importe vuelve a estar disponible.
+
+### Pago mixto
+
+**Pago mixto** registra un método y monto por vez, con los mismos Payment y allocations.
+Por ejemplo, Q200 en efectivo sobre Q500 deja Q300 para tarjeta; una transferencia por esos
+Q300 deja Q200 confirmados, Q300 por verificar y Q0 disponibles. No existe MixedPayment.
+Después de cada registro se actualizan resumen e historial. El cierre queda bloqueado
+mientras exista cualquier reserva.
+
+También se puede iniciar mixto desde una selección de productos. El alcance conserva las
+unidades seleccionadas, incluidas las que reciben abonos, sin tomar saldo de otras personas
+ni productos. `create_amount_payment(..., unit_keys=...)` añade ese filtro opcional;
+las llamadas históricas sin filtro mantienen su comportamiento.
+
+### Confirmaciones y concurrencia
+
+Preparar el pago no registra ni reserva dinero. La confirmación lleva una firma del servidor
+vinculada a orden, subcuenta, sesión operativa, alcance e importes cotizados, con vigencia de
+10 minutos (el auto-lock de 120 segundos sigue aplicando por separado). Al confirmar se
+compara nuevamente el registro financiero bajo el bloqueo de la orden.
+
+Si otra tablet pagó, se aplicó un ajuste, se cambió una reserva o se reintenta la misma
+confirmación ya consumida, se rechaza con un mensaje humano y se devuelve la cuenta actual.
+No se confía en precio, saldo, estado, caja o usuario enviados por el navegador. Las acciones
+son POST + CSRF: `seleccion`, `preparar`, `mixto`, `efectivo`, `tarjeta`, `transferencia`,
+`deposito` y `cerrar`, bajo `/operacion/orden/<id>/cuenta/`.
+
+El navegador bloquea confirmaciones durante una petición y no reintenta automáticamente.
+Si se interrumpe la conexión, solicita actualizar: el pago podría haberse registrado.
+Cambiar de usuario o auto-lock invalida la confirmación anterior y nunca registra un pago
+por sí mismo. Se consulta nuevamente el backend al entrar.
+
+### SPLIT y cierres
+
+SPLIT reutiliza la barra horizontal de cuentas. Se cobra únicamente la persona seleccionada;
+las cuentas cerradas siguen consultables como **Pagada**, con Agregar productos deshabilitado.
+El backend cierra una subcuenta cuando su saldo y reservas son cero y no conserva DRAFT.
+Pagar a Jorge no altera el saldo de Carlos. Una nueva visita requiere una nueva subcuenta
+mediante la interfaz de pedidos existente.
+
+La orden completa permanece activa después del último pago. Cuando `can_close_order()`
+lo permite y el usuario tiene permiso, aparece **Cuenta pagada → Cerrar cuenta**.
+`close_order(order, user)` valida nuevamente, finaliza subcuentas correspondientes y libera
+los vínculos de mesa. La confirmación muestra **Cuenta cerrada · Mesa disponible** y
+**Volver a mesas**. No se cierra silenciosamente después de registrar el pago.
+
+### Diseño, archivos y validación
+
+Se mantiene negro/carbón/blanco/champagne e Inter/sans-serif. Cuenta usa aproximadamente
+70/30 en horizontal y columnas apiladas en vertical; la selección mantiene un resumen
+inferior accesible. Los formularios se muestran en la misma pantalla, sin modales anidados.
+En catálogo se retiró el estado permanente «Borradores guardados», los controles de línea
+son de 48×48 px y los productos deshabilitados conservan texto legible.
+
+Archivos principales: `apps/operations/accounting.py`, `account_views.py`,
+`templates/operations/account.html`, `static/js/operations/account.js`,
+`payment-money.mjs`, `payment-selection.mjs` y `static/css/operations/account.css`.
+Se amplió de manera compatible `apps/payments/services.py` para cotizaciones y alcance mixto.
+
+La fase añade **53 pruebas Django** (incluidas dos carreras con tablets/conexiones separadas)
+y **4 JavaScript**. Resultado acumulado: **484 Django + 6 JavaScript aprobadas**.
+Comprobación de configuración sin errores y migraciones sin cambios pendientes.
+
+```sh
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python manage.py test
+node --test apps/operations/tests/*.test.mjs
+```
+
+Se ejecutaron los recorridos SINGLE, mixto, transferencia pendiente y SPLIT en una base
+PostgreSQL desechable separada de los datos reales. Las cuatro capturas horizontales y la
+vertical, junto al detalle del recorrido, están en [Verificación de Fase 2C](docs/phase-2c/verification.md).
+Los datos temporales se eliminan al terminar. La validación en tablet Android física queda
+pendiente de la revisión operativa del local.
+
 ## Git y alcance
 
 `.env`, `.venv`, cachés, archivos temporales, medios locales y estáticos recopilados
 se excluyen de Git. `.env.example`, las dependencias y las migraciones sí se versionan.
 No subir credenciales ni archivos de entorno reales.
 
-La entrega finaliza en la Fase 2B: catálogo y pedidos visuales. Ver cuenta, cobro y división
-de pago visuales, mover productos/mesas, unir mesas, caja visual, impresoras reales,
+La entrega finaliza en la Fase 2C: Ver cuenta, selección, pagos y cierre explícito.
+Mover productos/mesas, unir mesas, caja visual, aprobación visual de Gerencia, impresoras reales,
 reservas, eventos, QR, dashboard ejecutivo, PDF finales, nodo local, hardware, websockets
-y sincronización offline permanecen fuera de alcance. Esperar revisión antes de Fase 2C.
+y sincronización offline permanecen fuera de alcance. Esperar revisión antes de continuar a Caja visual.
