@@ -1,0 +1,85 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101213">
+<title>
+{% block title %}BIG PARTY · Operación{% endblock %}
+</title>
+<link rel="stylesheet" href="{% static 'css/operations/tokens.css' %}">
+<link rel="stylesheet" href="{% static 'css/operations/base.css' %}">
+<link rel="stylesheet" href="{% static 'css/operations/components.css' %}">
+<link rel="stylesheet" href="{% static 'css/operations/operational.css' %}">
+</head>
+<body
+{% block body_attributes %}{% endblock %}
+>
+<a class="skip-link" href="#main">Ir al contenido</a>
+<svg aria-hidden="true" style="display:none">
+<defs>
+<symbol id="icon-chevron" viewBox="0 0 24 24">
+<path d="m9 5 7 7-7 7"/>
+</symbol>
+<symbol id="icon-lock" viewBox="0 0 24 24">
+<rect x="5" y="10" width="14" height="11" rx="3"/>
+<path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>
+</symbol>
+<symbol id="icon-area" viewBox="0 0 24 24">
+<path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/>
+</symbol>
+<symbol id="icon-table" viewBox="0 0 24 24">
+<rect x="6" y="6" width="12" height="12" rx="3"/>
+<path d="M9 3h6M9 21h6M3 9v6m18-6v6"/>
+</symbol>
+<symbol id="icon-close" viewBox="0 0 24 24">
+<path d="m6 6 12 12M6 18 18 6"/>
+</symbol>
+<symbol id="icon-search" viewBox="0 0 24 24">
+<circle cx="10" cy="10" r="6"/>
+<path d="m15 15 5 5"/>
+</symbol>
+<symbol id="icon-refresh" viewBox="0 0 24 24">
+<path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3"/>
+</symbol>
+<symbol id="icon-clock" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="9"/>
+<path d="M12 7v5l3 2"/>
+</symbol>
+<symbol id="icon-backspace" viewBox="0 0 24 24">
+<path d="M9 5h11v14H9l-7-7 7-7Zm3 4 5 6m-5 0 5-6"/>
+</symbol>
+<symbol id="icon-enter" viewBox="0 0 24 24">
+<path d="M4 12h15m-6-6 6 6-6 6"/>
+</symbol>
+<symbol id="icon-single" viewBox="0 0 24 24">
+<rect x="5" y="3" width="14" height="18" rx="3"/>
+<path d="M9 8h6m-6 4h6m-6 4h3"/>
+</symbol>
+<symbol id="icon-split" viewBox="0 0 24 24">
+<rect x="3" y="6" width="8" height="15" rx="2"/>
+<path d="M7 3h12a2 2 0 0 1 2 2v12M6 11h2m-2 4h2m7-7h3m-3 4h3"/>
+</symbol>
+</defs>
+</svg>
+<header class="topbar">
+<div class="brand">
+<span class="brand-mark" aria-hidden="true">BP</span>
+<span class="brand-name">BIG PARTY</span>
+</div>
+
+{% block topbar %}{% if device %}<div class="topbar-area">
+<svg aria-hidden="true">
+<use href="#icon-area"/>
+</svg>{{ device.area.name }}</div>{% endif %}{% endblock %}
+</header>
+
+{% block content %}{% endblock %}
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden>
+</div>
+
+{% block scripts %}{% endblock %}
+
+</body>
+</html>

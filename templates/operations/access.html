@@ -1,0 +1,92 @@
+{% extends 'operations/base.html' %}{% load static %}
+
+{% block title %}BIG PARTY · Acceso del equipo{% endblock %}
+
+
+{% block content %}<main id="main" class="access-shell">
+{% if device %}
+<div class="access-heading">
+<span class="area-label">
+<svg aria-hidden="true">
+<use href="#icon-area"/>
+</svg>{{ device.area.name }}</span>
+<h1>Selecciona tu usuario</h1>
+<p class="muted">Ingresa con tu PIN para comenzar a operar.</p>
+</div>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<div class="waiter-grid">{% for waiter in waiters %}<button class="card waiter-card" type="button" data-user-id="{{ waiter.id }}" data-user-name="{{ waiter.name }}" data-initials="{{ waiter.initials }}" aria-haspopup="dialog">
+<span class="avatar" aria-hidden="true">{{ waiter.initials }}</span>
+<span class="waiter-copy">
+<strong>{{ waiter.name }}</strong>
+<small>Mesero</small>
+</span>
+<svg aria-hidden="true">
+<use href="#icon-chevron"/>
+</svg>
+</button>{% empty %}<div class="empty-state">
+<h2>No hay meseros disponibles</h2>
+<p>Solicita a Gerencia revisar los usuarios y sus permisos de operación.</p>
+</div>{% endfor %}</div>
+<footer class="access-footer">
+<span>
+<svg aria-hidden="true">
+<use href="#icon-lock"/>
+</svg>Dispositivo compartido. Acceso personal.</span>
+<span>{{ device.name }}</span>
+</footer>
+<dialog class="dialog" id="pin-dialog" aria-labelledby="pin-title">
+<div class="dialog-body">
+<div class="dialog-heading">
+<p class="eyebrow">ACCESO DEL EQUIPO</p>
+<button type="button" class="icon-button" data-close="pin-dialog" aria-label="Cerrar acceso con PIN">
+<svg aria-hidden="true">
+<use href="#icon-close"/>
+</svg>
+</button>
+</div>
+<div class="pin-user">
+<span class="avatar" id="pin-avatar" aria-hidden="true">
+</span>
+<div>
+<h2 id="pin-title">
+</h2>
+<p>{{ device.area.name }}</p>
+</div>
+</div>
+<form method="post" action="{% url 'operations:access' %}" id="pin-form">{% csrf_token %}<input type="hidden" name="user_id" id="pin-user-id">
+<label for="pin-input" class="sr-only">PIN de 4 a 6 dígitos</label>
+<input type="password" id="pin-input" class="pin-input" name="pin" inputmode="none" autocomplete="off" maxlength="6" readonly aria-describedby="pin-help pin-error">
+<p class="form-error" id="pin-error" role="alert">
+</p>
+<div class="keypad">{% for digit in '123456789' %}<button type="button" data-digit="{{ digit }}">{{ digit }}</button>{% endfor %}<button type="button" class="keypad-delete" id="pin-delete" aria-label="Borrar último dígito">
+<svg aria-hidden="true">
+<use href="#icon-backspace"/>
+</svg>
+</button>
+<button type="button" data-digit="0">0</button>
+<button type="submit" class="keypad-enter" id="pin-enter" aria-label="Ingresar" disabled>
+<svg aria-hidden="true">
+<use href="#icon-enter"/>
+</svg>
+</button>
+</div>
+<p class="pin-note" id="pin-help">Usa tu PIN de 4 a 6 dígitos.</p>
+</form>
+</div>
+</dialog>
+{% else %}<div class="empty-state">
+<svg aria-hidden="true">
+<use href="#icon-area"/>
+</svg>
+<p class="eyebrow">PREPARAR DISPOSITIVO</p>
+<h1>Este dispositivo aún no está configurado.</h1>
+<p>Solicita a una persona autorizada asignar este navegador al área donde se utilizará.</p>{% if can_configure %}<a class="button button--primary" href="{% url 'operations:configure-device' %}">Configurar dispositivo</a>{% else %}<a class="button button--ghost" href="{% url 'operations:configure-device' %}">Configurar dispositivo</a>
+<p class="pin-note">Requiere acceso administrativo autorizado.</p>{% endif %}</div>{% endif %}
+<noscript>
+<p class="form-error">Activa JavaScript en este dispositivo para usar el teclado y el mapa de mesas.</p>
+</noscript>
+</main>{% endblock %}
+
+
+{% block scripts %}<script type="module" src="{% static 'js/operations/access.js' %}">
+</script>{% endblock %}

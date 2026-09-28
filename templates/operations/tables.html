@@ -1,0 +1,213 @@
+{% extends 'operations/base.html' %}{% load static l10n %}
+
+{% block title %}BIG PARTY · Mapa de mesas{% endblock %}
+
+
+{% block body_attributes %}data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'operations:lock' %}" data-activity-url="{% url 'operations:activity' %}" data-access-url="{% url 'operations:access' %}" data-map-url="{% url 'operations:tables' %}" data-can-open="{{ can_open|yesno:'true,false' }}"{% endblock %}
+
+
+{% block topbar %}<div class="topbar-area">
+<svg aria-hidden="true">
+<use href="#icon-area"/>
+</svg>{{ area.name }}</div>
+<form method="post" action="{% url 'operations:lock' %}" id="switch-form">{% csrf_token %}<button class="operator" type="submit" aria-label="Cambiar usuario, {{ operator_name }}">
+<span class="avatar" aria-hidden="true">{{ operator_name|slice:':1' }}</span>
+<span class="operator-copy">
+<span class="operator-name">{{ operator_name }}</span>
+<span class="operator-hint">Mesero · Cambiar usuario</span>
+</span>
+<svg aria-hidden="true">
+<use href="#icon-chevron"/>
+</svg>
+</button>
+</form>{% endblock %}
+
+
+{% block content %}<main class="page-shell" id="main">
+<div id="day-block" class="empty-state day-empty" {% if map.has_open_day %}hidden{% endif %}>
+<svg aria-hidden="true">
+<use href="#icon-clock"/>
+</svg>
+<h1>No hay una jornada abierta.</h1>
+<p>Solicita a Gerencia abrir la jornada para comenzar a operar.</p>
+<button class="button button--ghost" type="button" data-refresh>Volver a comprobar</button>
+</div>
+<div id="map-content" {% if not map.has_open_day %}hidden{% endif %}>
+<div class="map-heading">
+<div>
+<p class="eyebrow">{{ area.name }} · OPERACIÓN</p>
+<h1 tabindex="-1" id="map-title">Mapa de mesas</h1>
+<p class="muted" id="map-count">{{ map.table_count }} mesas · {{ map.available_count }} libres · {{ map.occupied_count }} ocupadas</p>
+</div>
+<div class="map-tools">
+<label class="search">
+<span class="sr-only">Buscar mesa</span>
+<svg aria-hidden="true">
+<use href="#icon-search"/>
+</svg>
+<input class="input" id="table-search" type="search" placeholder="Buscar mesa" autocomplete="off">
+</label>
+<button type="button" class="icon-button" data-refresh aria-label="Actualizar mesas">
+<svg aria-hidden="true">
+<use href="#icon-refresh"/>
+</svg>
+</button>
+</div>
+</div>
+<div class="map-legend" aria-label="Estados de mesa">
+<span class="badge" data-state="AVAILABLE">
+<i class="status-dot">
+</i>Libre</span>
+<span class="badge" data-state="OCCUPIED">
+<i class="status-dot">
+</i>Ocupada</span>
+<span class="badge" data-state="PARTIALLY_PAID">
+<i class="status-dot">
+</i>Pago parcial</span>
+<span class="badge" data-state="PAYMENT_PENDING">
+<i class="status-dot">
+</i>Pago pendiente</span>
+<span class="badge" data-state="OUT_OF_SERVICE">
+<i class="status-dot">
+</i>Fuera de servicio</span>
+</div>
+<div id="map-groups">{% for group in map.groups %}<section class="map-zone" data-zone>
+<div class="zone-heading">
+<h2>{{ group.name }}</h2>
+<span class="zone-count">{{ group.tables|length }}</span>
+</div>
+<div class="table-grid {% if group.has_layout %}table-layout{% endif %}">{% for table in group.tables %}<button type="button" class="table-tile shape-{{ table.shape }}" data-table-id="{{ table.id }}" data-state="{{ table.state }}" data-search="{{ table.name }}" aria-haspopup="dialog" aria-expanded="false" style="--x:{{ table.layout.x|unlocalize }}%;--y:{{ table.layout.y|unlocalize }}%;--w:{{ table.layout.width|unlocalize }}%;--h:{{ table.layout.height|unlocalize }}%">
+<span class="tile-top">
+<strong class="tile-name">{{ table.name }}</strong>
+<svg class="tile-icon" aria-hidden="true">
+<use href="#icon-table"/>
+</svg>
+</span>
+<span class="badge" data-state="{{ table.state }}">
+<i class="status-dot">
+</i>{{ table.state_label }}</span>
+<span class="tile-bottom">{% if table.order_id %}<span class="tile-total">{{ table.total }}</span>
+<span class="tile-time">
+<svg aria-hidden="true">
+<use href="#icon-clock"/>
+</svg>
+<span data-opened-at="{{ table.opened_at }}">{{ table.elapsed }}</span>
+</span>{% else %}<span class="tile-ready">{% if table.state == 'AVAILABLE' %}Lista para abrir{% else %}No disponible{% endif %}</span>{% endif %}</span>
+</button>{% endfor %}</div>
+</section>{% endfor %}</div>
+<div id="map-empty" class="empty-state" {% if map.table_count %}hidden{% endif %}>
+<svg aria-hidden="true">
+<use href="#icon-table"/>
+</svg>
+<h2>No hay mesas disponibles en esta área</h2>
+<p>Solicita a Gerencia revisar la configuración de mesas.</p>
+</div>
+<div id="search-empty" class="empty-state" hidden>
+<h2>No encontramos esa mesa</h2>
+<p>Prueba con otro nombre o número.</p>
+</div>
+<p class="map-footnote">
+<svg aria-hidden="true">
+<use href="#icon-table"/>
+</svg>Selecciona una mesa para ver su detalle.</p>
+</div>
+</main>
+<dialog id="table-panel" class="dialog side-panel" aria-labelledby="panel-name">
+<div class="dialog-body">
+<div class="dialog-heading">
+<p class="eyebrow">DETALLE DE MESA</p>
+<button type="button" class="icon-button" data-close="table-panel" aria-label="Cerrar detalle de mesa">
+<svg aria-hidden="true">
+<use href="#icon-close"/>
+</svg>
+</button>
+</div>
+<div>
+<span class="badge" id="panel-state">
+</span>
+<h2 class="panel-title" id="panel-name">
+</h2>
+<p class="muted" id="panel-zone">
+</p>
+</div>
+<dl class="panel-info">
+<div>
+<dt>Área</dt>
+<dd id="panel-area">
+</dd>
+</div>
+<div>
+<dt>Capacidad</dt>
+<dd id="panel-capacity">
+</dd>
+</div>
+<div id="panel-time-row">
+<dt>Abierta hace</dt>
+<dd id="panel-time">
+</dd>
+</div>
+<div id="panel-waiter-row">
+<dt>Responsable</dt>
+<dd id="panel-waiter">
+</dd>
+</div>
+</dl>
+<div class="panel-total" id="panel-total-row">
+<span>Consumo total actual</span>
+<strong id="panel-total">
+</strong>
+</div>
+<div class="panel-actions">
+<button class="button button--primary button--wide" id="open-table-button" type="button">Abrir mesa</button>
+<div id="future-actions">
+<button class="button button--wide" disabled>Agregar pedido</button>
+<button class="button button--ghost button--wide" disabled style="margin-top:12px">Ver cuenta</button>
+<p class="soon-note">Disponible próximamente</p>
+</div>
+<p class="muted" id="panel-no-permission" hidden>No tienes permiso para abrir mesas.</p>
+</div>
+</div>
+</dialog>
+<dialog id="open-dialog" class="dialog" aria-labelledby="open-title">
+<div class="dialog-body">
+<div class="dialog-heading">
+<p class="eyebrow">NUEVA CUENTA</p>
+<button type="button" class="icon-button" data-close="open-dialog" aria-label="Cancelar apertura">
+<svg aria-hidden="true">
+<use href="#icon-close"/>
+</svg>
+</button>
+</div>
+<h2 id="open-title">Abrir mesa</h2>
+<p class="dialog-subtitle">¿Cómo deseas manejar la cuenta?</p>
+<div class="billing-options">
+<button type="button" class="billing-option" data-billing="SINGLE">
+<svg aria-hidden="true">
+<use href="#icon-single"/>
+</svg>
+<span>
+<strong>Una sola cuenta</strong>
+<small>Todo el consumo en una cuenta.</small>
+</span>
+</button>
+<button type="button" class="billing-option" data-billing="SPLIT">
+<svg aria-hidden="true">
+<use href="#icon-split"/>
+</svg>
+<span>
+<strong>Cuentas separadas</strong>
+<small>Crea las subcuentas cuando las necesites.</small>
+</span>
+</button>
+</div>
+<p class="form-error" id="open-error" role="alert" hidden>
+</p>
+<button class="button button--ghost button--wide" type="button" data-close="open-dialog">Cancelar</button>
+</div>
+</dialog>
+{{ map|json_script:'table-map-data' }}
+{% endblock %}
+
+
+{% block scripts %}<script type="module" src="{% static 'js/operations/tables.js' %}">
+</script>{% endblock %}

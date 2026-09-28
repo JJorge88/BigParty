@@ -1,4 +1,4 @@
-# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D y 1E
+# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D, 1E y 2A
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
@@ -7,7 +7,8 @@ configuración física de áreas, zonas y mesas. La Fase 1B añade catálogo e i
 La Fase 1C incorpora cuentas de mesa, subcuentas, consumo enviado y comandas lógicas.
 La Fase 1D añade pagos, descuentos, reembolsos y cierre de cuentas.
 La Fase 1E incorpora caja física, entregas de efectivo, conteo ciego y jornadas.
-No incluye interfaz final ni impresión física.
+La Fase 2A inicia la interfaz operativa del mesero: dispositivo, PIN, mapa y apertura de mesas.
+El catálogo, pedidos, cuenta y cobro visuales quedan para las siguientes fases; no incluye impresión física.
 
 ## Requisitos
 
@@ -1208,7 +1209,7 @@ python manage.py test
 python -m pip check
 ```
 
-Las 335 pruebas cubren carga de la página y del administrador, formularios de usuarios,
+Las 382 pruebas cubren carga de la página y del administrador, formularios de usuarios,
 roles, permisos individuales, PIN con hash y sal, confirmación y conservación del PIN,
 creación de auditoría y protección frente a cambios y borrado, CSRF y archivos estáticos.
 También cubren áreas, zonas, mesas, validaciones Python y constraints PostgreSQL,
@@ -1234,12 +1235,154 @@ Las 264 pruebas anteriores se conservan, con fixtures de jornada abierta y conte
 de sesión explícito para los reembolsos de efectivo y cobros directos que lo requieren.
 Se ejecutan sobre una base PostgreSQL temporal separada; Django la elimina al finalizar.
 
+La Fase 2A añade 47 pruebas: dispositivo y cookie firmada, permiso de configuración,
+selección de meseros, PIN, bloqueo persistente por dispositivo/usuario, expiración,
+sesión separada, cambio de usuario, invalidación de credenciales/permisos, CSRF,
+área asignada, jornada, estados derivados, consumo, tiempo, zonas, posiciones,
+SINGLE/SPLIT y atribución del usuario. Las pruebas concurrentes usan conexiones
+independientes para abrir la misma mesa desde dos dispositivos y para cinco PIN
+fallidos simultáneos. Se conservan las 335 pruebas anteriores.
+
+## Fase 2A — Acceso operativo del mesero
+
+### Dispositivo y configuración inicial
+
+`OperationalDevice` representa una tablet: nombre, código único, tipo
+`WAITER_TABLET`, área obligatoria y estado activo. Se gestiona en Django Admin.
+El permiso `operations.configure_operational_device` no se asigna automáticamente
+por rol; crear/editar registros en Admin también exige los permisos nativos del modelo.
+
+1. Aplicar las migraciones y arrancar el servidor local.
+2. Crear un dispositivo en `/admin/operations/operationaldevice/` y asignarle su área real.
+3. Abrir `/dispositivo/configurar/` en el navegador de esa tablet, con un usuario
+   administrativo activo, `is_staff=True` y permiso explícito de configuración.
+4. Seleccionar el dispositivo y guardar. El navegador pasa al selector de meseros.
+
+La cookie `bigparty_device` contiene un identificador firmado, una versión de
+vinculación y un nonce aleatorio propio del navegador. Dura un año, es `HttpOnly`,
+`SameSite=Lax` y usa `Secure` con la configuración de producción. Cada petición
+comprueba la firma, vigencia y actividad del dispositivo y del área. No se confía en
+localStorage. Cambiar área, código, tipo o actividad mediante `save()`/Admin rota
+la versión, revoca accesos existentes y exige configurar otra vez los navegadores;
+no usar actualizaciones masivas directas para administrar dispositivos.
+
+### PIN, permisos y sesión independiente
+
+El selector muestra usuarios activos con `role=MESERO` y permiso
+`tables.view_venuetable`. Abrir una mesa exige además `orders.open_table_order`.
+El rol por sí solo no concede acciones. Configurar el PIN en el formulario de usuarios
+existente, con **4 a 6 dígitos** para esta interfaz. Se reutilizan `set_pin()` y
+`check_pin()`: no hay un segundo algoritmo de hash. El soporte histórico de 4–12
+dígitos del modelo se conserva; un PIN anterior de más de 6 debe reemplazarse para
+usar esta pantalla. El valor y su hash no se incluyen en HTML, JSON ni auditoría.
+
+`PinAttempt` conserva los fallos por dispositivo y usuario. El quinto fallo bloquea
+esa combinación durante cinco minutos; refrescar o cambiar de navegador no elimina
+el bloqueo. Otro usuario o dispositivo puede operar. Al expirar se reinicia el
+contador; un acceso correcto también lo reinicia. Las escrituras se serializan por
+dispositivo para evitar perder intentos concurrentes.
+
+`OperationalSession` identifica usuario, dispositivo, navegador y área en el backend.
+El token aleatorio viaja en cookie `HttpOnly`; solo su hash queda en base de datos.
+Un hash de autenticación permite invalidar sesiones si cambia el PIN o la contraseña.
+Los permisos, actividad del usuario y área se validan nuevamente en cada petición.
+El navegador tiene una sola sesión operativa vigente para esa vinculación.
+
+Se conserva separada de la sesión administrativa: **Cambiar usuario** revoca el acceso
+operativo, conserva el dispositivo, vuelve al selector y no modifica cuentas abiertas.
+No hace `login()`/`logout()` de Django para sustituir al administrador por el mesero.
+
+### Inactividad y jornada
+
+Los valores están centralizados en `config/settings/base.py`:
+
+| Parámetro | Valor inicial |
+| --- | --- |
+| `OPERATIONAL_IDLE_TIMEOUT_SECONDS` | 120 segundos |
+| `OPERATIONAL_PIN_MAX_ATTEMPTS` | 5 intentos |
+| `OPERATIONAL_PIN_LOCK_SECONDS` | 300 segundos |
+| `OPERATIONAL_DEVICE_COOKIE_AGE` | 365 días |
+
+El servidor rechaza sesiones vencidas. La interfaz se bloquea también al cumplirse
+la inactividad, al regresar a una pestaña vencida y al restaurar páginas del historial.
+Solo la interacción del usuario produce una señal de actividad, como máximo cada
+30 segundos; no existe polling continuo que mantenga vivo un acceso abandonado.
+Si no hay `BusinessDay OPEN`, muestra “No hay una jornada abierta.” y bloquea la
+apertura. El mesero no puede abrir una jornada desde esta interfaz.
+
+### Mapa y apertura
+
+La consulta operativa devuelve únicamente mesas activas del área de la tablet.
+Agrupa por zonas existentes, con “Área general” para las mesas sin zona. Usa el
+layout configurado cuando es utilizable; coordenadas iniciales/superpuestas o
+controles demasiado pequeños en la pantalla actual utilizan una cuadrícula ordenada.
+En pantallas estrechas el plano se adapta a cuadrícula.
+
+Libre, ocupada, fuera de servicio, pago parcial y pago pendiente son estados
+derivados. El consumo actual usa `get_order_grand_total()` (borradores y líneas
+enviadas no anuladas); no representa el saldo después de pagos/descuentos. Las mesas
+unidas muestran el consumo de la cuenta compartida. El tiempo parte de `opened_at`
+y se actualiza visualmente sin consultas periódicas al servidor. El botón Actualizar
+trae cambios de otras tablets. Buscar admite nombre, número y ceros iniciales.
+
+Tocar una mesa abre un panel con su capacidad, área y estado; las ocupadas muestran
+responsable, consumo y tiempo. Abrir solicita SINGLE o SPLIT y llama al servicio
+existente `open_table_order()`, con el usuario validado como responsable y autor,
+jornada actual y vínculo de mesa. SPLIT no crea subcuentas automáticas. La apertura
+respeta los bloqueos de jornada/mesa existentes y actualiza el mapa; un conflicto
+muestra “La mesa acaba de ser ocupada por otro usuario.”
+
+No hay selección libre de área ni confianza en identidades enviadas por el cliente.
+Las mutaciones usan POST y CSRF; respuestas operativas no se almacenan en caché.
+Las vistas `/dev/` anteriores se conservan para diagnóstico.
+
+### Diseño y archivos
+
+Templates Django y módulos JavaScript, sin un framework adicional. Los estilos
+reutilizables viven en `static/css/operations/`: `tokens.css`, `base.css`,
+`components.css`, `operational.css`. La paleta es oscura neutral con dorado champagne;
+se definen variables de color, espaciado, tipografía, radios, sombras y controles.
+La familia es `Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`:
+usa Inter si está instalada y fallback local en caso contrario, sin descargar fuentes.
+Controles de al menos 48 px, teclado de 64 px, foco visible y diálogos nativos.
+
+`static/js/operations/` separa `ui.js`, `access.js`, `session.js` y `tables.js`.
+`apps/operations/` contiene modelos, autenticación, consultas, adaptador de apertura,
+vistas, Admin y pruebas. `templates/operations/` contiene acceso, configuración,
+mapa y base compartida. La única migración nueva es `operations.0001_initial`;
+no se modificaron migraciones históricas.
+
+### Probar localmente
+
+```sh
+source .venv/bin/activate
+python manage.py migrate
+python manage.py check
+python manage.py makemigrations --check
+python manage.py test
+python manage.py runserver 127.0.0.1:8000
+```
+
+Con usuarios, permisos, PIN, mesas y jornada reales preparados desde las herramientas
+existentes, configurar la tablet y visitar <http://127.0.0.1:8000/operacion/>.
+Seleccionar mesero → ingresar PIN → buscar una mesa → abrir panel → Abrir mesa →
+Una sola cuenta → comprobar Ocupada → Cambiar usuario → ingresar con otro PIN.
+Esperar dos minutos sin tocar la pantalla para verificar el bloqueo. Probar SPLIT
+y comprobar en Admin que no aparecen subcuentas inventadas.
+
+El recorrido de esta entrega se verificó en navegador a **1280×800 y 800×1280**,
+con base PostgreSQL temporal separada de la base real, incluyendo aperturas SINGLE
+y SPLIT. Las capturas de `docs/phase-2a/` contienen exclusivamente datos de prueba.
+La base temporal se elimina al terminar; no se incluyen cuentas o credenciales
+de demostración en la base del proyecto. Esto valida tamaños de tablet en navegador;
+la verificación en hardware Android físico queda para la prueba operativa del local.
+
 ## Git y alcance
 
 `.env`, `.venv`, cachés, archivos temporales, medios locales y estáticos recopilados
 se excluyen de Git. `.env.example`, las dependencias y las migraciones sí se versionan.
 No subir credenciales ni archivos de entorno reales.
 
-La entrega finaliza en la Fase 1E: caja y cierre de jornada. Interfaces finales,
+La entrega finaliza en la Fase 2A: acceso, mapa y apertura. Catálogo/pedidos/cobro visuales,
 impresoras reales, reservas, eventos, QR, dashboard ejecutivo, PDF finales, nodo local,
 hardware, websockets y sincronización offline permanecen fuera de alcance.

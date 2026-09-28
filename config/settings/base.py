@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "apps.orders.apps.OrdersConfig",
     "apps.payments.apps.PaymentsConfig",
     "apps.cash.apps.CashConfig",
+    "apps.operations.apps.OperationsConfig",
 ]
 
 MIDDLEWARE = [
@@ -109,3 +110,9 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Acceso de tablets: valores centrales compartidos por backend e interfaz.
+OPERATIONAL_IDLE_TIMEOUT_SECONDS = 120
+OPERATIONAL_PIN_MAX_ATTEMPTS = 5
+OPERATIONAL_PIN_LOCK_SECONDS = 300
+OPERATIONAL_DEVICE_COOKIE_AGE = 60 * 60 * 24 * 365

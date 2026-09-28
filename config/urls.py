@@ -10,6 +10,7 @@ admin.site.index_title = "Administración"
 urlpatterns = [
     path("", include("apps.core.urls")),
     path("admin/", admin.site.urls),
+    path("", include("apps.operations.urls")),
 ]
 
 if settings.DEBUG:

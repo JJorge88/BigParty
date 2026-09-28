@@ -1,0 +1,13 @@
+{% extends 'operations/base.html' %}
+
+{% block title %}BIG PARTY · Configurar dispositivo{% endblock %}
+
+
+{% block content %}<main id="main" class="configuration card">
+<p class="eyebrow">CONFIGURACIÓN AUTORIZADA</p>
+<h1>Configurar este dispositivo</h1>
+<p>El área asignada se conservará en este navegador. Los meseros no tendrán que seleccionarla al ingresar.</p>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="button button--primary button--wide" type="submit">Guardar dispositivo</button>
+</form>
+<p class="pin-note">Si el dispositivo no aparece, créalo primero en la administración de dispositivos operativos.</p>
+</main>{% endblock %}
