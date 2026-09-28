@@ -1,0 +1,46 @@
+import re
+
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.db import models
+
+
+def validate_pin(pin):
+    # Texto para conservar ceros iniciales y evitar conversiones ambiguas.
+    if not isinstance(pin, str) or re.fullmatch(r"[0-9]{4,12}", pin) is None:
+        raise ValidationError("El PIN debe contener entre 4 y 12 dígitos.")
+
+
+class User(AbstractUser):
+    class Role(models.TextChoices):
+        MESERO = "MESERO", "Mesero"
+        CAJERO = "CAJERO", "Cajero"
+        GERENTE = "GERENTE", "Gerente"
+        PROPIETARIO = "PROPIETARIO", "Propietario"
+        GUARDIA = "GUARDIA", "Guardia"
+
+    role = models.CharField("rol base", max_length=20, choices=Role.choices, default=Role.MESERO)
+    pin_hash = models.CharField("hash del PIN", max_length=128, blank=True, editable=False)
+
+    class Meta(AbstractUser.Meta):
+        verbose_name = "usuario"
+        verbose_name_plural = "usuarios"
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(role__in=["MESERO", "CAJERO", "GERENTE", "PROPIETARIO", "GUARDIA"]),
+                name="accounts_user_valid_role",
+            ),
+        ]
+
+    def set_pin(self, raw_pin):
+        """Establece un hash con sal; None deshabilita el PIN. Guardar aparte."""
+        if raw_pin is not None:
+            validate_pin(raw_pin)
+        self.pin_hash = make_password(raw_pin)
+
+    def check_pin(self, raw_pin):
+        """Solo comprueba el PIN; no inicia una sesión ni autentica al usuario."""
+        if not self.pin_hash or not isinstance(raw_pin, str):
+            return False
+        return check_password(raw_pin, self.pin_hash)

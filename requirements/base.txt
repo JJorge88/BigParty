@@ -1,0 +1,8 @@
+# Dependencias directas de la Fase 0. Django permanece en la rama 5.2 LTS.
+Django==5.2.17
+psycopg[binary]==3.3.6
+python-dotenv==1.2.3
+
+# Dependencias transitivas fijadas para instalaciones reproducibles.
+asgiref==3.12.1
+sqlparse==0.6.0

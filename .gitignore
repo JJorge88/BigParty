@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Configuración y archivos locales
+.env
+.env.*
+!.env.example
+media/*
+!media/.gitkeep
+staticfiles/
+*.log
+*.tmp
+*.swp
+*~
+
+# macOS y editores
+.DS_Store
+._*
+.idea/
+.vscode/
