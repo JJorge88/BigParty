@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Configuración de mesas · BIG PARTY{% endblock %}
+{% block content %}
+  <h1>Configuración física de BIG PARTY</h1>
+  <p>Comprobación de desarrollo. Incluye registros desactivados.</p>
+  {% for map in area_maps %}
+    <section>
+      <h2>{{ map.area.name }}{% if not map.area.is_active %} (desactivada){% endif %}</h2>
+      <p>Zonas:
+        {% for zone in map.zones %}
+          {{ zone.name }}{% if not zone.is_active %} (desactivada){% endif %}{% if not forloop.last %}, {% endif %}
+        {% empty %}Sin zonas configuradas.{% endfor %}
+      </p>
+      <table>
+        <caption>Mesas de {{ map.area.name }}</caption>
+        <thead>
+          <tr>
+            <th scope="col">Área</th><th scope="col">Zona</th><th scope="col">Mesa</th>
+            <th scope="col">Capacidad</th><th scope="col">Estado operativo</th>
+            <th scope="col">Reservable web</th><th scope="col">Activa administrativamente</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for table in map.tables %}
+            <tr>
+              <td>{{ map.area.name }}</td><td>{{ table.zone_name }}</td><td>{{ table.name }}</td>
+              <td>{{ table.capacity }}</td><td>{{ table.operational_status_label }}</td>
+              <td>{{ table.reservable_web|yesno:"Sí,No" }}</td><td>{{ table.is_active|yesno:"Sí,No" }}</td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="7">Sin mesas configuradas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% empty %}
+    <p>Sin áreas configuradas.</p>
+  {% endfor %}
+  <p><a href="{% url 'admin:index' %}">Volver a la administración</a></p>
+{% endblock %}

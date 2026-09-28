@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     "apps.accounts.apps.AccountsConfig",
     "apps.core.apps.CoreConfig",
     "apps.audit.apps.AuditConfig",
+    "apps.venues.apps.VenuesConfig",
+    "apps.tables.apps.TablesConfig",
 ]
 
 MIDDLEWARE = [
