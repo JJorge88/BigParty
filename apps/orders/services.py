@@ -172,6 +172,18 @@ def _component_specs(product):
     return [(product.pk, 1, product.name, product.preparation_route)]
 
 
+def get_order_product_quote(product, area, quantity=1, *, modifier_option_ids=None):
+    """Precio validado compartido por la vista previa y la escritura del borrador."""
+    _quantity(quantity)
+    if not is_product_available(product):
+        raise ValidationError("Producto agotado o no disponible.")
+    options = _selected_modifiers(product, modifier_option_ids)
+    base_price = get_product_price(product, area)
+    unit_price = base_price + sum((option.price_delta for option in options), Decimal("0.00"))
+    return {"base_price": base_price, "unit_price": unit_price,
+            "total": unit_price * quantity, "options": options}
+
+
 @transaction.atomic
 def add_product_to_order(order, product, quantity, user, *, subaccount=None, modifier_option_ids=None, notes=""):
     _require(user, "add_order_line")
@@ -181,9 +193,8 @@ def add_product_to_order(order, product, quantity, user, *, subaccount=None, mod
     product = catalog_products().get(pk=product.pk)
     if not is_product_available(product):
         raise ValidationError("El producto no está disponible para venta.")
-    options = _selected_modifiers(product, modifier_option_ids)
-    base_price = get_product_price(product, current.area)
-    price = base_price + sum((option.price_delta for option in options), Decimal("0.00"))
+    quote = get_order_product_quote(product, current.area, quantity, modifier_option_ids=modifier_option_ids)
+    options, base_price, price = quote["options"], quote["base_price"], quote["unit_price"]
     notes = _text(notes)
     specs = sorted(_component_specs(product))
     modifier_specs = [(option.pk, option.name, option.price_delta) for option in options]
@@ -305,10 +316,14 @@ def _locked_products(lines):
 
 
 @transaction.atomic
-def send_order(order, user):
+def send_order(order, user, *, subaccount=None):
     _require(user, "send_order")
     current = _locked_order(order)
-    lines = list(current.lines.filter(status="DRAFT").prefetch_related("components", "modifiers"))
+    drafts = current.lines.filter(status="DRAFT")
+    if subaccount is not None:
+        account = _subaccount(current, subaccount)
+        drafts = drafts.filter(subaccount=account)
+    lines = list(drafts.prefetch_related("components", "modifiers"))
     if not lines:
         return None
     products = _locked_products(lines)

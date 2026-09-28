@@ -2,14 +2,14 @@
   color-scheme:dark;
   --font:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --bg:#101213;
-  --surface:#191c1d;
-  --surface-raised:#202425;
+  --surface:#202425;
+  --surface-raised:#282d2e;
   --surface-hover:#252a2b;
   --border:#353a3b;
   --border-subtle:#292e2f;
   --text:#f2f1ed;
-  --muted:#a4adaa;
-  --quiet:#7f8a86;
+  --muted:#bbc4c0;
+  --quiet:#a0aaa5;
   --gold:#d4bb89;
   --gold-dark:#24231e;
   --on-gold:#171813;

@@ -19,7 +19,7 @@ export async function request(url, {method = 'GET', data} = {}) {
 }
 
 let toastTimer;
-export function toast(message, error = false) {
+export function toast(message, error = false, duration = 3000) {
   const element = document.getElementById('toast');
   clearTimeout(toastTimer);
   // Un dialog ocupa la capa superior del navegador; el aviso debe vivir dentro
@@ -29,7 +29,7 @@ export function toast(message, error = false) {
   element.textContent = message;
   element.classList.toggle('toast--error', error);
   element.hidden = false;
-  toastTimer = setTimeout(() => { element.hidden = true; }, 5000);
+  toastTimer = setTimeout(() => { element.hidden = true; }, duration);
 }
 
 export function setupDialogs() {

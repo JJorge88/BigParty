@@ -19,6 +19,7 @@ from . import security
 from .forms import DeviceConfigurationForm
 from .queries import get_operational_map
 from .services import open_operational_table
+from .ordering import can_order
 
 
 def _json(request):
@@ -118,6 +119,7 @@ def tables(request):
     return render(request, "operations/tables.html", {**context, "map": data,
         "operator_name": context["user"].get_full_name().strip() or context["user"].username,
         "can_open": context["user"].has_perm("orders.open_table_order"),
+        "can_order": can_order(context["user"]),
         "idle_timeout": settings.OPERATIONAL_IDLE_TIMEOUT_SECONDS})
 
 

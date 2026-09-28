@@ -1,0 +1,7 @@
+{% extends 'operations/base.html' %}
+{% block content %}
+<main id="main" class="page-shell"><div class="empty-state">
+  <h1>No podemos abrir este pedido</h1><p>{{ message }}</p>
+  <a href="{% url 'operations:tables' %}" class="button button--primary">Volver a mesas</a>
+</div></main>
+{% endblock %}

@@ -1,0 +1,71 @@
+{% extends 'operations/base.html' %}{% load static %}
+{% block title %}{{ order.primary_table.name }} · Pedido · BIG PARTY{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/ordering.css' %}">{% endblock %}
+{% block body_attributes %}class="ordering-page" data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'operations:lock' %}" data-activity-url="{% url 'operations:activity' %}" data-access-url="{% url 'operations:access' %}" data-order-url="{% url 'operations:order' order.pk %}"{% endblock %}
+{% block topbar %}
+<div class="topbar-area"><svg aria-hidden="true"><use href="#icon-area"/></svg>{{ area.name }}</div>
+<form method="post" action="{% url 'operations:lock' %}">{% csrf_token %}
+  <button class="operator" type="submit" aria-label="Cambiar usuario, {{ operator_name }}">
+    <span class="avatar" aria-hidden="true">{{ operator_name|slice:':1' }}</span>
+    <span class="operator-copy"><span class="operator-name">{{ operator_name }}</span><span class="operator-hint">Mesero · Cambiar usuario</span></span>
+    <svg aria-hidden="true"><use href="#icon-chevron"/></svg>
+  </button>
+</form>
+{% endblock %}
+{% block content %}
+<main id="main" class="ordering-shell">
+  <div class="order-heading">
+    <div class="order-title"><a href="{% url 'operations:tables' %}" class="back-tables">← Mesas</a><h1>{{ order.primary_table.name }}</h1><span class="area-label">{{ area.name }}</span></div>
+    <div class="order-heading-tools"><span class="draft-saved"><i class="status-dot"></i> Borradores guardados</span><button class="icon-button" id="refresh-order" aria-label="Actualizar pedido"><svg aria-hidden="true"><use href="#icon-refresh"/></svg></button></div>
+  </div>
+  <div id="order-error" class="order-error" role="alert" hidden></div>
+  <section id="split-section" class="split-section" aria-label="Cuentas separadas" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}>
+    <div id="account-tabs" class="account-tabs"></div>
+    <button type="button" class="button button--ghost" id="new-account">+ Nueva cuenta</button>
+  </section>
+  <div class="order-layout">
+    <section class="catalog-section" aria-labelledby="catalog-title">
+      <div class="catalog-heading"><div><p class="eyebrow">AGREGAR PEDIDO</p><h2 id="catalog-title">Catálogo</h2></div>
+        <label class="search product-search"><span class="sr-only">Buscar producto</span><svg aria-hidden="true"><use href="#icon-search"/></svg><input class="input" id="product-search" type="search" placeholder="Buscar producto" autocomplete="off"></label>
+      </div>
+      <div id="category-tabs" class="category-tabs" role="group" aria-label="Categorías de productos"></div>
+      <div id="account-needed" class="account-needed" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}><svg aria-hidden="true"><use href="#icon-split"/></svg><p>Crea una cuenta o selecciona una para comenzar el pedido.</p></div>
+      <div id="product-grid" class="product-grid"></div>
+      <div id="catalog-empty" class="empty-state" hidden><h3>No encontramos productos</h3><p>Prueba otro nombre o categoría.</p></div>
+      <p class="catalog-footnote">Los productos se envían a preparación al tocar «Enviar pedido».</p>
+    </section>
+    <aside class="current-order" id="current-order" aria-labelledby="current-title">
+      <button type="button" class="cart-toggle" id="cart-toggle" aria-expanded="false" aria-controls="cart-content"><span>Pedido actual <span id="mobile-count" class="quantity-badge">0</span></span><strong id="mobile-total">Q0.00</strong><span id="cart-toggle-label">Ver pedido ↑</span></button>
+      <div class="cart-content" id="cart-content">
+        <div class="cart-heading"><div><p class="eyebrow" id="cart-context">Una sola cuenta</p><h2 id="current-title">Pedido actual</h2></div><span class="quantity-badge" id="draft-count">0</span></div>
+        <div id="draft-lines" class="draft-lines"></div>
+        <div class="cart-empty" id="draft-empty"><svg aria-hidden="true"><use href="#icon-single"/></svg><h3>Tu pedido empieza aquí</h3><p>Selecciona productos del catálogo para agregarlos.</p></div>
+        <div class="cart-footer"><div class="cart-total"><span>Total pendiente</span><strong id="draft-total">Q0.00</strong></div><button type="button" class="button button--primary button--wide" id="send-order" disabled>Enviar pedido <svg aria-hidden="true"><use href="#icon-enter"/></svg></button><p>Solo los productos pendientes de esta cuenta.</p></div>
+      </div>
+    </aside>
+  </div>
+  <noscript><p class="form-error">Activa JavaScript para usar el catálogo y el pedido actual.</p></noscript>
+</main>
+<dialog id="product-dialog" class="dialog product-dialog" aria-labelledby="product-title">
+  <form id="product-form" class="dialog-body">
+    <div class="dialog-heading"><p class="eyebrow">PERSONALIZAR PRODUCTO</p><button type="button" class="icon-button" data-close="product-dialog" aria-label="Cerrar producto"><svg aria-hidden="true"><use href="#icon-close"/></svg></button></div>
+    <h2 id="product-title"></h2><p class="product-base-price" id="product-base-price"></p>
+    <div id="modifier-groups" class="modifier-groups"></div>
+    <label class="field-label" for="product-note">Nota especial <span class="muted">· Opcional</span></label><textarea id="product-note" class="input" rows="2" placeholder="Sin salsa, bien cocida, sin hielo…"></textarea>
+    <div class="product-quantity-row"><span>Cantidad</span><div class="quantity-controls"><button type="button" class="icon-button" id="quantity-minus" aria-label="Reducir cantidad">−</button><output id="product-quantity">1</output><button type="button" class="icon-button" id="quantity-plus" aria-label="Aumentar cantidad">+</button></div></div>
+    <p id="product-error" class="form-error" role="alert" hidden></p>
+    <div class="product-modal-footer"><div class="cart-total"><span>Total del producto</span><strong id="product-quote">—</strong></div><button class="button button--primary button--wide" id="add-configured" type="submit" disabled>Agregar al pedido</button><button type="button" class="button button--ghost button--wide" data-close="product-dialog">Cancelar</button></div>
+  </form>
+</dialog>
+<dialog id="account-dialog" class="dialog" aria-labelledby="account-title"><form id="account-form" class="dialog-body">
+  <div class="dialog-heading"><p class="eyebrow">CUENTAS SEPARADAS</p><button class="icon-button" type="button" data-close="account-dialog" aria-label="Cerrar nueva cuenta"><svg aria-hidden="true"><use href="#icon-close"/></svg></button></div>
+  <h2 id="account-title">Nueva cuenta</h2><label class="field-label account-name-label" for="account-name">Nombre</label><input class="input" id="account-name" name="name" required maxlength="100" placeholder="Jorge, Carlos, Familia López" autocomplete="off">
+  <p id="account-error" class="form-error" role="alert" hidden></p><div class="form-actions"><button class="button button--primary button--wide" type="submit">Crear cuenta</button><button class="button button--ghost button--wide" type="button" data-close="account-dialog">Cancelar</button></div>
+</form></dialog>
+<dialog id="note-dialog" class="dialog" aria-labelledby="note-title"><form id="note-form" class="dialog-body">
+  <div class="dialog-heading"><h2 id="note-title">Nota especial</h2><button class="icon-button" type="button" data-close="note-dialog" aria-label="Cerrar nota"><svg aria-hidden="true"><use href="#icon-close"/></svg></button></div>
+  <p id="note-product" class="dialog-subtitle"></p><label class="field-label" for="draft-note">Nota del producto</label><textarea class="input" id="draft-note" rows="3"></textarea><div class="form-actions"><button class="button button--primary button--wide" type="submit">Guardar nota</button><button class="button button--ghost button--wide" type="button" data-close="note-dialog">Cancelar</button></div>
+</form></dialog>
+{{ state|json_script:'order-state' }}
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/ordering.js' %}"></script>{% endblock %}

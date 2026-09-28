@@ -1,4 +1,4 @@
-# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D, 1E y 2A
+# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D, 1E, 2A y 2B
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
@@ -8,7 +8,8 @@ La Fase 1C incorpora cuentas de mesa, subcuentas, consumo enviado y comandas ló
 La Fase 1D añade pagos, descuentos, reembolsos y cierre de cuentas.
 La Fase 1E incorpora caja física, entregas de efectivo, conteo ciego y jornadas.
 La Fase 2A inicia la interfaz operativa del mesero: dispositivo, PIN, mapa y apertura de mesas.
-El catálogo, pedidos, cuenta y cobro visuales quedan para las siguientes fases; no incluye impresión física.
+La Fase 2B añade catálogo y pedidos visuales, modificadores, adiciones y selección de subcuentas.
+Ver cuenta y cobro visual quedan para las siguientes fases; no incluye impresión física.
 
 ## Requisitos
 
@@ -1209,7 +1210,7 @@ python manage.py test
 python -m pip check
 ```
 
-Las 382 pruebas cubren carga de la página y del administrador, formularios de usuarios,
+Las 431 pruebas Django cubren carga de la página y del administrador, formularios de usuarios,
 roles, permisos individuales, PIN con hash y sal, confirmación y conservación del PIN,
 creación de auditoría y protección frente a cambios y borrado, CSRF y archivos estáticos.
 También cubren áreas, zonas, mesas, validaciones Python y constraints PostgreSQL,
@@ -1242,6 +1243,23 @@ sesión separada, cambio de usuario, invalidación de credenciales/permisos, CSR
 SINGLE/SPLIT y atribución del usuario. Las pruebas concurrentes usan conexiones
 independientes para abrir la misma mesa desde dos dispositivos y para cinco PIN
 fallidos simultáneos. Se conservan las 335 pruebas anteriores.
+
+La Fase 2B añade 49 pruebas Django: catálogo real, filtros combinados, agotados y combos,
+precios por área, acceso a órdenes, permisos por acción, sesión, CSRF, POST, selección y
+cotización de modificadores, notas, agrupación, edición DRAFT, aislamiento de subcuentas,
+envíos atómicos, inventario, destinos reales, adiciones y conservación al cambiar usuario.
+Incluye el cierre de subcuentas provocado por el servicio financiero existente al retirar
+el último borrador. Las 382 pruebas anteriores siguen pasando.
+
+Dos pruebas adicionales ejecutan directamente el filtro JavaScript sin navegador ni
+dependencias npm. Node.js solo es necesario para esta comprobación de desarrollo:
+
+```sh
+node --test apps/operations/tests/catalog-filter.test.mjs
+```
+
+Resultado de Fase 2B: **431 pruebas Django + 2 JavaScript aprobadas**, configuración
+sin errores y `makemigrations --check --dry-run` sin cambios pendientes.
 
 ## Fase 2A — Acceso operativo del mesero
 
@@ -1377,12 +1395,117 @@ La base temporal se elimina al terminar; no se incluyen cuentas o credenciales
 de demostración en la base del proyecto. Esto valida tamaños de tablet en navegador;
 la verificación en hardware Android físico queda para la prueba operativa del local.
 
+## Fase 2B — Catálogo y pedidos visuales
+
+### Acceso y flujo
+
+Desde una mesa ocupada, **Agregar pedido** abre
+`/operacion/orden/<id>/pedido/`, dentro del namespace `operations`.
+El usuario necesita los permisos explícitos correspondientes; el rol MESERO no los
+concede automáticamente:
+
+| Acción | Permiso |
+| --- | --- |
+| Agregar, cotizar, aumentar, reducir, eliminar y cambiar nota DRAFT | `orders.add_order_line` |
+| Enviar pedido | `orders.send_order` |
+| Crear subcuenta | `orders.manage_subaccounts` |
+
+La página requiere al menos uno de esos permisos. Cada petición comprueba nuevamente
+sesión operativa, dispositivo, área, orden activa y vínculo con una mesa activa del área.
+Las escrituras conservan los bloqueos de jornada, orden y mesa antes de llamar a los
+servicios existentes. Todas las mutaciones usan POST y CSRF. El autor se toma de la
+sesión operativa; el cliente no puede elegir usuario, área o precio.
+
+El mapa mantiene su estructura de Fase 2A, con mayor contraste, cabecera más legible,
+búsqueda de mesa de 320 px y fondo del panel lateral oscurecido solo un 15%.
+
+### Catálogo, categorías y búsqueda
+
+`catalog_products()` proporciona productos y relaciones reales. La interfaz filtra
+productos activos, visibles en POS y pertenecientes a categorías activas. Conserva
+los agotados visibles y deshabilitados, consultando `is_product_available()`; los
+combos dependen de sus componentes. Los productos sin control de inventario se
+mantienen disponibles. El precio efectivo procede de `get_product_price(product, area)`.
+
+Las categorías se filtran inmediatamente en el navegador; **Buscar producto** combina
+nombre y categoría mediante AND, ignorando mayúsculas y acentos. Cambiar de categoría
+reemplaza los resultados anteriores. **Todos** elimina solamente el filtro de categoría.
+Las tarjetas priorizan nombre y precio; la imagen, cuando existe, es discreta y opcional.
+**Actualizar pedido** vuelve a consultar disponibilidad y cambios de otras tablets.
+
+### Modificadores, notas y borradores
+
+Tocar un producto simple llama a `add_product_to_order()` sin navegación. Los productos
+con grupos activos abren un diálogo con `ModifierGroup` y `ModifierOption` reales,
+selección SINGLE/MULTIPLE, límites, nota opcional y cantidad desde uno.
+`get_order_product_quote()` comparte validación y cálculo con la escritura del borrador:
+el servidor valida grupos requeridos, mínimos, máximos y opciones, aplica extras y
+devuelve el total. JavaScript no calcula precios. Agregar vuelve a validar el estado actual.
+
+La nota se guarda en `OrderLine.notes`. El panel **Pedido actual** muestra solo DRAFT
+del contexto seleccionado, sus modificadores, notas, cantidades, subtotales y total.
+Los toques equivalentes se agrupan por el servicio existente. Aumentar, reducir,
+eliminar y editar nota reutilizan los servicios de `orders`; una línea SENT no se edita.
+Los borradores viven en la base y sobreviven a recarga, cambio de mesero y auto-lock.
+Los mensajes de error permanecen visibles y no exponen trazas o excepciones internas.
+
+### Envío, disponibilidad y adiciones
+
+**Enviar pedido** está deshabilitado sin borradores y mantiene visible el total del
+pedido actual. Reutiliza `send_order()` para comprobar y descontar inventario y generar
+`PreparationTicket`/`PreparationTicketItem`; no hay impresión física.
+Si otro pedido consume el stock antes del envío, la operación se revierte, conserva
+los DRAFT y actualiza el catálogo con un mensaje de existencias insuficientes.
+
+Tras un envío correcto, el panel queda sin esos DRAFT y aparece un aviso de tres segundos.
+Los destinos provienen de los artículos del ticket: AREA_BAR se presenta como Barra 1
+en Sport Bar, Barra 2 en Discoteca y Barra 3 en Premium; KITCHEN como Cocina y NONE
+se omite. Estas etiquetas no se guardan en Product. Un envío posterior genera ADDITION
+y añade «Adición» al aviso, sin reprocesar productos anteriores.
+
+### SINGLE y SPLIT
+
+SINGLE no muestra selector y agrega con `subaccount=NULL`. SPLIT exige crear o seleccionar
+una subcuenta abierta antes de agregar, cotizar o enviar. **Nueva cuenta** solicita solo
+nombre y llama a `create_subaccount()`; la cuenta nueva se selecciona automáticamente.
+Cambiar de cuenta actualiza sus borradores y total sin mezclar personas. Los importes del
+selector usan `get_subaccount_grand_total()`; el panel usa `get_subaccount_pending_total()`.
+
+**Decisión de alcance del envío:** en SPLIT se envía únicamente la subcuenta seleccionada,
+que corresponde al pedido visible. `send_order(order, user, subaccount=...)` admite ese
+filtro opcional, conservando el comportamiento anterior cuando se omite. Otros DRAFT
+permanecen guardados, incluidos los históricos sin subcuenta, que esta pantalla no muestra
+ni permite crear en SPLIT. Las cuentas cerradas aparecen diferenciadas y no seleccionables.
+Si un servicio cierra la cuenta seleccionada, se retira la selección; un pedido posterior
+requiere otra cuenta abierta o una nueva.
+
+### Presentación y comprobación
+
+En horizontal se usa aproximadamente 70% catálogo y 30% pedido. En vertical, el catálogo
+ocupa el ancho y **Ver pedido** abre un panel inferior con total y botón de envío.
+Se conservan Inter/sans-serif y negro, carbón, blanco y champagne. La implementación
+usa templates Django y módulos JavaScript con fetch, sin SPA ni dependencias nuevas.
+Las mutaciones se serializan en la tablet; ante una conexión interrumpida se solicita
+actualizar antes de repetir para evitar reenvíos a ciegas. No hay operación offline.
+
+Archivos principales: `apps/operations/ordering.py`, `order_views.py`,
+`templates/operations/order.html`, `static/js/operations/ordering.js`,
+`catalog-filter.mjs` y `static/css/operations/ordering.css`.
+No se requieren migraciones nuevas ni se modifican migraciones históricas.
+
+El recorrido SINGLE y SPLIT se comprobó con datos reales en una **base PostgreSQL temporal
+separada**, a 1280×800 y 800×1280. La jornada se abrió con el servicio backend existente.
+La [verificación de Fase 2B](docs/phase-2b/verification.md) detalla resultados y capturas.
+Los datos de demostración se eliminan; las imágenes conservan únicamente datos de prueba.
+La prueba en hardware Android físico queda pendiente de la validación operativa del local.
+
 ## Git y alcance
 
 `.env`, `.venv`, cachés, archivos temporales, medios locales y estáticos recopilados
 se excluyen de Git. `.env.example`, las dependencias y las migraciones sí se versionan.
 No subir credenciales ni archivos de entorno reales.
 
-La entrega finaliza en la Fase 2A: acceso, mapa y apertura. Catálogo/pedidos/cobro visuales,
-impresoras reales, reservas, eventos, QR, dashboard ejecutivo, PDF finales, nodo local,
-hardware, websockets y sincronización offline permanecen fuera de alcance.
+La entrega finaliza en la Fase 2B: catálogo y pedidos visuales. Ver cuenta, cobro y división
+de pago visuales, mover productos/mesas, unir mesas, caja visual, impresoras reales,
+reservas, eventos, QR, dashboard ejecutivo, PDF finales, nodo local, hardware, websockets
+y sincronización offline permanecen fuera de alcance. Esperar revisión antes de Fase 2C.

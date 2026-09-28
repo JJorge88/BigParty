@@ -130,11 +130,12 @@
   letter-spacing:-1px;
 }
 .brand-name {
-  font-size:14px;
+  font-size:15px;
   font-weight:600;
   letter-spacing:2.5px;
 }
 .topbar {
+  background:#191d1e;
   height:88px;
   padding:0 48px;
   border-bottom:1px solid var(--border-subtle);
@@ -147,8 +148,8 @@
   display:flex;
   align-items:center;
   gap:8px;
-  color:var(--muted);
-  font-size:13px;
+  color:var(--text);
+  font-size:14px;
 }
 .operator {
   display:flex;
@@ -195,6 +196,9 @@
 }
 .dialog::backdrop {
   background:#050708b8;
+}
+.side-panel::backdrop {
+  background:rgb(0 0 0 / 15%);
 }
 .dialog-body {
   padding:32px;
