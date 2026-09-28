@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Catálogo · BIG PARTY{% endblock %}
+{% block content %}
+  <h1>Catálogo: comprobación de desarrollo</h1>
+  <form method="get">{{ form.as_p }}<button type="submit">Consultar precios</button></form>
+  <p>Incluye productos internos y desactivados. {% if selected_area %}Precios para {{ selected_area }}.{% endif %}</p>
+  {% for category, rows in sections %}
+    <h2>{{ category.name }}{% if not category.is_active %} (desactivada){% endif %}</h2>
+    <table>
+      <thead><tr>
+        <th scope="col">Producto</th><th scope="col">Precio general</th><th scope="col">Precio aplicable</th>
+        <th scope="col">Stock</th><th scope="col">Mínimo</th><th scope="col">Disponible</th>
+        <th scope="col">Preparación</th><th scope="col">Combo</th>
+      </tr></thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.product.name }}</td><td>Q{{ row.product.base_price|floatformat:2 }}</td>
+            <td>Q{{ row.price|floatformat:2 }}</td>
+            <td>{% if row.product.is_combo %}Según componentes{% elif row.product.track_inventory %}{{ row.product.stock_quantity }}{% else %}Sin control{% endif %}</td>
+            <td>{% if row.product.is_combo %}—{% else %}{{ row.product.minimum_stock }}{% endif %}</td>
+            <td>{{ row.available|yesno:"Sí,No" }}</td><td>{{ row.product.get_preparation_route_display }}</td>
+            <td>{{ row.product.is_combo|yesno:"Sí,No" }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="8">Sin productos.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  {% empty %}<p>Sin categorías configuradas.</p>{% endfor %}
+  <p><a href="{% url 'admin:index' %}">Administración</a> · <a href="{% url 'inventory:development' %}">Inventario</a></p>
+{% endblock %}

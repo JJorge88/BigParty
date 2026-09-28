@@ -1,7 +1,9 @@
-# Dependencias directas de la Fase 0. Django permanece en la rama 5.2 LTS.
+# Dependencias directas. Django permanece en la rama 5.2 LTS.
 Django==5.2.17
 psycopg[binary]==3.3.6
 python-dotenv==1.2.3
+# Validación del ImageField opcional de productos.
+Pillow==12.3.0
 
 # Dependencias transitivas fijadas para instalaciones reproducibles.
 asgiref==3.12.1

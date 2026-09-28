@@ -1,9 +1,10 @@
-# BIG PARTY — Fases 0 y 1A
+# BIG PARTY — Fases 0, 1A y 1B
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
 soporte seguro de PIN, auditoría y una página de comprobación. La Fase 1A añade la
-configuración física de áreas, zonas y mesas. No incluye productos, pedidos ni transacciones comerciales.
+configuración física de áreas, zonas y mesas. La Fase 1B añade catálogo e inventario global.
+No incluye pedidos, ventas, pagos ni caja.
 
 ## Requisitos
 
@@ -13,7 +14,8 @@ configuración física de áreas, zonas y mesas. No incluye productos, pedidos n
 
 Entorno verificado: macOS 27.0 ARM64, Python 3.13.14, PostgreSQL/psql 17.10,
 Git 2.54.0. Dependencias: Django 5.2.17 LTS, psycopg con binarios 3.3.6 y
-python-dotenv 1.2.3. Solo se añaden sus dependencias transitivas.
+python-dotenv 1.2.3 y Pillow 12.3.0. Pillow valida las imágenes opcionales de productos;
+es la única dependencia directa añadida en la Fase 1B.
 La [rama Django 5.2 LTS](https://www.djangoproject.com/download/) es la base elegida.
 
 Si faltan las herramientas en otra Mac con Homebrew:
@@ -117,6 +119,7 @@ revisarse en la fase correspondiente antes de exponerlo a otras máquinas.
 python manage.py check
 python manage.py migrate
 python manage.py seed_bigparty_defaults
+python manage.py seed_catalog_defaults
 python manage.py createsuperuser
 python manage.py runserver 127.0.0.1:8000
 ```
@@ -140,11 +143,15 @@ para sustituir el modelo de usuario después de cargar datos.
 │   ├── audit/        # Registro explícito de auditoría
 │   ├── core/         # Página mínima de comprobación
 │   ├── venues/       # Áreas, zonas y comando de datos iniciales
-│   └── tables/       # Mesas, servicios y vista de desarrollo
+│   ├── tables/       # Mesas, servicios y vista de desarrollo
+│   ├── catalog/      # Categorías, productos, precios, modificadores y combos
+│   └── inventory/    # Movimientos y servicios de inventario global
 ├── templates/
 │   ├── base.html
 │   ├── core/home.html
-│   └── tables/configuration.html
+│   ├── tables/configuration.html
+│   ├── catalog/development.html
+│   └── inventory/development.html
 ├── static/css/base.css
 ├── media/.gitkeep
 ├── requirements/{base,dev,prod}.txt
@@ -317,6 +324,184 @@ administrador se necesita también `is_staff=True`.
 Con `DEBUG=False`, esa ruta no se registra y la vista rechaza además cualquier acceso
 directo. No se ha creado API pública, mapa final, drag & drop ni JavaScript propio.
 
+## Fase 1B: catálogo e inventario global
+
+### Categorías y productos
+
+```sh
+python manage.py seed_catalog_defaults
+```
+
+Crea **Cervezas, Licores, Cócteles, Comida, Snacks y Combos**, en ese orden. No crea
+productos, precios especiales ni existencias. Es idempotente, conserva las categorías
+identificadas por su slug y revierte toda la ejecución ante conflictos de nombres.
+Ya se ejecutó en esta Mac y se comprobó que repetirlo no duplica registros.
+
+`Category` contiene nombre y slug únicos, descripción, orden, activación y fechas.
+`Product` pertenece a una categoría protegida contra borrado y contiene nombre, slug
+único, precio general, activación, visibilidad, control de inventario, existencias,
+mínimo, preparación, imagen opcional, indicador de combo y fechas. Los productos
+se ordenan por el orden de categoría, nombre y clave primaria. Los nombres no son
+únicos; el identificador sí lo es.
+
+`image` es opcional. El formulario de administración valida que el archivo sea una
+imagen mediante Pillow; se guarda en `media/products/` y no se versiona. No hay
+miniaturas ni procesamiento adicional. El catálogo funciona sin imágenes.
+
+### Existencias globales y disponibilidad
+
+Hay **un solo stock por producto**, compartido por Sport Bar, Discoteca y Premium.
+No hay almacenes por área. `stock_quantity` y `minimum_stock` son enteros no negativos:
+en esta fase se cuentan unidades completas, sin gramos, mililitros ni recetas.
+
+- `track_inventory=False` es el valor inicial: no se restringe la disponibilidad por stock.
+  Las existencias de estos productos permanecen en cero. Antes de quitar el control
+  de inventario a un producto con existencias hay que ajustarlas a cero, con motivo e historial.
+- `track_inventory=True`: solo está disponible cuando `stock_quantity > 0`.
+- `visible_in_pos=False`: producto interno, no vendible directamente; puede ser
+  componente de un combo, por ejemplo un insumo oculto.
+- `is_low_stock`: control activado y existencias menores o iguales al mínimo.
+- `is_out_of_stock`: control activado y existencias en cero.
+- `is_available_for_sale` / `is_product_available`: exige producto y categoría activos,
+  visibilidad y existencias suficientes. No existe parámetro ni permiso para forzar
+  disponibilidad de un producto agotado. Para reponerlo se registra entrada o ajuste.
+
+Los estados son derivados, no columnas duplicadas. Los avisos de stock bajo se muestran
+en la vista de inventario; no se envían notificaciones externas. La activación de una
+categoría afecta la disponibilidad, sin modificar físicamente sus productos.
+
+### Preparación
+
+`Product.PreparationRoute` admite `AREA_BAR` (**Barra del área**), `KITCHEN` (**Cocina**)
+y `NONE` (**Sin preparación**, valor inicial). Se debe configurar explícitamente en cada
+producto. No se guardan Barra 1/2/3 en el producto ni se configuran impresoras. El área
+de una orden futura determinará la barra; no hay comandas en esta entrega.
+
+### Precios e historial
+
+Los importes son decimales no negativos con dos posiciones, sin símbolo monetario
+en la base. Las interfaces muestran quetzales (`Q`). `ProductAreaPrice` contiene un
+precio opcional por pareja producto/área, con restricción de unicidad.
+`get_product_price(product, area=None)` devuelve ese precio cuando existe y, si no,
+el precio general. Un precio especial de cero también se respeta. No se generan
+precios especiales automáticamente ni se suman componentes para calcular el precio del combo.
+
+Escrituras soportadas en `apps/catalog/services.py`:
+
+```python
+update_base_price(product, "25.00", user=usuario)
+update_area_price(product, area, "30.00", user=usuario)
+```
+
+Ambas verifican `catalog.change_product_price`, bloquean el producto y guardan el cambio,
+`ProductPriceHistory` y `AuditLog` en una transacción. Usar `Decimal`, texto decimal o
+enteros para los precios, evitando floats. Cambiar a un valor idéntico no duplica historial.
+
+`ProductPriceHistory` registra producto, área opcional, precio anterior/nuevo, autor y fecha.
+Área nula significa precio general. Al crear el primer precio especial, `old_price=None`
+indica que no existía ese override; las modificaciones posteriores conservan su valor anterior.
+El administrador usa los servicios también al crear un producto con precio inicial distinto
+de cero. El historial es de solo lectura y no se puede borrar desde el administrador.
+No se permite borrar ni reasignar un precio por área desde el administrador; la eliminación
+auditada de un override queda fuera de esta fase.
+
+### Modificadores
+
+`ModifierGroup` pertenece a un producto y define nombre, selección `SINGLE` o `MULTIPLE`,
+mínimo/máximo, orden, obligatoriedad y activación. `SINGLE` tiene máximo 1; `MULTIPLE`
+permite varias opciones. Siempre se exige `0 <= mínimo <= máximo`, con máximo positivo.
+Un grupo opcional tiene mínimo 0; uno obligatorio tiene mínimo al menos 1.
+
+`ModifierOption` contiene grupo, nombre, precio adicional no negativo, orden y activación.
+Las opciones se editan directamente o dentro del grupo en el administrador. No consumen
+inventario y no tienen ingredientes asociados. La selección concreta por un cliente y
+el cálculo del precio de esa selección se integrarán cuando exista el módulo de órdenes.
+
+### Combos
+
+Un `Product` con `is_combo=True` tiene precio propio, pero no controla inventario ni tiene
+existencias o mínimo propios. Crear primero el producto y después agregar sus
+`ComboComponent` desde la sección de componentes del administrador.
+
+Cada componente relaciona combo y producto con cantidad entera positiva y orden.
+No se permite repetir el mismo componente, autoreferencia ni combos anidados.
+También se impide convertir después un componente en combo, o quitar el indicador
+de combo mientras mantenga componentes. Las validaciones se ejecutan en las escrituras
+individuales; no usar `bulk_create`, `update` ni SQL directo para configurar estas relaciones.
+
+`get_combo_max_available(combo)` calcula el mínimo de `stock // cantidad` entre los
+componentes controlados. Devuelve 0 si falta stock, hay componentes desactivados,
+el combo no es vendible o no tiene componentes. Devuelve `None` si todos los componentes
+son sin control, indicando que no existe límite por stock. Los componentes ocultos
+están permitidos; sus productos y categorías deben permanecer activos.
+
+`is_combo_available(combo)` deriva la disponibilidad de ese cálculo. Por ejemplo,
+10 botellas y 30 energizantes, requiriendo 1 y 4 respectivamente, permiten 7 combos.
+Estas consultas no reservan ni descuentan stock: la venta y el consumo conjunto de
+componentes deberán implementarse de forma transaccional en la fase correspondiente.
+
+`get_sellable_products(category=None, area=None)` devuelve una lista ordenada de productos
+vendibles. Filtra categoría cuando se solicita; el área es contexto para resolver precios,
+nunca un inventario separado. El precio se obtiene con `get_product_price`.
+
+### Movimientos y concurrencia
+
+Los servicios de `apps/inventory/services.py` son la vía soportada para modificar stock:
+
+```python
+receive_stock(product, 12, user=usuario, reason="Compra")
+adjust_stock(product, -2, user=usuario, reason="Rotura")
+```
+
+La entrada requiere entero positivo; el ajuste, un delta entero distinto de cero y motivo
+no vacío. Ambos exigen un producto con inventario propio y verifican su permiso específico.
+No aceptan unidades fraccionadas, combos ni existencias finales negativas.
+
+Cada operación usa `transaction.atomic` y `select_for_update`, vuelve a leer el stock
+persistido y guarda existencias, movimiento y auditoría en la misma transacción. Un fallo
+de historial o auditoría revierte todo. Las pruebas utilizan conexiones PostgreSQL
+independientes para comprobar entradas simultáneas y ajustes que compiten por el último stock.
+
+`InventoryMovement` contiene producto, tipo (`RECEIPT` / **Entrada**, `ADJUSTMENT` / **Ajuste**),
+delta, existencias anteriores y posteriores, motivo, usuario, fecha y JSON adicional.
+La base comprueba el balance y los tipos/cantidades válidos. Los movimientos no se editan,
+añaden manualmente ni borran desde el administrador. No existen movimientos de ventas
+ni reembolsos. Escribir stock o precios directamente por ORM/SQL omite el historial y
+no forma parte de la capa soportada.
+
+### Administración, permisos y vistas de desarrollo
+
+El producto agrupa **Información, Precio, Inventario, Preparación, Visual y Estado**.
+El stock siempre es de solo lectura y todo producto creado desde el administrador
+comienza en cero. Los precios por área tienen su propia administración con historial.
+
+Los permisos se conceden individualmente o por grupos Django; ningún rol los recibe
+automáticamente:
+
+| Permiso | Uso |
+| --- | --- |
+| `catalog.change_product_price` | Cambiar precios mediante servicios y administrador |
+| `inventory.view_inventory` | Consultar inventario global |
+| `inventory.receive_inventory` | Registrar entradas |
+| `inventory.adjust_inventory` | Registrar ajustes |
+
+El administrador requiere además sus permisos nativos de añadir/cambiar/consultar cada
+modelo; para consultar movimientos requiere `inventory.view_inventory` y el permiso
+nativo de consulta. Un permiso de cambio de producto no habilita por sí solo cambiar precios.
+
+- <http://127.0.0.1:8000/dev/catalogo/>: categorías, todos los productos (incluidos internos),
+  precios generales/especiales al seleccionar área, stock, mínimo, disponibilidad,
+  preparación y combos. Requiere `catalog.view_product`.
+- <http://127.0.0.1:8000/dev/inventario/>: productos normales e insumos, con estados
+  **Disponible**, **Stock bajo**, **Agotado** o **Sin control**. Los combos se consultan
+  en catálogo. Requiere `inventory.view_inventory`; el formulario de movimientos
+  muestra solo las operaciones autorizadas. Revalida permisos al enviar, exige CSRF
+  y redirige tras registrar para evitar repetir el movimiento al recargar la página.
+
+Ambas rutas requieren usuario activo con `is_staff=True`, sesión y `DEBUG=True`.
+Con `DEBUG=False` no se registran y también se bloquean en la vista. Comparten únicamente
+la comprobación transversal de acceso en `apps/core/mixins.py`; no se alteró la vista de mesas.
+
 ## Pruebas y comprobaciones
 
 Con PostgreSQL disponible y `.venv` activado:
@@ -328,12 +513,15 @@ python manage.py test
 python -m pip check
 ```
 
-Las 67 pruebas cubren carga de la página y del administrador, formularios de usuarios,
+Las 133 pruebas cubren carga de la página y del administrador, formularios de usuarios,
 roles, permisos individuales, PIN con hash y sal, confirmación y conservación del PIN,
 creación de auditoría y protección frente a cambios y borrado, CSRF y archivos estáticos.
 También cubren áreas, zonas, mesas, validaciones Python y constraints PostgreSQL,
 coherencia entre zona y área, semilla idempotente, mapa ordenado, auditoría transaccional,
 administración y acceso restringido a la vista de desarrollo.
+La Fase 1B añade pruebas de categorías, precios e historial, modificadores, combos,
+disponibilidad, entradas y ajustes, permisos, CSRF, imágenes inválidas, reversión ante
+fallos y concurrencia real. Las 67 pruebas de las fases anteriores siguen incluidas.
 Se ejecutan sobre una base PostgreSQL temporal separada; Django la elimina al finalizar.
 
 ## Git y alcance
@@ -342,6 +530,6 @@ Se ejecutan sobre una base PostgreSQL temporal separada; Django la elimina al fi
 se excluyen de Git. `.env.example`, las dependencias y las migraciones sí se versionan.
 No subir credenciales ni archivos de entorno reales.
 
-La entrega finaliza en la Fase 1A: estructura física. Catálogo, pedidos, inventario, pagos,
-caja, reservas reales, eventos, mapa visual, APIs, sincronización y despliegue requieren
+La entrega finaliza en la Fase 1B: catálogo e inventario. Pedidos, ventas, pagos, caja,
+reservas reales, eventos, mapa visual, APIs, sincronización y despliegue requieren
 autorización para fases posteriores.

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Inventario global · BIG PARTY{% endblock %}
+{% block content %}
+  <h1>Inventario global: comprobación de desarrollo</h1>
+  <p>Un solo inventario para todas las áreas. Los combos se calculan desde sus componentes en el catálogo.</p>
+  {% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}
+  <table>
+    <thead><tr><th scope="col">Producto</th><th scope="col">Stock</th><th scope="col">Mínimo</th><th scope="col">Estado</th></tr></thead>
+    <tbody>
+      {% for product in products %}
+        <tr>
+          <td>{{ product.name }}</td><td>{{ product.stock_quantity }}</td><td>{{ product.minimum_stock }}</td>
+          <td>{% if not product.track_inventory %}Sin control{% elif product.is_out_of_stock %}Agotado{% elif product.is_low_stock %}Stock bajo{% else %}Disponible{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="4">Sin productos configurados.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if can_move %}
+    <h2>Registrar movimiento</h2>
+    <form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Registrar movimiento</button></form>
+  {% endif %}
+  <p><a href="{% url 'admin:index' %}">Administración</a> · <a href="{% url 'catalog:development' %}">Catálogo</a></p>
+{% endblock %}

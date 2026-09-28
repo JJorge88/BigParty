@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     "apps.audit.apps.AuditConfig",
     "apps.venues.apps.VenuesConfig",
     "apps.tables.apps.TablesConfig",
+    "apps.catalog.apps.CatalogConfig",
+    "apps.inventory.apps.InventoryConfig",
 ]
 
 MIDDLEWARE = [
