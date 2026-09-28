@@ -6,6 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.catalog.models import Product
+from apps.cash.guards import lock_order_day
 from apps.inventory.models import InventoryMovement
 from apps.inventory.services import _record_movement
 from apps.orders.models import ACTIVE_STATUSES, TableOrder, SubAccount
@@ -43,6 +44,7 @@ def _reason(reason):
 def _locked_target(target):
     account_id = target.pk if isinstance(target, SubAccount) else None
     order_id = target.order_id if account_id else target.pk
+    lock_order_day(order_id)
     order = TableOrder.objects.select_for_update().get(pk=order_id)
     if order.status not in ACTIVE_STATUSES:
         raise ValidationError("La cuenta no está activa.")
@@ -143,16 +145,21 @@ def _refresh(order, user=None, *, close_empty=False):
 
 @transaction.atomic
 def refresh_order_payment_status(order, user=None):
+    lock_order_day(order.pk)
     current = TableOrder.objects.select_for_update().get(pk=order.pk)
     return _refresh(current, user)
 
 
-def _create(order, account, allocations, method, user, *, reference="", notes="", received_amount=None, card_approved=False):
+def _create(order, account, allocations, method, user, *, reference="", notes="", received_amount=None, card_approved=False, cash_session=None):
     if method not in Payment.Method.values:
         raise ValidationError("Método de pago inválido.")
     if not isinstance(reference, str) or not isinstance(notes, str):
         raise ValidationError("La referencia y las notas deben ser texto.")
     reference = reference.strip()
+    if cash_session is not None and method != "CASH":
+        raise ValidationError("La sesión de caja solo corresponde a cobros en efectivo.")
+    if method == "CASH" and cash_session is None and user.role != "MESERO":
+        raise ValidationError("El cobro directo en efectivo requiere una sesión de caja explícita.")
     pending = method in ("TRANSFER", "DEPOSIT")
     if pending and not reference:
         raise ValidationError("La transferencia o depósito necesita una referencia.")
@@ -173,11 +180,17 @@ def _create(order, account, allocations, method, user, *, reference="", notes=""
         status="PENDING" if pending else "CONFIRMED", amount=amount, recorded_by=user,
         confirmed_by=None if pending else user, confirmed_at=None if pending else timezone.now(),
         reference=reference, notes=notes.strip(), metadata=metadata,
-        cash_handoff_status="PENDING" if method == "CASH" and user.role == "MESERO" else "NOT_REQUIRED")
+        cash_handoff_status="PENDING" if method == "CASH" and cash_session is None else "NOT_REQUIRED")
     payment.full_clean()
     payment.save()
     for unit, applied, quantity in allocations:
         PaymentAllocation.objects.create(payment=payment, order_line=unit["line"], unit_number=unit["unit_number"], quantity=quantity, amount=applied)
+    if method == "CASH":
+        from apps.cash.services import record_direct_cash_payment, create_pending_handoff
+        if cash_session is not None:
+            record_direct_cash_payment(payment, cash_session, user)
+        else:
+            create_pending_handoff(payment)
     _log(order, user, "PAYMENT_RECORDED", f"Pago {payment.get_method_display()}: Q{amount}", payment_id=payment.pk, amount=str(amount), status=payment.status)
     _refresh(order, user)
     return payment
@@ -207,12 +220,14 @@ def pay_full_balance(target, method, user, **options):
     return _create(order, account, _distribute(units, amount), method, user, **options)
 
 
-def pay_cash(target, amount_due, user, *, received_amount=None):
-    return create_amount_payment(target, amount_due, "CASH", user, received_amount=received_amount)
+def pay_cash(target, amount_due, user, *, received_amount=None, cash_session=None):
+    return create_amount_payment(target, amount_due, "CASH", user, received_amount=received_amount, cash_session=cash_session)
 
 
 def _locked_payment(payment, *, active=True):
-    order = TableOrder.objects.select_for_update().get(pk=Payment.objects.values_list("order_id", flat=True).get(pk=payment.pk))
+    order_id = Payment.objects.values_list("order_id", flat=True).get(pk=payment.pk)
+    lock_order_day(order_id)
+    order = TableOrder.objects.select_for_update().get(pk=order_id)
     current = Payment.objects.select_for_update().get(pk=payment.pk)
     if active and order.status not in ACTIVE_STATUSES:
         raise ValidationError("La cuenta no está activa.")
@@ -303,6 +318,8 @@ def refund_payment(payment, user, *, reason, amount=None, allocation_ids=None, r
     current, order = _locked_payment(payment, active=False)
     if current.status != "CONFIRMED":
         raise ValidationError("Solo se reembolsa un pago confirmado con monto disponible.")
+    if current.method == "CASH" and current.cash_handoff_status == "PENDING":
+        raise ValidationError("Confirma primero la entrega del efectivo del mesero; no se puede reembolsar dinero aún pendiente de recepción.")
     allocations = list(current.allocations.order_by("order_line_id", "unit_number").prefetch_related("refund_allocations", "order_line__components"))
     entries = []
     if allocation_ids is not None:

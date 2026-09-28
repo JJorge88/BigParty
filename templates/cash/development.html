@@ -1,0 +1,10 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BIG PARTY · Caja</title>
+<style>body{font-family:system-ui;max-width:1000px;margin:2rem auto;padding:1rem}section{border:1px solid #ccc;padding:1rem;margin:2rem 0}label{display:block}.errorlist{color:#a00}</style></head><body>
+<h1>Caja · desarrollo</h1><p>Cuenta físicamente el efectivo antes de enviar tu conteo. El conteo presentado no puede cambiarse y congela los movimientos de esta sesión.</p>
+{% for message in messages %}<p>{{ message }}</p>{% endfor %}
+<form method="get">{{ selection.as_p }}<button>Consultar sesión</button></form>
+{% if selected %}<h2>{{ selected }}</h2><p>{{ selected.get_status_display }} · {{ selected.business_day }}</p>{% endif %}
+{% if result %}<section><h2>Resultado tras presentar el conteo</h2><p>Contado: Q{{ result.counted_cash }}</p><p>Efectivo esperado: Q{{ result.expected_cash }}</p><p>Diferencia: Q{{ result.difference }}</p></section>{% endif %}
+{% if handoffs %}<h2>Efectivo pendiente de meseros</h2>{% for handoff in handoffs %}<p>{{ handoff.waiter }} · {{ handoff.payment.order }} · {{ handoff.payment.order.primary_table }} · Q{{ handoff.amount }} · {{ handoff.payment.created_at }} · Pago #{{ handoff.payment_id }}</p>{% endfor %}{% endif %}
+{% for action,label,form in operations %}<section><h2>{{ label }}</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="{{ action }}">{{ form.as_p }}<button>{{ label }}</button></form></section>{% endfor %}
+</body></html>

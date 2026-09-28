@@ -74,9 +74,10 @@ class PaymentTests(PaymentsTestCase):
 
     def test_cashier_cash_does_not_require_handoff(self):
         order, _, _ = self.consumption(1)
+        session = self.cash_session()
         self.user.role = "CAJERO"
         self.user.save()
-        payment = s.pay_full_balance(order, "CASH", self.user)
+        payment = s.pay_full_balance(order, "CASH", self.user, cash_session=session)
         self.assertEqual(payment.cash_handoff_status, "NOT_REQUIRED")
         self.assertEqual(payment.change_due, D("0"))
 

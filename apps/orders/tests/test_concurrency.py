@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import connections
 from django.test import TransactionTestCase
 
+from apps.cash.services import open_business_day
 from apps.catalog.models import Category, Product
 from apps.inventory.models import InventoryMovement
 from apps.orders import services as s
@@ -17,6 +18,7 @@ from apps.venues.models import Area
 class OrderConcurrencyTests(TransactionTestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_superuser(username="concurrent-orders")
+        self.day = open_business_day(self.user)
         area = Area.objects.create(name="Área", slug="area")
         self.tables = [VenueTable.objects.create(area=area, name=f"Mesa {n}", capacity=4) for n in (1, 2)]
         category = Category.objects.create(name="Productos", slug="productos")

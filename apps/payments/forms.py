@@ -4,6 +4,7 @@ from django import forms
 
 from apps.orders.models import TableOrder, SubAccount, ACTIVE_STATUSES
 from .models import Payment
+from apps.cash.models import CashSession
 
 
 class PaymentForm(forms.Form):
@@ -16,6 +17,7 @@ class PaymentForm(forms.Form):
     reference = forms.CharField(label="Referencia de transferencia/depósito", max_length=200, required=False)
     received_amount = forms.DecimalField(label="Efectivo recibido (opcional)", max_digits=14, decimal_places=2, min_value=Decimal("0.01"), required=False)
     card_approved = forms.BooleanField(label="La terminal bancaria aprobó el cobro con tarjeta", required=False)
+    cash_session = forms.ModelChoiceField(label="Sesión receptora de efectivo (cobro directo)", queryset=CashSession.objects.filter(status="OPEN", counted_at__isnull=True), required=False)
     notes = forms.CharField(label="Notas", required=False)
 
     def clean(self):

@@ -5,6 +5,7 @@ from apps.catalog.models import Category, Product, ComboComponent
 from apps.tables.models import VenueTable
 from apps.venues.models import Area
 from apps.orders.services import open_table_order
+from apps.cash.services import open_business_day
 
 
 class OrdersTestCase(TestCase):
@@ -12,6 +13,7 @@ class OrdersTestCase(TestCase):
     def setUpTestData(cls):
         cls.user = get_user_model().objects.create_superuser(username="orders-admin", password="Test-only-981!")
         cls.other_user = get_user_model().objects.create_superuser(username="other-operator")
+        cls.day = open_business_day(cls.user)
         cls.area = Area.objects.create(name="Sport Bar", slug="sport-bar")
         cls.other_area = Area.objects.create(name="Premium", slug="premium")
         cls.table = VenueTable.objects.create(area=cls.area, name="Mesa 01", capacity=4)

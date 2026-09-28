@@ -1,0 +1,13 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>BIG PARTY · Jornada</title>
+<style>body{font-family:system-ui;max-width:1000px;margin:2rem auto;padding:1rem}section{border:1px solid #ccc;padding:1rem;margin:2rem 0}label{display:block}.errorlist{color:#a00}</style></head><body>
+<h1>Jornada · desarrollo</h1><p>La jornada conserva su fecha comercial después de medianoche. El cierre es manual.</p>
+{% for message in messages %}<p>{{ message }}</p>{% endfor %}<form method="get">{{ selection.as_p }}<button>Consultar jornada</button></form>
+{% if selected %}<h2>{{ selected }}</h2>{% endif %}
+{% if blockers != None %}<h3>Bloqueadores de cierre</h3>{% for blocker in blockers %}<p>{{ blocker.type }} · {{ blocker.description }} · #{{ blocker.object_id }}</p>{% empty %}<p>Sin bloqueadores.</p>{% endfor %}{% endif %}
+{% if summary %}<section><h3>Resumen autorizado</h3><p>Ventas brutas Q{{ summary.gross_sales }} · Descuentos/cortesías Q{{ summary.adjustments }} · Reembolsos Q{{ summary.refunds }} · Ventas netas Q{{ summary.net_sales }}</p>
+<p>Sesiones abiertas: {{ summary.sessions.open }} · Cerradas: {{ summary.sessions.closed }} · Diferencias Q{{ summary.cash_differences }}</p>
+<p>Retiros Q{{ summary.withdrawals }} · Salidas físicas por reembolso Q{{ summary.cash_refunds }} · Verificación pendiente Q{{ summary.pending_verification }}</p>
+<p>Entregas pendientes: {{ summary.handoffs.pending }} · Recibidas: {{ summary.handoffs.delivered }} · Órdenes activas: {{ summary.orders.active }} · Cerradas: {{ summary.orders.closed }}</p>
+{% for method,values in summary.payments_by_method.items %}<p>{{ method }} · Confirmado bruto Q{{ values.confirmed_gross }} · Reembolsos Q{{ values.refunds }} · Confirmado neto Q{{ values.confirmed_net }} · Pendiente Q{{ values.pending }}</p>{% endfor %}</section>{% endif %}
+{% for action,label,form in operations %}<section><h2>{{ label }}</h2><form method="post">{% csrf_token %}<input type="hidden" name="action" value="{{ action }}">{{ form.as_p }}<button>{{ label }}</button></form></section>{% endfor %}
+</body></html>

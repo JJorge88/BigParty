@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 from django.db import connections
 from django.test import TransactionTestCase
 
+from apps.cash.services import open_business_day
 from apps.catalog.models import Category, Product
 from apps.inventory.models import InventoryMovement
 from apps.orders import services as orders
@@ -19,6 +20,7 @@ from apps.venues.models import Area
 class PaymentConcurrencyTests(TransactionTestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_superuser(username="payment-concurrent")
+        self.day = open_business_day(self.user)
         area = Area.objects.create(name="Área", slug="area")
         table = VenueTable.objects.create(area=area, name="Mesa", capacity=4)
         category = Category.objects.create(name="Productos", slug="productos")
@@ -81,7 +83,11 @@ class PaymentConcurrencyTests(TransactionTestCase):
         self.assertEqual(self.order.activities.filter(activity_type__in=["PAYMENT_CONFIRMED", "PAYMENT_REJECTED"]).count(), 1)
 
     def test_two_refunds_return_money_and_stock_once(self):
-        payment = s.pay_full_balance(self.order, "CASH", self.user)
+        from apps.cash.models import CashRegister
+        from apps.cash.services import open_cash_session
+        register = CashRegister.objects.create(name="Caja", code="TEST", area=self.order.area)
+        session = open_cash_session(register, self.user, 0, self.user)
+        payment = s.pay_full_balance(self.order, "CASH", self.user, cash_session=session)
         allocation = payment.allocations.order_by("pk").first()
         operation = lambda user: s.refund_payment(payment, user, allocation_ids=[allocation.pk], return_to_inventory=True, reason="Devuelto")
         self.assertCountEqual(self.run_concurrent([operation, operation]), [True, False])

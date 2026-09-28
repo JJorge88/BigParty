@@ -18,4 +18,5 @@ if settings.DEBUG:
     urlpatterns += [path("dev/inventario/", include("apps.inventory.urls"))]
     urlpatterns += [path("dev/ordenes/", include("apps.orders.urls"))]
     urlpatterns += [path("dev/pagos/", include("apps.payments.urls"))]
+    urlpatterns += [path("dev/", include("apps.cash.urls"))]
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

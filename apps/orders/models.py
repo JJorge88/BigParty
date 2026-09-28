@@ -19,6 +19,7 @@ class TableOrder(models.Model):
         SINGLE = "SINGLE", "Una sola cuenta"
         SPLIT = "SPLIT", "Cuentas separadas"
 
+    business_day = models.ForeignKey("cash.BusinessDay", verbose_name="jornada", on_delete=models.PROTECT, null=True, blank=True, related_name="orders")
     primary_table = models.ForeignKey("tables.VenueTable", verbose_name="mesa principal", on_delete=models.PROTECT, related_name="primary_orders")
     tables = models.ManyToManyField("tables.VenueTable", through="OrderTableLink", related_name="orders", verbose_name="mesas vinculadas")
     area = models.ForeignKey("venues.Area", verbose_name="área de origen", on_delete=models.PROTECT)

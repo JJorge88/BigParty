@@ -48,7 +48,7 @@ class PaymentsDevelopmentView(StaffDebugPermissionMixin, TemplateView):
             try:
                 if action == "pay":
                     target = data["subaccount"] or data["order"]
-                    options = {key: data[key] for key in ("reference", "received_amount", "card_approved", "notes")}
+                    options = {key: data[key] for key in ("reference", "received_amount", "card_approved", "notes", "cash_session")}
                     if data["mode"] == "full":
                         payment = s.pay_full_balance(target, data["method"], request.user, **options)
                     elif data["mode"] == "amount":

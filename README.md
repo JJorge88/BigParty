@@ -1,4 +1,4 @@
-# BIG PARTY — Fases 0, 1A, 1B, 1C y 1D
+# BIG PARTY — Fases 0, 1A, 1B, 1C, 1D y 1E
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
@@ -6,7 +6,8 @@ soporte seguro de PIN, auditoría y una página de comprobación. La Fase 1A añ
 configuración física de áreas, zonas y mesas. La Fase 1B añade catálogo e inventario global.
 La Fase 1C incorpora cuentas de mesa, subcuentas, consumo enviado y comandas lógicas.
 La Fase 1D añade pagos, descuentos, reembolsos y cierre de cuentas.
-No incluye sesiones de caja ni impresión física.
+La Fase 1E incorpora caja física, entregas de efectivo, conteo ciego y jornadas.
+No incluye interfaz final ni impresión física.
 
 ## Requisitos
 
@@ -149,7 +150,8 @@ para sustituir el modelo de usuario después de cargar datos.
 │   ├── catalog/      # Categorías, productos, precios, modificadores y combos
 │   ├── inventory/    # Movimientos y servicios de inventario global
 │   ├── orders/       # Cuentas, subcuentas, consumo y comandas lógicas
-│   └── payments/     # Pagos, descuentos, reembolsos y liquidación
+│   ├── payments/     # Pagos, descuentos, reembolsos y liquidación
+│   └── cash/         # Caja física, entregas, conteo ciego y jornadas
 ├── templates/
 │   ├── base.html
 │   ├── core/home.html
@@ -157,7 +159,8 @@ para sustituir el modelo de usuario después de cargar datos.
 │   ├── catalog/development.html
 │   ├── inventory/development.html
 │   ├── orders/development.html
-│   └── payments/development.html
+│   ├── payments/development.html
+│   └── cash/{development,business_day}.html
 ├── static/css/base.css
 ├── media/.gitkeep
 ├── requirements/{base,dev,prod}.txt
@@ -547,7 +550,7 @@ responsable, vínculos ni historiales. Los FK usan `PROTECT` para conservar traz
 ### Apertura y modalidades
 
 `open_table_order(table, user, responsible_waiter=None, billing_mode="SINGLE", general_note="")`
-bloquea la mesa, verifica que ella y su área estén activas, que esté en servicio y libre,
+exige y captura la jornada abierta desde Fase 1E, bloquea la mesa, verifica que ella y su área estén activas, que esté en servicio y libre,
 y crea la cuenta `OPEN`. El responsable puede diferir del usuario que la abre.
 Otros usuarios con permisos pueden operar la misma cuenta; no se restringe al responsable.
 La transferencia formal de responsable no está implementada.
@@ -794,12 +797,12 @@ Pago mixto significa varios `Payment`: por ejemplo Q200 en efectivo + Q300 en ta
 No existe `MixedPayment`. Los métodos son `TextChoices`; se podrán habilitar o
 inhabilitar en una fase posterior, sin crear ahora configuración de caja.
 
-`recorded_by` identifica quién cobró. Efectivo registrado por rol `MESERO` queda con
-`cash_handoff_status=PENDING`; otros roles quedan `NOT_REQUIRED`. El estado `DELIVERED`
-está preparado, pero **no existe servicio de entrega a caja**. Esto no concede permiso
-de cobro por rol: siempre se requiere `payments.record_payment`. Un reembolso no cambia
-el estado de entrega del pago original; caja deberá conciliar el importe original y
-sus reembolsos separados cuando se implemente esa fase.
+`recorded_by` identifica quién cobró. Desde Fase 1E, efectivo registrado sin sesión por
+rol `MESERO` queda `PENDING` y genera una entrega pendiente. Un cobro con `cash_session`
+explícita queda `NOT_REQUIRED` y crea su entrada física. Otros roles requieren esa sesión.
+`confirm_cash_handoff` registra la recepción y cambia la entrega a `DELIVERED`.
+Siempre se requiere `payments.record_payment`; el rol no concede permisos automáticamente.
+Los reembolsos permanecen separados de la entrada original. Ver las reglas de caja abajo.
 
 ### Estados y cierre
 
@@ -881,7 +884,8 @@ El traslado físico de una cuenta a una mesa libre de su misma área continúa p
 
 ### Integridad, auditoría y acceso
 
-Todas las escrituras bloquean primero `TableOrder` con `select_for_update` y se confirman
+Las escrituras financieras bloquean `TableOrder` con `select_for_update`
+(desde Fase 1E, después de la barrera de jornada) y se confirman
 mediante `transaction.atomic`; comparten ese bloqueo con las operaciones de `orders`.
 Verificar/rechazar/reembolsar bloquea después el pago; devolver stock bloquea productos
 por ID. Esto serializa cobros, reservas, ajustes, cierres, anulaciones y devoluciones.
@@ -921,6 +925,278 @@ Migraciones nuevas: `orders.0003_alter_orderactivity_activity_type`,
 anteriores, no se reinició la base y no se insertaron pagos ni consumos de demostración.
 Para otra copia existente: ejecutar `python manage.py migrate` antes de utilizarla.
 
+## Fase 1E: caja física y cierre de jornada
+
+### Modelos y configuración inicial
+
+`apps/cash` contiene:
+
+- `CashRegister`: estación física con nombre, código único y área obligatoria. No usa
+  hostname ni IP. Su código/área no se cambian después de tener sesiones, y una caja
+  con sesión abierta no se puede desactivar mediante las operaciones soportadas.
+- `CashSession`: jornada, estación, cajero, actor de apertura, fondo inicial, fechas,
+  estado `OPEN`/`CLOSED`, conteo/autor/fecha, esperado congelado, diferencia, motivo y
+  autor de cierre. Solo admite una sesión abierta simultánea por estación.
+- `CashHandoff`: un registro por pago de efectivo de mesero. Conserva mesero, monto,
+  estado `PENDING`/`DELIVERED` y, solo cuando se recibe, sesión, receptor y fecha.
+- `CashMovement`: entrada/salida física, monto positivo, sesión, solicitante/autor,
+  aprobador si corresponde y referencias al pago, entrega o reembolso original.
+- `BusinessDay`: fecha comercial, estado, apertura/cierre y última reapertura.
+  Solo puede existir una jornada abierta en todo el establecimiento.
+- `BusinessDayReopen`: historial de cada reapertura con motivo, actor, fecha y datos
+  del cierre anterior. No se sobrescribe el historial al reabrir varias veces.
+
+Después de aplicar migraciones, el comando idempotente:
+
+```sh
+python manage.py seed_cash_defaults
+```
+
+crea `Caja Sport Bar` (`SPORT`), `Caja Discoteca` (`DISCO`) y `Caja Premium` (`PREMIUM`)
+usando las áreas existentes por sus slugs. No crea áreas ni modifica configuración
+existente. Si faltan áreas o un código corresponde a otra área, falla sin cambios parciales.
+Puede ejecutarse después de `seed_bigparty_defaults` en una instalación nueva.
+No abre una jornada ni sesiones, ni inserta movimientos de demostración.
+
+### Jornada explícita y operación después de medianoche
+
+```python
+from datetime import date
+from decimal import Decimal
+from apps.cash import services as cash
+
+# Ejemplos de apertura, ejecutados por el usuario autorizado.
+day = cash.open_business_day(user, business_date=date(2026, 9, 27))
+session = cash.open_cash_session(register, cashier, Decimal("500.00"), user)
+```
+
+La fecha comercial identifica la jornada completa: abrir el 27 por la noche y cerrar
+el 28 por la madrugada no cambia su pertenencia ni provoca cierre automático.
+Cada sesión pertenece explícitamente a una jornada; cada orden nueva captura la
+jornada abierta en `TableOrder.business_day`. Desde esta fase no se pueden abrir
+mesas, enviar consumos ni registrar operaciones financieras sin jornada abierta.
+
+La FK es nullable **solo para conservar órdenes históricas**, sin inferir sus jornadas
+por fechas. No se asignaron jornadas retrospectivamente en la migración.
+`assign_legacy_order_to_day(order, day, user, reason)` permite regularización explícita,
+con permiso `open_business_day`, motivo y auditoría; no permite reasignar una cuenta
+que ya tiene jornada. Reconstruye únicamente entregas pendientes que se puedan derivar
+de pagos CASH confirmados; no inventa recepciones físicas. Los cobros directos históricos
+requieren una vinculación física explícita si se incorporan a una jornada operativa.
+Los pendientes históricos sin jornada aparecen como bloqueadores de cierre.
+
+Una jornada cerrada bloquea nuevas mutaciones de sus órdenes, pagos y cajas. Para
+corregirla o reembolsar una cuenta de esa jornada debe reabrirse con autorización.
+No se puede reabrir mientras otra jornada esté abierta. Las sesiones ya cerradas
+permanecen inmutables; si se necesita mover efectivo tras reabrir, se abre una nueva
+sesión de esa jornada. No hay reasignación de ventas ni movimientos entre jornadas.
+
+### Fondo inicial y cobros directos
+
+El fondo inicial es efectivo físico disponible, **no venta ni ingreso comercial**.
+Puede ser cero. Abrir una sesión exige caja/área y cajero activos, permiso de apertura
+y ausencia de otra sesión abierta de esa estación. Diferentes estaciones pueden tener
+sesiones abiertas; después de cerrar una, la misma estación admite otro turno.
+
+Los servicios de pagos aceptan ahora `cash_session` explícito:
+
+```python
+from apps.payments import services as payments
+
+payment = payments.pay_full_balance(order, "CASH", cashier, cash_session=session)
+# También disponible en create_amount_payment, create_selected_payment y pay_cash.
+```
+
+El cobro directo valida que el usuario sea el cajero de la sesión (o superusuario),
+que la sesión esté abierta, sin conteo presentado, y pertenezca a la jornada de la cuenta.
+En la misma transacción se crea `Payment` y un único `DIRECT_CASH_PAYMENT` por su monto.
+El cambio entregado no aumenta ese monto. `cash_handoff_status` queda `NOT_REQUIRED`.
+Si falla la recepción física, también se revierte el pago y sus asignaciones.
+
+`record_direct_cash_payment(payment, session, user)` es idempotente para el mismo pago
+y sesión: devuelve el movimiento existente. Otra sesión no puede apropiárselo. Esto
+protege la recepción del mismo Payment; no sustituye un futuro identificador de solicitud
+para reintentos de crear pagos distintos desde clientes offline.
+
+No se añadió una segunda entidad de pago ni una FK redundante en `Payment`: la relación
+física con la sesión está en `CashMovement`, con unicidad de entrada por pago.
+Un usuario que cobra sin sesión debe tener rol base `MESERO` y permiso de registrar pagos;
+otros roles deben proporcionar sesión explícita. Proporcionar sesión expresa contexto
+físico de caja, incluso si la persona asignada a ella tiene otro rol base.
+
+### Efectivo de meseros y recepción
+
+Un pago CASH de mesero sin sesión queda confirmado financieramente y crea un
+`CashHandoff PENDING`. Todavía no afecta el efectivo esperado de ninguna caja.
+`get_pending_cash_handoffs(day=None, waiter=None)` lista mesero, pago/cuenta/mesa,
+monto y fecha, con filtros opcionales; la pantalla no añade un total agregado.
+
+```python
+cash.confirm_cash_handoff(payment, session, cashier)
+# También acepta el CashHandoff como primer argumento.
+```
+
+Exige `receive_waiter_cash`, pago CASH confirmado y pendiente de entrega, y una caja
+abierta/activa de la misma jornada sin conteo presentado. Guarda sesión, receptor, hora,
+mesero, monto, mesa/cuenta y un movimiento `WAITER_HANDOFF`. No crea otro pago ni otra venta.
+Un segundo intento de confirmar la entrega se rechaza.
+
+Se conservan `Payment.cash_handoff_status` y `CashHandoff.status` por compatibilidad,
+sincronizados en la misma transacción. La entrega pendiente no tiene sesión asignada.
+Por eso no bloquea el cierre individual de una caja que nunca recibió ese dinero,
+pero sí bloquea el cierre de su jornada. Una entrega recibida sin movimiento coherente
+impide cerrar su caja o jornada.
+
+### Retiros y reembolsos físicos
+
+```python
+cash.create_cash_withdrawal(session, Decimal("100.00"), "Depósito en bóveda",
+                            requested_by=waiter, approved_by=manager)
+cash.record_cash_refund(refund, session, cashier)
+```
+
+El retiro requiere monto positivo, motivo, solicitante activo y aprobador con
+`approve_cash_withdrawal`. El aprobador es el actor autenticado que ejecuta la operación;
+la vista no acepta otro aprobador enviado desde el formulario. Guarda ambos usuarios
+y fecha, reduce efectivo físico y no altera ventas. No puede dejar esperado negativo.
+
+`record_cash_refund` registra exclusivamente la **salida física** de un `PaymentRefund`
+existente cuyo pago original fue CASH. Requiere `record_cash_refund`, sesión abierta
+no contada de la misma jornada y fondos suficientes. Crea un `CASH_REFUND` único por
+reembolso; repetirlo en la misma sesión devuelve el movimiento, otra sesión se rechaza.
+No vuelve a crear el reembolso financiero ni devuelve inventario otra vez.
+
+El reembolso financiero y su eventual devolución de stock siguen en `payments`.
+No generan automáticamente movimientos de caja: si la devolución de dinero ocurre
+fuera de esa caja física, no se inventa una salida en ella. Los informes distinguen
+reembolsos financieros y salidas físicas por reembolso.
+
+**Regla de coherencia añadida:** el efectivo pendiente de un mesero debe entregarse
+antes de reembolsar su pago. Así no queda un pago totalmente `REFUNDED` con una entrega
+pendiente imposible de confirmar. La devolución directa por el mesero antes de entregar
+no está implementada; necesita un flujo específico de custodia en una fase posterior.
+
+### Efectivo esperado y privacidad
+
+`get_expected_cash(session)` usa solo movimientos físicos:
+
+```text
+fondo inicial
++ cobros directos CASH
++ entregas recibidas de meseros
+- retiros
+- reembolsos físicos CASH
+= efectivo esperado
+```
+
+No incluye efectivo que todavía conserva el mesero, tarjeta, transferencia ni depósito.
+`get_cash_session_summary(session)` devuelve registro/cajero, fondo, cada componente,
+esperado y fechas; el contado y la diferencia aparecen en ese resumen solo tras cerrar.
+Es una consulta interna: **no debe exponerse directamente en una pantalla normal de caja**.
+
+`/dev/caja/` no consulta ni muestra esperado, ventas agregadas, efectivo en caja ni
+diferencia antes del conteo, incluso para un superusuario. La información individual de
+entregas sigue visible a quien puede recibirlas. El administrador financiero exige
+además `view_cash_session_financials`. El resumen de jornada de Gerencia también requiere
+ese permiso; concederlo no habilita revelar antes el resultado en el flujo de conteo ciego.
+
+### Conteo ciego y cierre inmutable
+
+```python
+submitted = cash.submit_blind_cash_count(session, Decimal("1480.00"), cashier)
+result = cash.get_blind_close_result(session, cashier)
+closed = cash.close_cash_session(session, cashier, reason="Faltante documentado")
+```
+
+La primera etapa exige `close_cash_session`, sesión abierta y contado no negativo.
+Guarda el conteo una sola vez con actor y hora, calcula el esperado y la diferencia y
+**congela movimientos**. Devuelve únicamente ID, importe contado y fecha de presentación.
+No devuelve el esperado ni la diferencia en esa respuesta; después del registro se
+pueden consultar mediante `get_blind_close_result`.
+
+El conteo no puede reemplazarse después de conocer el esperado. No existe reapertura de
+sesión ni edición del conteo. La sesión permanece `OPEN` entre conteo y cierre, por lo
+que tampoco puede abrirse otra en la misma estación durante ese intervalo.
+
+La segunda etapa vuelve a comprobar movimientos/integridad y calcula:
+`difference = counted_cash - expected_cash`. Un faltante es negativo y un sobrante positivo.
+Si la diferencia no es cero, exige motivo; si es cero, el motivo es opcional. Guarda
+esperado final, diferencia, razón, autor/fecha y `CLOSED`. Después no admite movimientos
+nuevos ni cambios financieros por servicios o administrador.
+
+### Bloqueadores, cierre y reapertura de jornada
+
+`get_business_day_close_blockers(day)` entrega una lista de objetos con `type`,
+`description` y `object_id`, sin limitarse a un booleano. Detecta:
+
+- órdenes activas y saldos distintos de cero;
+- pagos pendientes de verificación;
+- sesiones de caja abiertas, incluidas las contadas aún sin cerrar;
+- entregas pendientes de meseros;
+- inconsistencias entre pagos/asignaciones, entregas/movimientos y conteos congelados;
+- cuentas históricas pendientes que todavía no tienen jornada.
+
+`can_close_business_day(day)` solo devuelve verdadero para una jornada abierta sin
+bloqueadores. `close_business_day(day, user)` exige `close_business_day`, bloquea y
+recalcula la lista dentro de su transacción antes de guardar cierre y auditoría.
+No existe cierre automático por hora.
+
+`reopen_business_day(day, user, reason)` exige permiso propio, motivo y que no haya
+otra jornada abierta. Añade un `BusinessDayReopen` y actualiza los datos de última
+reapertura, conservando el cierre previo en el historial. Reabrir no modifica sesiones
+cerradas ni elimina pagos o movimientos originales.
+
+### Resumen comercial y controles transaccionales
+
+`get_business_day_summary(day)` devuelve `gross_sales`, `adjustments`, `refunds` y
+`net_sales` por separado, calculados desde las órdenes de esa jornada. Expone por método
+pagos confirmados brutos, reembolsos, confirmados netos y pendientes; además incluye
+sesiones abiertas/cerradas, diferencias cerradas, retiros, salidas físicas de reembolso,
+entregas pendientes/recibidas y órdenes activas/cerradas. El fondo inicial no entra en ventas.
+No genera PDF ni impresión.
+
+Las operaciones usan `transaction.atomic` y bloqueos de filas. En esta primera
+instalación, una barrera transaccional PostgreSQL compartida serializa las escrituras
+operativas de órdenes/pagos/caja con apertura/cierre/reapertura de jornada. Se toma
+siempre antes de bloquear jornada, orden/pago, sesión o productos. También protege
+la primera apertura cuando aún no hay una fila de jornada que bloquear.
+
+**Decisión de concurrencia:** se prioriza una frontera de cierre coherente para el
+local sobre procesar escrituras comerciales simultáneamente. Un cierre y una nueva
+orden/sesión no pueden confirmarse a la vez. Una futura optimización puede afinar la
+granularidad conservando esta garantía. Constraints adicionales impiden dos jornadas
+abiertas, dos sesiones abiertas de una caja o recepciones duplicadas de un pago.
+
+Permisos explícitos de `cash`, sin asignación automática por rol:
+`open_cash_session`, `receive_waiter_cash`, `approve_cash_withdrawal`,
+`close_cash_session`, `view_cash_session_financials`, `open_business_day`,
+`close_business_day`, `reopen_business_day` y `record_cash_refund`.
+Las operaciones comerciales mantienen además sus permisos de `orders`/`payments`.
+Auditoría registra apertura, cobros directos, entregas, retiros, salida por reembolso,
+conteo, cierre/diferencia, cierre de jornada, reaperturas y regularización histórica.
+
+### Administración, vistas y migraciones
+
+`CashRegister` es editable con controles de identidad/actividad y auditoría.
+`CashSession`, `CashHandoff`, `CashMovement`, `BusinessDay` y `BusinessDayReopen`
+son de solo lectura: no se puede editar fondo, conteo, movimientos o estados a mano.
+Las escrituras directas ORM/SQL no son una API soportada.
+
+- <http://127.0.0.1:8000/dev/caja/>: seleccionar sesión/estación, abrir, recibir
+  entregas, aprobar retiros, enviar conteo ciego y finalizar cierre.
+- <http://127.0.0.1:8000/dev/jornada/>: abrir, consultar estado/bloqueadores/resumen,
+  cerrar y reabrir con motivo. Los bloqueadores requieren permiso de cierre de jornada;
+  el resumen comercial requiere permiso de información financiera.
+- <http://127.0.0.1:8000/dev/pagos/>: incorpora selección explícita de sesión receptora
+  de efectivo. La salida física de reembolso se registra por servicio en esta fase.
+
+Todas requieren `DEBUG=True`, sesión, staff activo, permiso nativo de consulta,
+permisos específicos para operar y CSRF. No se ha creado una interfaz final.
+
+Migraciones nuevas: `cash.0001_initial` y `orders.0004_tableorder_business_day`.
+No se editaron migraciones anteriores ni se reinició la base. `Payment` y sus
+allocations/refunds se conservan; no necesitan una migración de campos para esta relación.
+
 ## Pruebas y comprobaciones
 
 Con PostgreSQL disponible y `.venv` activado:
@@ -932,7 +1208,7 @@ python manage.py test
 python -m pip check
 ```
 
-Las 264 pruebas cubren carga de la página y del administrador, formularios de usuarios,
+Las 335 pruebas cubren carga de la página y del administrador, formularios de usuarios,
 roles, permisos individuales, PIN con hash y sal, confirmación y conservación del PIN,
 creación de auditoría y protección frente a cambios y borrado, CSRF y archivos estáticos.
 También cubren áreas, zonas, mesas, validaciones Python y constraints PostgreSQL,
@@ -950,6 +1226,12 @@ La Fase 1D añade 78 pruebas de saldos, pagos por artículos y montos, cambio, r
 por verificar, cobros mixtos, cierres, descuentos, reembolsos, devolución de inventario,
 recibos, permisos, admin, CSRF y concurrencia real de pagos/ajustes/anulaciones.
 Las 186 pruebas anteriores siguen incluidas.
+La Fase 1E añade 71 pruebas de estaciones, semilla idempotente, sesiones, entregas,
+retiros, reembolsos físicos, fórmula de efectivo, cierre ciego, privacidad, jornadas,
+bloqueadores, reaperturas y resúmenes. La concurrencia cubre aperturas, cobros, conteos,
+retiros, recepciones, devoluciones y cierre de jornada frente a nuevas órdenes/sesiones.
+Las 264 pruebas anteriores se conservan, con fixtures de jornada abierta y contexto
+de sesión explícito para los reembolsos de efectivo y cobros directos que lo requieren.
 Se ejecutan sobre una base PostgreSQL temporal separada; Django la elimina al finalizar.
 
 ## Git y alcance
@@ -958,7 +1240,6 @@ Se ejecutan sobre una base PostgreSQL temporal separada; Django la elimina al fi
 se excluyen de Git. `.env.example`, las dependencias y las migraciones sí se versionan.
 No subir credenciales ni archivos de entorno reales.
 
-La entrega finaliza en la Fase 1D: pagos y cierre de cuentas. Sesiones de caja,
-apertura/arqueo/cierre de caja, entrega de efectivo, retiros, cierre de jornada,
-reservas, eventos, QR, interfaz final, impresoras y sincronización offline permanecen
-fuera de alcance y requieren autorización para fases posteriores.
+La entrega finaliza en la Fase 1E: caja y cierre de jornada. Interfaces finales,
+impresoras reales, reservas, eventos, QR, dashboard ejecutivo, PDF finales, nodo local,
+hardware, websockets y sincronización offline permanecen fuera de alcance.

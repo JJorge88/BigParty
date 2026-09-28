@@ -8,6 +8,7 @@ from django.db.models import Max
 from django.utils import timezone
 
 from apps.audit.models import AuditLog
+from apps.cash.guards import lock_open_day, lock_order_day
 from apps.catalog.models import Product, ModifierGroup, ModifierOption
 from apps.catalog.services import catalog_products, get_product_price, is_product_available
 from apps.inventory.models import InventoryMovement
@@ -51,6 +52,7 @@ def _active(order):
 
 
 def _locked_order(order):
+    lock_order_day(order.pk)
     current = TableOrder.objects.select_for_update().get(pk=order.pk)
     _active(current)
     return current
@@ -108,6 +110,7 @@ def _link(order, table):
 @transaction.atomic
 def open_table_order(table, user, *, responsible_waiter=None, billing_mode="SINGLE", general_note=""):
     _require(user, "open_table_order")
+    day = lock_open_day()
     current = VenueTable.objects.select_for_update().get(pk=table.pk)
     _valid_table(current)
     if current.order_links.filter(released_at__isnull=True).exists():
@@ -116,7 +119,7 @@ def open_table_order(table, user, *, responsible_waiter=None, billing_mode="SING
     responsible.refresh_from_db()
     if not responsible.is_active:
         raise ValidationError("El responsable debe ser un usuario activo.")
-    order = _save(TableOrder(primary_table=current, area_id=current.area_id, opened_by=user,
+    order = _save(TableOrder(business_day=day, primary_table=current, area_id=current.area_id, opened_by=user,
                              responsible_waiter=responsible, billing_mode=billing_mode, general_note=_text(general_note)))
     _link(order, current)
     _log(order, user, "OPENED", f"Mesa abierta: {current.name}", table_id=current.pk, responsible_waiter_id=responsible.pk)
@@ -475,6 +478,9 @@ def merge_orders(primary_order, secondary_order, user):
     _require(user, "merge_orders")
     if primary_order.pk == secondary_order.pk:
         raise ValidationError("Selecciona dos cuentas distintas.")
+    day = lock_order_day(primary_order.pk)
+    if lock_order_day(secondary_order.pk).pk != day.pk:
+        raise ValidationError("Solo se pueden unir cuentas de la misma jornada.")
     orders = {order.pk: order for order in TableOrder.objects.filter(pk__in=[primary_order.pk, secondary_order.pk]).order_by("pk").select_for_update()}
     primary, secondary = orders[primary_order.pk], orders[secondary_order.pk]
     _active(primary)
