@@ -1,4 +1,5 @@
 from urllib.parse import urlencode
+from math import ceil
 from django.core import signing
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
@@ -9,6 +10,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_http_methods
 from django.views.generic import TemplateView
 from apps.tables.models import VenueTable
+from apps.venues.models import Area
 from apps.reservations import queries, services
 from . import public_site as site
 from .public_forms import ReservationSearchForm, ReservationGuestForm
@@ -18,8 +20,9 @@ class HomeView(TemplateView):
     template_name = 'public/home.html'
 
     def get_context_data(self, **kwargs):
+        upcoming = list(site.public_events().filter(status='PUBLISHED')[:4])
         return {**super().get_context_data(**kwargs), **site.context(self.request),
-                'featured':site.public_events().filter(status='PUBLISHED').first()}
+                'featured': upcoming[0] if upcoming else None, 'upcoming': upcoming[1:]}
 
 
 @require_GET
@@ -50,7 +53,7 @@ def table_map(request):
         available = set(queries.get_available_tables(data['date'],data['time'],config.default_duration_minutes,data['party_size']).values_list('pk',flat=True))
         # No datos de pedidos, ocupación, clientes ni razones operativas en la proyección pública.
         tables = VenueTable.objects.filter(reservable_web=True,is_active=True,area__is_active=True).select_related('area')
-        areas={}
+        areas={area.pk:dict(name=area.name,slug=area.slug,tables=[]) for area in Area.objects.filter(is_active=True)}
         for table in tables:
             group=areas.setdefault(table.area_id,dict(name=table.area.name,slug=table.area.slug,tables=[]))
             selection=signing.dumps({'table':table.pk,'date':data['date'].isoformat(),'time':data['time'].isoformat(),'party_size':data['party_size']},salt='public.reservation.choice') if table.pk in available else ''
@@ -59,8 +62,9 @@ def table_map(request):
         groups=list(areas.values())
         # Un plano todavía sin distribución usa una cuadrícula honesta, sin superponer mesas.
         for group in groups:
-            positions={(r['x'],r['y']) for r in group['tables']}
-            group['diagram']=len(positions)==len(group['tables']) and any(r['x'] or r['y'] for r in group['tables'])
+            group['diagram']=site.has_public_layout(group['tables'])
+            if group['diagram']:
+                group['minimum_width'] = ceil(max(max(6000 / row['width'], 4800 / row['height']) for row in group['tables']))
     return render(request,'public/table_map.html',{**site.context(request,title='Elige tu mesa',private=True), 'form':form,'groups':groups,'has_available':any(t['available'] for g in groups for t in g['tables']),'config':config,
         'search':urlencode(request.GET.dict()),'selected_area':request.GET.get('area','')})
 

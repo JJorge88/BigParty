@@ -1,0 +1,9 @@
+{% load public_format %}
+<article class="event-story {% if featured %}event-story--featured{% endif %}" data-reveal>
+  <a class="story-media" href="{% url 'event-public:event' event.slug %}" aria-label="Ver {{ event.name }}">{% if event.image %}<img src="{{ event.image.url }}" alt="{{ event.name }}" width="1200" height="900" loading="lazy">{% else %}{% include 'public/partials/atmosphere.html' with image=event_fallback_image variant='event' label='Nos vemos de noche' %}{% endif %}</a>
+  <div class="story-copy">{% if featured %}<p class="eyebrow">EL PRÓXIMO ENCUENTRO</p>{% endif %}<p class="event-date">{{ event.starts_at|public_date }} · {{ event.starts_at|public_time }}</p><h2><a href="{% url 'event-public:event' event.slug %}">{{ event.name }}</a></h2>
+    <p>{% if event.from_price %}Desde {{ event.from_price|quetzales }}{% else %}Descubre la noche{% endif %}</p>
+    {% if event.sale_label %}<p class="sale-note">{{ event.sale_label }}{% if event.status == 'RESCHEDULED' %} · Reprogramado{% endif %}</p>{% endif %}
+    <a class="text-link" href="{% url 'event-public:event' event.slug %}">Ver evento <span aria-hidden="true">↗</span></a>
+  </div>
+</article>

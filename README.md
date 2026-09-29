@@ -3070,3 +3070,28 @@ por verificar ya están incluidos en el saldo pendiente. Los cálculos no cambia
 
 Evidencia y capturas: `docs/phase-4a/VERIFICACION.md`. No se inició Local Node,
 despliegue, sincronización offline, PWA, analytics ni FEL.
+
+### Fase 4A.1 · refinamiento visual público
+
+La Home organiza hero, siguiente evento publicado, tres experiencias, reserva,
+calendario breve (si existen fechas adicionales) y cierre de marca. Las imágenes
+son independientes: las variables opcionales vacías muestran composiciones
+editoriales oscuras, sin reutilizar la foto del hero. Se añaden
+`PUBLIC_RESERVATION_IMAGE` y `PUBLIC_EVENT_FALLBACK_IMAGE`.
+Ver [fotografías pendientes](docs/public-site/ASSETS-PENDIENTES.md).
+
+Los parciales en `templates/public/partials/` comparten header, footer, eventos,
+experiencias, selector de entradas, datos bancarios y resumen de reserva. Los
+filtros `public_date`, `public_time`, `quetzales` y `payment_money` afectan solo a
+HTML público: fechas en español, hora 24 h, quetzales sin decimales vacíos en
+marketing y dos decimales en pagos. El formato de controles nativos de fecha/hora
+lo determina el navegador del cliente.
+
+El mapa conserva coordenadas y proporciones. Configuraciones superpuestas o sin
+posiciones usan cuadrícula; áreas activas sin mesas web muestran un estado vacío.
+Su tamaño mínimo depende de la geometría para mantener etiquetas legibles sin
+ensanchar artificialmente cada mesa. El menú móvil contiene cuatro enlaces,
+controla el foco y libera la página al cerrarse. El movimiento reducido evita las
+entradas animadas y el desplazamiento suave.
+
+[Verificación y capturas 4A.1](docs/public-site/VERIFICACION-4A1.md).

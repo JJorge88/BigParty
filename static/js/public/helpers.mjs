@@ -12,3 +12,10 @@ export function remainingSeconds(deadline, serverNow, elapsedMilliseconds) {
 export function formatCountdown(seconds) {
   return `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
 }
+
+export function formatQuetzales(cents) {
+  const amount = cents / 100;
+  return 'Q' + new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2
+  }).format(amount);
+}

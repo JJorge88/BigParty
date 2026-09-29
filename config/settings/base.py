@@ -153,7 +153,9 @@ EVENT_GUARD_IDLE_SECONDS = 30 * 60
 # Imágenes editoriales públicas: rutas relativas a static, reemplazables sin CMS.
 PUBLIC_HERO_IMAGE = os.environ.get('PUBLIC_HERO_IMAGE', 'images/public/nightlife-hero.webp')
 PUBLIC_LEVEL_IMAGES = {
-    'sport_bar': os.environ.get('PUBLIC_SPORT_BAR_IMAGE', PUBLIC_HERO_IMAGE),
-    'discoteca': os.environ.get('PUBLIC_DISCOTECA_IMAGE', PUBLIC_HERO_IMAGE),
-    'premium': os.environ.get('PUBLIC_PREMIUM_IMAGE', PUBLIC_HERO_IMAGE),
+    'sport_bar': os.environ.get('PUBLIC_SPORT_BAR_IMAGE', ''),
+    'discoteca': os.environ.get('PUBLIC_DISCOTECA_IMAGE', ''),
+    'premium': os.environ.get('PUBLIC_PREMIUM_IMAGE', ''),
 }
+PUBLIC_RESERVATION_IMAGE = os.environ.get('PUBLIC_RESERVATION_IMAGE', '')
+PUBLIC_EVENT_FALLBACK_IMAGE = os.environ.get('PUBLIC_EVENT_FALLBACK_IMAGE', '')

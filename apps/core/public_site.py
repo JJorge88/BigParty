@@ -19,7 +19,9 @@ def context(request, *, title='La noche comienza aquí.', description='Tres espa
                 og_image=absolute(image or static(hero)),
                 private_page=private, server_now=timezone.now().isoformat(),
                 hero_image=hero,
-                level_images=getattr(settings, 'PUBLIC_LEVEL_IMAGES', {}))
+                level_images=getattr(settings, 'PUBLIC_LEVEL_IMAGES', {}),
+                reservation_image=getattr(settings, 'PUBLIC_RESERVATION_IMAGE', ''),
+                event_fallback_image=getattr(settings, 'PUBLIC_EVENT_FALLBACK_IMAGE', ''))
 
 
 def public_events():
@@ -69,3 +71,18 @@ def sale_label(event):
            and kind.sale_starts_at > timezone.now() for kind in types):
         return 'Próximamente'
     return 'Sin disponibilidad'
+
+
+def has_public_layout(rows):
+    """Use a floor plan only for bounded, non-overlapping configured rectangles."""
+    if not rows or not any(row['x'] or row['y'] for row in rows):
+        return False
+    for index, row in enumerate(rows):
+        x, y, w, h = (row[key] for key in ('x', 'y', 'width', 'height'))
+        if not (0 <= x < x + w <= 100 and 0 <= y < y + h <= 100):
+            return False
+        for other in rows[:index]:
+            if (x < other['x'] + other['width'] and x + w > other['x']
+                    and y < other['y'] + other['height'] and y + h > other['y']):
+                return False
+    return True

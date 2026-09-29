@@ -1,0 +1,1 @@
+{% load public_format %}<p class="eyebrow">TU MESA</p><h2>{{ table.name }}</h2><p>{{ table.area.name }} · capacidad para {{ table.capacity }} personas</p><dl class="public-facts"><div><dt>Fecha</dt><dd>{{ date|public_date }}</dd></div><div><dt>Hora</dt><dd>{{ at|public_time }}</dd></div><div><dt>Personas</dt><dd>{{ party_size }}</dd></div></dl>
