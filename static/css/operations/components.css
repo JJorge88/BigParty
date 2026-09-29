@@ -300,3 +300,5 @@
     padding:24px;
   }
 }
+
+.badge[data-state=RESERVED]{color:#dcc6ec;background:#392c4a}

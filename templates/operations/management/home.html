@@ -23,7 +23,7 @@
 <section class="panel chart-panel">
 <div class="panel-heading">
 <div>
-<h2>Ventas por hora
+<h2>Cobros confirmados por hora
 </h2><p class="help">Cobros confirmados netos · jornada comercial</p>
 </div>{% if can_financial %}<strong class="chart-total">Q{{ confirmed_net|floatformat:2 }}</strong>{% endif %}
 </div>{% if can_financial %}{% if hourly.has_data %}{% localize off %}
@@ -71,6 +71,6 @@
 <section class="admin-section">
 <h2>Administrar
 </h2>
-<div class="admin-links"><span aria-disabled="true">Reservas</span><span aria-disabled="true">Eventos</span><span aria-disabled="true">Inventario</span><span aria-disabled="true">Usuarios</span><span aria-disabled="true">Reportes</span><span aria-disabled="true">Auditoría</span><span aria-disabled="true">Configuración</span>
+<div class="admin-links"><a href="{% url 'reservations:list' %}">Reservas</a><span aria-disabled="true">Eventos</span><span aria-disabled="true">Inventario</span><span aria-disabled="true">Usuarios</span><span aria-disabled="true">Reportes</span><span aria-disabled="true">Auditoría</span><span aria-disabled="true">Configuración</span>
 </div><p class="help">Estos módulos estarán disponibles en próximas fases.</p>
 </section>{% endblock %}

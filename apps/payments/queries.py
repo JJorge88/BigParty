@@ -22,7 +22,11 @@ def prefetch_financials(orders):
         Prefetch('allocations', queryset=allocations), Prefetch('refunds', queryset=refunds))
     adjustments = OrderAdjustment.objects.select_related('subaccount').prefetch_related(
         Prefetch('allocations', queryset=AdjustmentAllocation.objects.select_related('order_line')))
+    from apps.reservations.models import ReservationCredit, ReservationCreditAllocation
+    credits = ReservationCredit.objects.select_related('payment__reservation').prefetch_related(
+        Prefetch('allocations', queryset=ReservationCreditAllocation.objects.select_related('order_line')))
     return list(orders.prefetch_related(
+        Prefetch('reservation_credits', queryset=credits, to_attr='_reservation_credits'),
         Prefetch('lines', queryset=OrderLine.objects.order_by('pk'), to_attr='_financial_lines'),
         Prefetch('payments', queryset=payments, to_attr='_financial_payments'),
         Prefetch('adjustments', queryset=adjustments, to_attr='_financial_adjustments')))
@@ -55,7 +59,7 @@ def unit_ledger(order, *, include_drafts=False):
     for line in lines:
         for number in range(1, line.quantity + 1):
             units[(line.pk, number)] = dict(line=line, unit_number=number, price=line.unit_price,
-                confirmed=ZERO, pending=ZERO, adjustment=ZERO, refunded=ZERO)
+                confirmed=ZERO, credit=ZERO, pending=ZERO, adjustment=ZERO, refunded=ZERO)
     if hasattr(order, '_financial_payments'):
         sources = [
             ([row for p in order._financial_payments if p.status in ('CONFIRMED', 'REFUNDED') for row in p.allocations.all()], 'confirmed'),
@@ -70,6 +74,8 @@ def unit_ledger(order, *, include_drafts=False):
             (AdjustmentAllocation.objects.filter(adjustment__order=order), "adjustment"),
         ]
         refunds = RefundAllocation.objects.filter(refund__payment__order=order).select_related("payment_allocation")
+    from apps.reservations.credits import credits_for
+    sources.append(([row for credit in credits_for(order) for row in credit.allocations.all()], "credit"))
     for rows, field in sources:
         for row in rows:
             key = (row.order_line_id, row.unit_number)
@@ -81,7 +87,7 @@ def unit_ledger(order, *, include_drafts=False):
             units[key]["refunded"] += row.amount
     for unit in units.values():
         unit["charge"] = unit["price"] - unit["adjustment"] - unit["refunded"]
-        unit["paid"] = unit["confirmed"] - unit["refunded"]
+        unit["paid"] = unit["confirmed"] - unit["refunded"] + unit["credit"]
         unit["balance"] = unit["charge"] - unit["paid"]
         unit["available"] = unit["balance"] - unit["pending"]
     return units
@@ -127,10 +133,10 @@ def get_line_payment_quantities(line, *, include_drafts=False):
     units = [u for u in unit_ledger(line.order, include_drafts=include_drafts).values() if u["line"].pk == line.pk]
     return {
         "total_quantity": line.quantity,
-        "confirmed_quantity": sum(u["balance"] == ZERO and u["confirmed"] > ZERO for u in units),
+        "confirmed_quantity": sum(u["balance"] == ZERO and u["confirmed"] + u["credit"] > ZERO for u in units),
         "pending_verification_quantity": sum(u["pending"] > ZERO for u in units),
         "outstanding_quantity": sum(u["balance"] > ZERO for u in units),
-        "partially_covered_quantity": sum(ZERO < u["confirmed"] + u["adjustment"] < u["price"] for u in units),
+        "partially_covered_quantity": sum(ZERO < u["confirmed"] + u["credit"] + u["adjustment"] < u["price"] for u in units),
         "adjusted_quantity": sum(u["adjustment"] == u["price"] for u in units),
         "confirmed_paid": sum((u["paid"] for u in units), ZERO),
         "pending_verification": sum((u["pending"] for u in units), ZERO),
@@ -171,6 +177,7 @@ def get_receipt_data(target):
                      "reason": row.refund.reason, "date": row.refund.created_at}
                     for row in RefundAllocation.objects.filter(payment_allocation__order_line_id__in=line_ids).select_related("refund", "payment_allocation")],
         **{key: value for key, value in summary.items() if key not in ("adjustments", "refunds")},
+        "reservation_credit_applied": sum((u["credit"] for u in unit_ledger(order).values() if u["line"].pk in line_ids), ZERO),
         "adjustment_total": summary["adjustments"], "refund_total": summary["refunds"],
     }
 

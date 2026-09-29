@@ -67,6 +67,7 @@
 <span class="badge" data-state="PAYMENT_PENDING">
 <i class="status-dot">
 </i>Pago pendiente</span>
+<span class="badge" data-state="RESERVED"><i class="status-dot"></i>Reservada</span>
 <span class="badge" data-state="OUT_OF_SERVICE">
 <i class="status-dot">
 </i>Fuera de servicio</span>
@@ -158,6 +159,7 @@
 </strong>
 </div>
 <div class="panel-actions">
+<p id="panel-reservation-note" hidden>Reserva confirmada. Gerencia debe registrar la llegada del cliente.</p>
 <button class="button button--primary button--wide" id="open-table-button" type="button">Abrir mesa</button>
 <div id="future-actions">
 {% if can_order %}<a class="button button--primary button--wide" id="add-order-link">Agregar pedido</a>{% else %}<p class="muted">No tienes permiso para gestionar pedidos.</p>{% endif %}

@@ -2267,3 +2267,210 @@ incluyendo pagos y reembolsos, para detectar crecimiento por orden.
 
 Validación y capturas reales: [docs/phase-3a/VERIFICACION.md](docs/phase-3a/VERIFICACION.md).
 No se inicia Fase 3B / Reservas.
+
+## Fase 3B — Reservas normales
+
+`apps/reservations` es el dominio propio de reservas. Gerencia incorpora
+`/gerencia/reservas/`, filtros, búsqueda, revisión, creación interna y configuración.
+No se implementan eventos, QR, entradas, mapa público premium, reportes de reservas,
+SMS, gateway ni envío automático de WhatsApp.
+
+### Modelos y configuración
+
+- `ReservationSettings`: configuración global singleton (id=1); en ausencia de fila
+  usa valores iniciales sin escribir desde GET. Reservas habilitadas, duración 180 min,
+  retención pública 15 min, ventana de transferencia 15 min y anticipo deshabilitado.
+  Gerencia puede ajustar estos valores con `configure_reservations`.
+- `Reservation`: tipo `NORMAL`, mesa/área, nombre/teléfono internacional, fecha/hora,
+  duración, personas, inicio/fin con zona horaria, condiciones de anticipo congeladas
+  al aprobar, responsables/fechas/motivos y relación única con `TableOrder` al llegar.
+  El teléfono incluye prefijo de país, por ejemplo `+502 5555 5555`.
+- `ReservationPayment`: transferencia independiente de los pagos de cuenta; monto,
+  referencia, comprobante privado, revisión y motivo. Una reserva admite un envío;
+  el rechazo es terminal y una nueva solicitud obtiene nuevos identificadores.
+- `ReservationCredit` y `ReservationCreditAllocation`: origen del prepago confirmado
+  y asignación persistida por unidad de consumo. No son descuentos ni pagos de caja.
+
+Anticipo `FIXED` (Q) o `PERCENTAGE` (%). Para porcentaje, **Gerencia ingresa el consumo
+estimado como base** (`payment_base_amount`); se conserva el cálculo y se redondea a
+centavos con `ROUND_HALF_UP`. No se infiere un precio por persona ni por mesa.
+`CREDIT` significa abono al consumo; `FEE`, cargo de reserva que no reduce la cuenta.
+Los cambios de configuración afectan aprobaciones y creaciones posteriores, no los
+importes ya aprobados. Habilitar/deshabilitar reservas controla nuevas solicitudes;
+las existentes conservan su flujo y sus compromisos.
+
+### Disponibilidad y concurrencia
+
+`get_available_tables(date, time, duration, party_size=None, area=None)` devuelve
+mesas activas, de áreas activas, en servicio, reservables en web y con capacidad
+suficiente. Usa intervalos semiabiertos `[inicio, fin)`; admite cruce de medianoche
+y reservas consecutivas. Retienen el intervalo:
+
+- `PENDING_REVIEW` mientras `hold_expires_at > now`.
+- `AWAITING_PAYMENT` mientras `payment_expires_at > now`.
+- `PAYMENT_REVIEW` hasta decisión humana, sin expiración automática.
+- `CONFIRMED` hasta llegada, cancelación o no-show.
+- `ARRIVED` conserva su intervalo mientras su cuenta siga activa; cerrar la cuenta
+  lo libera. Así una llegada anticipada no permite reservar de nuevo el mismo tramo.
+
+Los vencimientos dejan de bloquear inmediatamente aunque el comando aún no corra.
+Los GET muestran “Expirada” como estado efectivo y no mutan registros. El comando
+persiste `EXPIRED` y su auditoría. La disponibilidad actual también considera cuentas
+activas; una cuenta abierta no permite predecir disponibilidad futura: Gerencia
+resuelve cualquier mesa aún ocupada al recibir al cliente.
+
+`create_public_reservation_request(...)` revalida dentro de `transaction.atomic`.
+Todas las escrituras usan el mismo bloqueo asesor transaccional de la instalación
+que caja (`lock_operation_gate`) y bloquean reserva/mesa con `select_for_update`.
+La llegada toma primero la jornada abierta; este orden es coherente con apertura,
+traslado, unión, cobro y cierre. Las dos solicitudes concurrentes no pueden confirmar
+una misma disponibilidad. Los servicios son la frontera de escritura; no se admiten
+actualizaciones directas de estados desde Admin ni formularios genéricos.
+
+Se evaluó `ExclusionConstraint`: un predicado estático no representa los holds
+activos según `now()` sin materializar sus vencimientos primero. En esta fase se
+elige bloqueo transaccional + validación dentro del bloqueo, conservando la barrera
+ya existente del local. No se agrega `btree_gist`. La base impone unicidad de token,
+código, pago por reserva, crédito por pago, llegada por cuenta y asignación por
+unidad, además de intervalos/montos/cantidades positivos. Índices: estado, fecha,
+mesa+fecha e inicio; token/código tienen índices únicos. La serialización global
+es deliberada para una instalación; escalar a varios locales requiere revisar la
+clave y granularidad del bloqueo antes de permitir escritores independientes.
+
+### Servicios y estados
+
+`create_public_reservation_request(table, customer_name, customer_phone, date,
+time, party_size)` → `PENDING_REVIEW`. No requiere ni crea jornadas futuras.
+
+`create_manual_reservation(..., user, duration=..., payment_required=..., ...)`
+crea `CONFIRMED` o `AWAITING_PAYMENT`, sin hold previo. Admite mesas internas no
+habilitadas en web, siempre activas, con capacidad y sin solapamientos.
+
+`approve_reservation` confirma sin pago o abre la ventana de transferencia.
+`reject_reservation` exige motivo y libera la retención. Los servicios de pago son
+`submit_reservation_payment`, `confirm_reservation_payment` y
+`reject_reservation_payment`; los estados recorren:
+
+`PENDING_REVIEW → AWAITING_PAYMENT → PAYMENT_REVIEW → CONFIRMED → ARRIVED`.
+
+Sin anticipo, aprobación pasa directamente a `CONFIRMED`. El rechazo del pago lleva
+pago y reserva a `REJECTED`, con motivo obligatorio. `cancel_reservation` conserva
+registros y exige motivo cuando hay compromiso confirmado o anticipo; la interfaz
+siempre pide motivo. `mark_reservation_no_show` es explícito, solo para confirmadas
+a partir de su hora, con motivo opcional. No hay devolución automática; pagos
+confirmados y pagos pendientes de una reserva cancelada se conservan para posterior
+resolución humana. Una reserva llegada ya se opera desde su cuenta, no se cancela
+retroactivamente como reserva.
+
+Cada transición, expiración, cambio de configuración y asignación de crédito produce
+`AuditLog`. El código público `BP-R-` usa diez caracteres aleatorios no ambiguos;
+no sirve como secreto. `secure_token` usa 32 bytes criptográficamente aleatorios.
+
+### Página privada, comprobantes y WhatsApp
+
+`/reservas/r/<secure_token>/` permite únicamente consultar esa reserva y enviar su
+transferencia mientras la ventana sea válida. No hay búsqueda pública por teléfono
+ni endpoint de enumeración. La página no muestra nombres/teléfonos de clientes,
+IDs internos ni motivos internos; usa CSRF, `no-store`, `noindex` y política de
+referencia `same-origin`. Esta última conserva CSRF en formularios sin compartir el
+URL privado con otros sitios; los enlaces externos usan `noreferrer`.
+Referencia técnica: [CSRF de Django 5.2](https://docs.djangoproject.com/en/5.2/ref/csrf/).
+
+El importe debe coincidir exactamente con el aprobado y la referencia es obligatoria.
+Comprobante obligatorio para solicitudes públicas; opcional para reservas internas.
+Se verifica el contenido real con Pillow: JPEG/PNG/WebP, máximo 5 MB, y rechazo de
+imágenes inválidas o con riesgo de descompresión excesiva. No hay OCR.
+
+Los comprobantes se guardan fuera de `MEDIA_ROOT`, en
+`private/reservation-proofs/` (`RESERVATION_PROOF_ROOT`), ignorado por Git. No tienen
+ruta pública de medios. Gerencia los sirve mediante una vista autenticada con permiso
+de consulta de reservas, MIME verificado, `nosniff` y caché privada deshabilitada.
+Incluir ese directorio en respaldos privados; no publicarlo mediante el servidor web.
+
+Configurar `PUBLIC_BASE_URL` con la URL externa del establecimiento, usando HTTPS
+en despliegue. Los enlaces `wa.me` llevan mensajes prellenados de aprobación,
+anticipo, confirmación o rechazo genérico humanizado; no se copian motivos internos.
+El operador revisa y envía manualmente. No se llama a WhatsApp ni se envían mensajes
+desde el servidor. Los datos de la cuenta bancaria se proporcionan por el local;
+no se inventan en la página de pago.
+
+### Llegada y crédito trazable
+
+`confirm_reservation_arrival(reservation, user, responsible_waiter)` requiere
+reserva confirmada, mesa/área activas, mesa libre, jornada `OPEN` y selección de
+un usuario activo con rol `MESERO`. Solo exige el permiso específico de llegada;
+reutiliza la primitiva interna de apertura, sin asignar permisos a roles.
+Crea una única cuenta `SINGLE`, `opened_by` es quien confirma y conserva `party_size`
+como dato histórico. No calcula cargos por ausencias de personas. La llegada humana
+puede adelantarse o retrasarse, pero no desplaza otra retención vigente ni una cuenta
+ocupada. Gerencia debe revisar la fecha y mesa antes de confirmar.
+
+Si hubo anticipo `CREDIT`, crea crédito disponible al vincular la cuenta. Al enviar
+consumo, lo asigna por orden de líneas/unidades a saldo disponible, dentro de la
+misma transacción. Ejemplo verificado:
+
+| Concepto | Importe |
+|---|---:|
+| Consumo comercial | Q800.00 |
+| Anticipo confirmado de reserva | Q300.00 |
+| Saldo por cobrar en mesa | Q500.00 |
+
+No crea `Payment CASH/CARD/TRANSFER` ni ajuste falso. El historial financiero,
+cuenta tablet/Caja y recibo muestran el anticipo separado. Ventas netas siguen en
+Q800; cobrar los Q500 restantes suma Q500 al método usado. El prepago ya recibido
+se conserva en reservas y no se cuenta nuevamente como cobro de la jornada de
+llegada. Reportes de anticipos/obligaciones quedan para una fase futura.
+
+Un anticipo superior al consumo conserva el remanente, incluso al cerrar la cuenta;
+no se devuelve, borra ni convierte en propina. Refund del anticipo es una decisión
+posterior. Las líneas cubiertas por crédito no se anulan ni trasladan por fuera del
+historial financiero. En esta fase las cuentas con crédito conservan `SINGLE` y no
+se fusionan con otras cuentas; se evita redistribuir dinero sin una regla explícita.
+Los reembolsos normales no pueden superar los pagos normales ni devolver el crédito.
+
+El mapa deriva estados con prioridad:
+`OUT_OF_SERVICE > PAYMENT_PENDING > PARTIALLY_PAID > OCCUPIED > RESERVED > AVAILABLE`.
+`RESERVED` requiere una reserva confirmada cuyo intervalo contiene el momento actual.
+No se guarda en `VenueTable`. Abrir/trasladar/unir a esa mesa por el flujo ordinario
+se bloquea; la tablet indica que Gerencia debe registrar la llegada.
+
+### Permisos y administración
+
+Permisos independientes, **sin asignación automática por rol**:
+`view_reservations`, `create_reservation`, `approve_reservation`,
+`reject_reservation`, `verify_reservation_payment`, `reject_reservation_payment`,
+`cancel_reservation`, `confirm_reservation_arrival`, `mark_reservation_no_show`,
+`configure_reservations` (app label `reservations`).
+
+Gerencia mantiene su autenticación y sesión aisladas. Consulta y acciones verifican
+permisos en servidor; transiciones sensibles además usan confirmación firmada con
+usuario, sesión, acción, reserva y revisión. Se rechazan formularios obsoletos.
+Admin registra los tres modelos principales como consulta: no agrega, elimina ni
+edita estados o pagos. La configuración se modifica en Gerencia mediante servicio.
+
+### Expiración, migración y verificación
+
+```bash
+python manage.py migrate
+python manage.py expire_reservation_holds
+python manage.py expire_reservation_payments
+python manage.py check
+python manage.py makemigrations --check
+python manage.py test
+node --test apps/operations/tests/*.test.mjs
+```
+
+Los comandos son idempotentes y no alteran `PAYMENT_REVIEW`. No se instala Celery
+ni se programa cron todavía. Un futuro proceso del nodo puede invocarlos cada minuto.
+Migración `reservations.0001_initial` sin cambios de datos en cuentas existentes.
+
+Verificación de esta fase: **780 pruebas Django (61 nuevas) y 7 JavaScript**.
+La expectativa anterior de mesa genéricamente ocupada después de abonar se actualiza
+a `PARTIALLY_PAID`, de acuerdo con la prioridad solicitada. En Gerencia Inicio la
+serie se llama “Cobros confirmados por hora”; ventas siguen siendo consumo neto y
+las alertas de entregas pendientes muestran mesa/monto, sin usuario técnico ni ID.
+
+Escenarios A–E, capturas reales de 1280×800 y decisiones de revisión visual:
+[Verificación Fase 3B](docs/phase-3b/VERIFICACION.md).
+
+La siguiente fase pendiente es **3C — Eventos**. No se inicia en este cambio.

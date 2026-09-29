@@ -75,7 +75,7 @@ function lineCard(line, dividing = false) {
 }
 function history(target) {
   target.replaceChildren();
-  if (!state.history.length) target.append(element('p', 'muted', 'Todavía no hay pagos registrados.'));
+  if (!state.history.length) target.append(element('p', 'muted', state.reservation_credit ? 'No hay cobros registrados en esta cuenta. El anticipo aparece en el resumen.' : 'Todavía no hay pagos registrados.'));
   state.history.forEach(payment => {
     const row = element('div', 'payment-history-row');
     const detail = element('div'); detail.append(element('strong', '', payment.method));
@@ -88,6 +88,9 @@ function history(target) {
 function render() {
   const summary = state.summary;
   text('financial-context', state.selected_name);
+  const credit = state.reservation_credit;
+  const creditBox = document.getElementById('reservation-credit-summary');
+  if (creditBox) { creditBox.hidden = !credit; creditBox.textContent = credit ? `Anticipo de reserva ${credit.codes.join(', ')} · Aplicado ${credit.applied} · Disponible ${credit.remaining}` : ''; }
   text('financial-total', summary.charge_total); text('financial-paid', summary.confirmed_paid); text('financial-balance', summary.outstanding_balance);
   text('financial-reserved', summary.pending_verification); text('financial-available', summary.available_to_pay);
   show('reserved-summary', state.has_pending); show('draft-warning', state.has_drafts); show('pending-warning', state.has_pending);

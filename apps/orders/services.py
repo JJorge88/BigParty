@@ -111,11 +111,18 @@ def _link(order, table):
 def open_table_order(table, user, *, responsible_waiter=None, billing_mode="SINGLE", general_note=""):
     _require(user, "open_table_order")
     day = lock_open_day()
+    from apps.reservations.queries import ensure_not_reserved
+    ensure_not_reserved(table)
+    return _create_table_order(table, user, day=day, responsible=responsible_waiter or user,
+                               billing_mode=billing_mode, general_note=general_note)
+
+
+def _create_table_order(table, user, *, day, responsible, billing_mode="SINGLE", general_note=""):
+    """Primitiva interna; llamadores autorizan y bloquean la jornada antes de entrar."""
     current = VenueTable.objects.select_for_update().get(pk=table.pk)
     _valid_table(current)
     if current.order_links.filter(released_at__isnull=True).exists():
         raise ValidationError("La mesa ya tiene una cuenta activa.")
-    responsible = responsible_waiter or user
     responsible.refresh_from_db()
     if not responsible.is_active:
         raise ValidationError("El responsable debe ser un usuario activo.")
@@ -141,6 +148,8 @@ def create_subaccount(order, name, user):
 def change_billing_mode(order, billing_mode, user):
     _require(user, "manage_subaccounts")
     current = _locked_order(order)
+    if current.reservation_credits.exists() and billing_mode != "SINGLE":
+        raise ValidationError("Una cuenta con anticipo de reserva conserva la modalidad de cuenta única.")
     if current.lines.exists() or current.subaccounts.exists():
         raise ValidationError("Solo se puede cambiar la modalidad de una cuenta sin líneas ni subcuentas.")
     if current.billing_mode != billing_mode:
@@ -370,6 +379,9 @@ def send_order(order, user, *, subaccount=None, draft_origin="", fulfillment_mod
         line.status = "SENT"
         line.fulfillment_mode = fulfillment_mode
         _save(line)
+    from apps.reservations.credits import apply_available_credit
+    apply_available_credit(current, user)
+    _refresh_financial_state(current, user)
     ticket = None if defer_ticket else _ticket(current, lines, kind, user)
     _log(current, user, "ORDER_SENT", f"Pedido enviado: {len(lines)} líneas", line_ids=[line.pk for line in lines], ticket_id=ticket.pk if ticket else None, fulfillment_mode=fulfillment_mode, draft_origin=draft_origin, preparation_deferred=defer_ticket)
     return ticket
@@ -413,13 +425,13 @@ def update_sent_line_note(line, notes, user):
 
 
 def _refresh_financial_state(order, user):
-    if order.payments.exists() or order.adjustments.exists():
+    if order.payments.exists() or order.adjustments.exists() or order.reservation_credits.exists():
         from apps.payments.services import refresh_order_payment_status
         refresh_order_payment_status(order, user)
 
 
 def _require_no_financial_history(line):
-    if line.paymentallocation_set.exists() or line.adjustmentallocation_set.exists():
+    if line.paymentallocation_set.exists() or line.adjustmentallocation_set.exists() or line.reservation_credit_allocations.exists():
         raise ValidationError("La línea tiene historial financiero: no se puede trasladar ni anular; utiliza el flujo de reembolso cuando corresponda.")
 
 
@@ -482,6 +494,8 @@ def move_order_to_table(order, destination_table, user):
         return current
     if current.table_links.filter(released_at__isnull=True).count() != 1:
         raise ValidationError("El traslado de un grupo de mesas unidas queda pendiente de una regla física; no se deshace la unión.")
+    from apps.reservations.queries import ensure_not_reserved
+    ensure_not_reserved(destination)
     if destination.order_links.filter(released_at__isnull=True).exists():
         raise ValidationError("La mesa de destino está ocupada.")
     old = current.primary_table_id
@@ -501,6 +515,8 @@ def join_table_to_order(order, table, user):
         raise ValidationError("Una venta rápida no admite mesas.")
     table = VenueTable.objects.select_for_update().get(pk=table.pk)
     _valid_table(table, current.area_id)
+    from apps.reservations.queries import ensure_not_reserved
+    ensure_not_reserved(table)
     if table.order_links.filter(released_at__isnull=True).exists():
         raise ValidationError("La mesa está ocupada; utiliza la unión de cuentas existentes.")
     _link(current, table)
@@ -522,7 +538,7 @@ def merge_orders(primary_order, secondary_order, user):
     _active(secondary)
     if primary.order_type != "TABLE" or secondary.order_type != "TABLE":
         raise ValidationError("Solo se pueden unir cuentas de mesas.")
-    if any(o.payments.exists() or o.adjustments.exists() for o in (primary, secondary)):
+    if any(o.payments.exists() or o.adjustments.exists() or o.reservation_credits.exists() for o in (primary, secondary)):
         raise ValidationError("No se pueden unir cuentas con historial financiero. Une las cuentas antes de cobrar o ajustar.")
     if primary.area_id != secondary.area_id:
         raise ValidationError("Solo se pueden unir cuentas de la misma área.")

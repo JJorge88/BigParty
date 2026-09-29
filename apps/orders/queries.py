@@ -13,9 +13,13 @@ def get_active_order_for_table(table):
 
 
 def get_operational_table_state(table):
-    if not table.is_active or table.operational_status != "ACTIVE":
+    if not table.is_active or table.operational_status != "ACTIVE" or not table.area.is_active:
         return "OUT_OF_SERVICE"
-    return "OCCUPIED" if get_active_order_for_table(table) else "AVAILABLE"
+    order = get_active_order_for_table(table)
+    if order:
+        return order.status if order.status in ("PAYMENT_PENDING", "PARTIALLY_PAID") else "OCCUPIED"
+    from apps.reservations.queries import current_reserved_tables
+    return "RESERVED" if current_reserved_tables().filter(table=table).exists() else "AVAILABLE"
 
 
 def get_order_draft_lines(order, subaccount=None):

@@ -126,7 +126,14 @@ def dashboard(day, user):
     for job in failures:
         attention.append({'title':'Impresión fallida', 'detail':f'{job.payload_snapshot.get("destination","Impresora")} · {job.order.display_name}',
             'url':reverse('management:print-jobs') if user.has_perm('printing.view_printjob') or user.has_perm('printing.manage_printers') else ''})
-    attention += [{'title':'Pendiente operativo','detail':b['description'],'url':b['url']} for b in important]
+    from apps.cash.models import CashHandoff
+    handoffs = {h.pk: h for h in CashHandoff.objects.filter(pk__in=[b['object_id'] for b in important if b['type'] == 'PENDING_HANDOFF']).select_related('payment__order__primary_table')}
+    for blocker in important:
+        handoff = handoffs.get(blocker['object_id']) if blocker['type'] == 'PENDING_HANDOFF' else None
+        attention.append({'title': 'Efectivo de mesero pendiente' if handoff else 'Revisión operativa pendiente',
+            'detail': handoff.payment.order.display_name if handoff else 'Revisa el resumen de cierre de jornada',
+            'amount': handoff.payment.amount if handoff and security.financial(user) else None,
+            'url': blocker['url'] or reverse('management:closures')})
     totals = defaultdict(lambda: ZERO)
     for order in snapshot['orders']:
         totals[(order.area_id,order.area.name,order.area.sort_order)] += get_financial_summary(order)['charge_total']

@@ -5,7 +5,7 @@ from apps.orders.models import ACTIVE_STATUSES, OrderTableLink
 from apps.orders.queries import get_order_grand_total
 from apps.tables.models import VenueTable
 
-LABELS = {"AVAILABLE": "Libre", "OCCUPIED": "Ocupada", "OUT_OF_SERVICE": "Fuera de servicio",
+LABELS = {"RESERVED": "Reservada", "AVAILABLE": "Libre", "OCCUPIED": "Ocupada", "OUT_OF_SERVICE": "Fuera de servicio",
           "PAYMENT_PENDING": "Pago pendiente", "PARTIALLY_PAID": "Pago parcial"}
 
 
@@ -13,10 +13,13 @@ def money_label(amount):
     return f"Q{amount:,.2f}"
 
 
-def table_data(table, order=None):
-    state = ("OUT_OF_SERVICE" if table.operational_status != "ACTIVE" else
+def table_data(table, order=None, reserved=None):
+    if reserved is None:
+        from apps.reservations.queries import current_reserved_tables
+        reserved = current_reserved_tables().filter(table=table).exists()
+    state = ("OUT_OF_SERVICE" if not table.is_active or table.operational_status != "ACTIVE" or not table.area.is_active else
              order.status if order and order.status in ("PAYMENT_PENDING", "PARTIALLY_PAID") else
-             "OCCUPIED" if order else "AVAILABLE")
+             "OCCUPIED" if order else "RESERVED" if reserved else "AVAILABLE")
     seconds = max(0, int((timezone.now() - order.opened_at).total_seconds())) if order else 0
     return {"id": table.pk, "name": table.name, "area": table.area.name, "capacity": table.capacity,
             "state": state, "state_label": LABELS[state], "shape": table.layout_shape.lower(),
@@ -46,12 +49,14 @@ def get_operational_map(area):
     tables = list(VenueTable.objects.filter(area=area, is_active=True).select_related("area", "zone").order_by("zone__sort_order", "sort_order", "name", "pk"))
     links = OrderTableLink.objects.filter(table__in=tables, released_at__isnull=True, order__status__in=ACTIVE_STATUSES).select_related("order__responsible_waiter")
     orders = {link.table_id: link.order for link in links}
+    from apps.reservations.queries import current_reserved_tables
+    reserved = set(current_reserved_tables().filter(table__in=tables).values_list("table_id", flat=True))
     groups = {}
     for table in tables:
         key = table.zone_id
         if key not in groups:
             groups[key] = {"id": key, "name": table.zone.name if key else "Área general", "tables": []}
-        groups[key]["tables"].append(table_data(table, orders.get(table.pk)))
+        groups[key]["tables"].append(table_data(table, orders.get(table.pk), table.pk in reserved))
     for group in groups.values():
         group["has_layout"] = _has_layout(group["tables"])
     return {"groups": list(groups.values()), "has_open_day": BusinessDay.objects.filter(status="OPEN").exists(),

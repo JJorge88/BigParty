@@ -139,3 +139,8 @@ if not (0 < PRINTER_CONNECT_TIMEOUT <= 5 and 0 < PRINTER_WRITE_TIMEOUT <= 5 and 
 # Gerencia usa una sesión Django separada y 30 minutos de inactividad.
 MANAGEMENT_IDLE_TIMEOUT_SECONDS = 30 * 60
 MANAGEMENT_SESSION_COOKIE_NAME = "bigparty_management"
+
+# Comprobantes privados: nunca dentro de MEDIA_ROOT ni servidos por static().
+RESERVATION_PROOF_ROOT = BASE_DIR / 'private' / 'reservation-proofs'
+PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'http://localhost:8000').rstrip('/')
+INSTALLED_APPS += ['apps.reservations']

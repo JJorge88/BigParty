@@ -142,7 +142,7 @@ class SettlementTests(PaymentsTestCase):
         self.assertFalse(s.can_close_order(order))
         with self.assertRaises(ValidationError):
             s.close_order(order, self.user)
-        self.assertEqual(orders.get_operational_table_state(self.table), "OCCUPIED")
+        self.assertEqual(orders.get_operational_table_state(self.table), "PARTIALLY_PAID")
 
     def test_cancel_and_move_reject_financial_history(self):
         order, account, line = self.consumption(2, split=True)

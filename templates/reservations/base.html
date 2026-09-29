@@ -1,0 +1,3 @@
+{% extends 'operations/management/base.html' %}{% load static %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/operations/reservations.css' %}">{% endblock %}
+{% block scripts %}{{ block.super }}<script type="module" src="{% static 'js/operations/reservations.js' %}"></script>{% endblock %}

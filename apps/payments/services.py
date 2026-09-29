@@ -82,7 +82,7 @@ def _select(units, selection):
         if type(pk) is not int or pk in seen or type(quantity) is not int or quantity <= 0:
             raise ValidationError("No repitas líneas y usa cantidades enteras positivas.")
         seen.add(pk)
-        eligible = [u for u in units if u["line"].pk == pk and u["confirmed"] == ZERO and u["pending"] == ZERO]
+        eligible = [u for u in units if u["line"].pk == pk and u["confirmed"] == ZERO and u["credit"] == ZERO and u["pending"] == ZERO]
         if len(eligible) < quantity:
             raise ValidationError("No hay suficientes unidades sin pago en esa línea. Para completar una unidad pagada parcialmente usa pago por monto o saldo total.")
         result.extend((u, u["available"], 1) for u in eligible[:quantity])
@@ -129,6 +129,8 @@ def get_payment_quote(target, *, mode="full", selection=None, amount=None, unit_
 def _assert_ledger(order):
     """Comprobación de cierre y frontera de escritura, incluida integridad entre cabeceras y detalles."""
     from .queries import financial_headers, financial_refunds, financial_allocations
+    from apps.reservations.credits import assert_credit_integrity
+    assert_credit_integrity(order)
     units = unit_ledger(order)
     for model, relation in ((Payment, "payment"), (OrderAdjustment, "adjustment")):
         for header in financial_headers(order, model):
@@ -172,7 +174,7 @@ def _refresh(order, user=None, *, close_empty=False):
     summary = get_financial_summary(order)
     # Una cuenta totalmente pagada permanece activa hasta el cierre explícito.
     status = "PAYMENT_PENDING" if summary["pending_verification"] else (
-        "PARTIALLY_PAID" if order.payments.filter(status__in=["CONFIRMED", "REFUNDED"]).exists() else "OPEN")
+        "PARTIALLY_PAID" if summary["confirmed_paid"] or order.payments.filter(status__in=["CONFIRMED", "REFUNDED"]).exists() else "OPEN")
     order.status = status
     order.save(update_fields=["status", "updated_at"])
     return order

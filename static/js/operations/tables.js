@@ -105,9 +105,11 @@ function updatePanel() {
   const addOrderLink = document.getElementById('add-order-link');
   if (addOrderLink && table.order_id) addOrderLink.href = `/operacion/orden/${table.order_id}/pedido/`;
   ['panel-time-row', 'panel-waiter-row', 'panel-total-row'].forEach(id => { document.getElementById(id).hidden = !occupied; });
-  document.getElementById('open-table-button').hidden = outOfService || occupied || !canOpen;
+  document.getElementById('open-table-button').hidden = outOfService || occupied || table.state === 'RESERVED' || !canOpen;
   document.getElementById('future-actions').hidden = !occupied || outOfService;
   document.getElementById('panel-no-permission').hidden = canOpen || occupied || outOfService;
+  const reservationNote = document.getElementById('panel-reservation-note');
+  if (reservationNote) reservationNote.hidden = table.state !== 'RESERVED';
   updateTimes();
 }
 function chooseTable(id) {

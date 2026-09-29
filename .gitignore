@@ -27,3 +27,6 @@ staticfiles/
 
 # Salidas de impresoras de desarrollo
 var/print-jobs/
+
+# Comprobantes privados de reservas
+private/

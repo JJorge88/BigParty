@@ -1,0 +1,44 @@
+{
+  "A": {
+    "status": "ARRIVED",
+    "responsible_waiter_selected": true,
+    "table_state": "OCCUPIED"
+  },
+  "B": {
+    "status": "ARRIVED",
+    "reservation_payment": "CONFIRMED",
+    "financial": {
+      "gross_total": "800.00",
+      "adjustments": "0.00",
+      "refunds": "0.00",
+      "charge_total": "800.00",
+      "confirmed_paid": "300.00",
+      "pending_verification": "0.00",
+      "outstanding_balance": "500.00",
+      "available_to_pay": "500.00"
+    },
+    "credit": {
+      "amount": "300.00",
+      "applied": "300.00",
+      "remaining": "0.00"
+    },
+    "table_payments": 0
+  },
+  "C": {
+    "status": "EXPIRED",
+    "available": true
+  },
+  "D": {
+    "status": "REJECTED",
+    "payment": "REJECTED",
+    "available": true,
+    "reason_preserved": true
+  },
+  "E": {
+    "simultaneous_results": [
+      false,
+      true
+    ],
+    "valid_holds": 1
+  }
+}

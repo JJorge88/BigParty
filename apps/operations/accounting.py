@@ -56,14 +56,14 @@ def account_state(order, user, account=None, *, include_drafts=False):
         line_ids.append(line.pk)
         coverage = get_line_payment_quantities(line, include_drafts=include_drafts)
         units = coverage["units"]
-        eligible = [unit for unit in units if unit["available"] > ZERO and unit["confirmed"] == ZERO and unit["pending"] == ZERO]
+        eligible = [unit for unit in units if unit["available"] > ZERO and unit["confirmed"] == ZERO and unit["credit"] == ZERO and unit["pending"] == ZERO]
         settled = all(unit["balance"] == ZERO and unit["pending"] == ZERO for unit in units)
         rows.append({"id": line.pk, "name": line.product_name_snapshot, "quantity": line.quantity,
             "unit_price": money_label(line.unit_price), "subtotal": money_label(line.subtotal),
             "modifiers": [item.option_name_snapshot for item in line.modifiers.all()], "notes": line.notes,
             "paid_quantity": coverage["confirmed_quantity"], "pending_quantity": coverage["pending_verification_quantity"],
             "outstanding_quantity": coverage["outstanding_quantity"], "adjusted_quantity": coverage["adjusted_quantity"],
-            "partial_quantity": sum(unit["confirmed"] > ZERO and unit["available"] > ZERO for unit in units),
+            "partial_quantity": sum(unit["confirmed"] + unit["credit"] > ZERO and unit["available"] > ZERO for unit in units),
             "available_quantity": len(eligible), "settled": settled})
     history = []
     for payment in get_payment_history(order).filter(allocations__order_line_id__in=line_ids).distinct().prefetch_related("allocations"):
@@ -83,7 +83,10 @@ def account_state(order, user, account=None, *, include_drafts=False):
         accounts.append({"id": sub.pk, "name": sub.name, "closed": sub.status == "CLOSED",
             "balance": money_label(financial["outstanding_balance"]),
             "pending": financial["pending_verification"] > ZERO})
-    return {"table_name": order.display_name, "area": order.area.name, "billing_mode": order.billing_mode,
+    from apps.reservations.credits import credit_summary
+    credit = credit_summary(order)
+    return {"reservation_credit": {"codes": credit["codes"], **amounts({k: v for k, v in credit.items() if k != "codes"})} if credit["amount"] else None,
+        "table_name": order.display_name, "area": order.area.name, "billing_mode": order.billing_mode,
         "selected_account": account.pk if account else None,
         "selected_name": account.name if account else "Una sola cuenta" if selected else "Selecciona una cuenta",
         "account_closed": bool(account and account.status == "CLOSED"), "accounts": accounts,
@@ -99,7 +102,7 @@ def account_state(order, user, account=None, *, include_drafts=False):
 def financial_revision(order):
     ledger = unit_ledger(order, include_drafts=order.order_type == "QUICK_SALE")
     data = [[*key, str(unit["price"]), str(unit["confirmed"]), str(unit["pending"]),
-             str(unit["adjustment"]), str(unit["refunded"]), unit["line"].subaccount_id] for key, unit in ledger.items()]
+             str(unit["adjustment"]), str(unit["refunded"]), str(unit["credit"]), unit["line"].subaccount_id] for key, unit in ledger.items()]
     # Los identificadores detectan también un pago seguido de rechazo que restituye el saldo.
     data += list(order.payments.order_by("pk").values_list("pk", "status"))
     data += list(order.subaccounts.order_by("pk").values_list("pk", "status"))

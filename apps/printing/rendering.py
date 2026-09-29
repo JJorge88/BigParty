@@ -77,6 +77,8 @@ def receipt_snapshot(order, printer):
     for payment in data['payments']:
         if payment['status'] in ('CONFIRMED', 'REFUNDED'):
             lines.append(f"{methods[payment['method']]} Q{payment['amount']:.2f}")
+    if data['reservation_credit_applied']:
+        lines.append(f"Anticipo de reserva Q{data['reservation_credit_applied']:.2f}")
     lines += [f"SALDO Q{data['outstanding_balance']:.2f}", '', 'Gracias por tu visita']
     width = printer.paper_width if printer else '80'
     return {'version': 1, 'kind': 'RECEIPT', 'destination': printer.name if printer else 'Barra del área', 'paper_width': width,
