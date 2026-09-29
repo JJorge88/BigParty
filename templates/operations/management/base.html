@@ -3,7 +3,7 @@
 {% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}">{% endblock %}
 {% block body_attributes %}class="management" data-idle-timeout="{{ idle_timeout }}" data-activity-url="{% url 'management:activity' %}" data-logout-url="{% url 'management:logout' %}" data-login-url="{% url 'management:login' %}"{% endblock %}
 {% block topbar %}<span class="management-label">GERENCIA</span>
-<nav class="management-nav" aria-label="Navegación principal"><a href="{% url 'management:home' %}" {% if section == 'inicio' %}aria-current="page"{% endif %}>Inicio</a><a href="{% url 'management:closures' %}" {% if section == 'cierres' %}aria-current="page"{% endif %}>Cierres</a><a href="{% url 'reservations:list' %}" {% if section == 'reservas' %}aria-current="page"{% endif %}>Reservas</a><span aria-disabled="true" title="Disponible en una próxima fase">Eventos</span>
+<nav class="management-nav" aria-label="Navegación principal"><a href="{% url 'management:home' %}" {% if section == 'inicio' %}aria-current="page"{% endif %}>Inicio</a><a href="{% url 'management:closures' %}" {% if section == 'cierres' %}aria-current="page"{% endif %}>Cierres</a><a href="{% url 'reservations:list' %}" {% if section == 'reservas' %}aria-current="page"{% endif %}>Reservas</a><a href="{% url 'events:list' %}" {% if section == 'eventos' %}aria-current="page"{% endif %}>Eventos</a>
 </nav>
 <div class="management-user">
 <div><strong>{{ operator_name }}</strong><small>{{ operator_role }}</small>

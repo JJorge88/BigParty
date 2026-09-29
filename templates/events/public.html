@@ -1,0 +1,44 @@
+{% extends 'events/public_base.html' %}{% block public_content %}{% if preview %}<p class="notice">Vista previa · las compras están deshabilitadas</p>{% endif %}<div class="public-hero">{% if event.image %}<img src="{{ event.image.url }}" alt="{{ event.name }}">{% endif %}<div>
+<p class="eyebrow">BIG PARTY PRESENTA</p>
+<span class="badge">{{ event.display_status }}</span>
+<h1>{{ event.name }}</h1>
+<p>{{ event.artist_name }}</p>
+<p>{{ event.starts_at|date:'d M Y · H:i' }} → {{ event.ends_at|date:'d M Y · H:i' }}</p>
+</div>
+</div>
+<p class="event-description">{{ event.description|linebreaksbr }}</p>{% if sale_open or preview %}<section class="event-panel">
+<h2>Elige tus entradas</h2>
+<form method="post" class="event-form">{% csrf_token %}{% for kind in types %}<div class="ticket-row">
+<div>
+<strong>{{ kind.name }}</strong>
+<small>{{ kind.available }} disponibles · máximo {{ kind.max_per_purchase }}</small>
+</div>
+<strong>Q{{ kind.price|floatformat:2 }}</strong>
+<label>Cantidad<input class="quantity" type="number" name="qty_{{ kind.pk }}" value="0" min="0" max="{{ kind.max_per_purchase }}" aria-label="Cantidad {{ kind.name }}">
+</label>
+</div>{% empty %}<p>No hay entradas individuales a la venta en este momento.</p>{% endfor %}<div class="two-columns">
+<label>Nombre<input name="customer_name" maxlength="120" required autocomplete="name">
+</label>
+<label>Teléfono<input name="customer_phone" maxlength="20" required autocomplete="tel" type="tel">
+</label>
+</div>
+<button class="button button--primary" {% if preview or not types %}disabled{% endif %}>Continuar con entradas →</button>
+</form>
+</section>
+<h2>Reserva una mesa completa</h2>
+<div class="event-grid">{% for table in tables %}<section class="event-panel">
+<h3>{{ table.table.name }}</h3>
+<p>{{ table.capacity_snapshot }} personas · {{ table.ticket_type.name }}</p>
+<p class="muted">Q{{ table.cover_per_person|floatformat:2 }} por persona</p>
+<h2>Q{{ table.total_price|floatformat:2 }}</h2>
+<form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="table" value="{{ table.pk }}">
+<label>Nombre<input name="customer_name" maxlength="120" required>
+</label>
+<label>Teléfono<input name="customer_phone" maxlength="20" required type="tel">
+</label>
+<button class="button button--ghost" {% if preview %}disabled{% endif %}>Reservar mesa</button>
+</form>
+</section>{% empty %}<p class="muted">No hay mesas disponibles.</p>{% endfor %}</div>{% else %}<section class="event-panel">
+<h2>Venta cerrada</h2>
+<p>No se reciben nuevas compras.</p>
+</section>{% endif %}{% endblock %}

@@ -8,6 +8,9 @@ admin.site.site_title = "BIG PARTY"
 admin.site.index_title = "Administración"
 
 urlpatterns = [
+    path("gerencia/eventos/", include("apps.events.urls")),
+    path("eventos/", include("apps.events.public_urls")),
+    path("", include("apps.events.access_urls")),
     path("", include("apps.core.urls")),
     path("admin/", admin.site.urls),
     path("", include("apps.operations.urls")),

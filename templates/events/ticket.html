@@ -1,0 +1,9 @@
+{% extends 'events/public_base.html' %}{% block public_content %}<section class="event-panel ticket-card standalone">
+<p class="eyebrow">ENTRADA INDIVIDUAL</p>
+<h1>{{ ticket.event.name }}</h1>
+<p>{{ ticket.event.starts_at|date:'d M Y · H:i' }}</p>
+<h2>{{ ticket.ticket_type.name }}</h2>{% if ticket.event.status == 'CANCELLED' %}<p class="notice notice--error">Evento cancelado</p>{% endif %}<span class="badge">{{ ticket.get_status_display }}</span>
+<img src="{% url 'event-access:qr' ticket.qr_token %}" alt="QR de entrada">
+<strong>{{ ticket.ticket_number }}</strong>
+<p class="hint">Presenta este QR al ingresar. Una entrada, una persona, un solo acceso.</p>
+</section>{% endblock %}

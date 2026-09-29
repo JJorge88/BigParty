@@ -71,6 +71,6 @@
 <section class="admin-section">
 <h2>Administrar
 </h2>
-<div class="admin-links"><a href="{% url 'reservations:list' %}">Reservas</a><span aria-disabled="true">Eventos</span><span aria-disabled="true">Inventario</span><span aria-disabled="true">Usuarios</span><span aria-disabled="true">Reportes</span><span aria-disabled="true">Auditoría</span><span aria-disabled="true">Configuración</span>
+<div class="admin-links"><a href="{% url 'reservations:list' %}">Reservas</a><a href="{% url 'events:list' %}">Eventos</a><span aria-disabled="true">Inventario</span><span aria-disabled="true">Usuarios</span><span aria-disabled="true">Reportes</span><span aria-disabled="true">Auditoría</span><span aria-disabled="true">Configuración</span>
 </div><p class="help">Estos módulos estarán disponibles en próximas fases.</p>
 </section>{% endblock %}

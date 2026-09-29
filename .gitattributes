@@ -1,0 +1,3 @@
+
+# PDF artifacts are binary; preserve their encoded contents.
+*.pdf binary

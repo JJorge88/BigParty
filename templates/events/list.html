@@ -1,0 +1,50 @@
+{% extends 'events/base.html' %}
+{% block management_content %}
+<div class="event-heading">
+<div>
+<p class="eyebrow">EXPERIENCIAS BIG PARTY</p>
+<h1>Eventos</h1>
+<p class="muted">Cada noche, bajo control.</p>
+</div>
+<div class="actions">{% if perms.events.change_event %}<a class="button button--ghost" href="{% url 'events:settings' %}">Configuración</a>{% endif %}{% if perms.events.create_event %}<a class="button button--primary" href="{% url 'events:create' %}">+ Crear evento</a>{% endif %}</div>
+</div>
+<div class="event-kpis">
+<div>
+<span>Publicados</span>
+<strong>{{ counts.published }}</strong>
+</div>
+<div>
+<span>Próximos</span>
+<strong>{{ counts.upcoming }}</strong>
+</div>
+<div>
+<span>Borradores</span>
+<strong>{{ counts.draft }}</strong>
+</div>{% if perms.events.view_event_capacity %}<div>
+<span>Entradas vendidas</span>
+<strong>{{ counts.sold }}</strong>
+</div>{% endif %}</div>
+<div class="event-toolbar">
+<nav class="event-tabs">{% for value,label in filters %}<a href="?filter={{ value }}&q={{ search|urlencode }}" {% if selected == value %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+<form>
+<input type="hidden" name="filter" value="{{ selected }}">
+<input name="q" value="{{ search }}" placeholder="Buscar evento o artista" aria-label="Buscar evento">
+<button class="button button--ghost">Buscar</button>
+</form>
+</div>
+<div class="event-grid">{% for event in rows %}<a class="event-card" href="{% url 'events:detail' event.pk %}">{% if event.image %}<img src="{{ event.image.url }}" alt="" class="event-banner">{% else %}<div class="event-banner placeholder">BIG PARTY</div>{% endif %}<div class="card-body">
+<span class="badge">{{ event.display_status }}</span>
+<h2>{{ event.name }}</h2>
+<p>{{ event.starts_at|date:'d M Y · H:i' }} → {{ event.ends_at|date:'d M · H:i' }}</p>
+<p class="muted">{{ event.artist_name|default:'Una nueva experiencia' }}</p>
+<div class="card-foot">
+<span>Aforo {{ event.maximum_capacity }}</span>
+<span>Ver evento ↗</span>
+</div>
+</div>
+</a>{% empty %}<div class="event-panel empty">
+<h2>Tu próxima gran noche empieza aquí</h2>
+<p>Crea un evento y configura sus entradas, mesas y aforo.</p>
+</div>{% endfor %}</div>
+{% include 'events/pagination.html' %}
+{% endblock %}

@@ -1,0 +1,40 @@
+{% extends 'events/base.html' %}{% block management_content %}<a class="back-link" href="{% url 'events:purchases' purchase.event_id %}">← Compras · {{ purchase.event.name }}</a>
+<div class="event-heading">
+<div>
+<p class="eyebrow">REVISIÓN DE TRANSFERENCIA</p>
+<h1>{{ purchase.customer_name }}</h1>
+<p class="muted">{{ purchase.customer_phone }} · {{ purchase.public_code }}</p>
+</div>
+<span class="badge">{{ purchase.get_status_display }}</span>
+</div>
+<div class="wizard-layout">
+<section class="event-panel">
+<h2>{{ purchase.event.name }}</h2>{% include 'events/items.html' %}<div class="summary-line total">
+<span>Total esperado</span>
+<strong>Q{{ purchase.amount|floatformat:2 }}</strong>
+</div>{% if purchase.payment %}<div class="summary-line">
+<span>Monto declarado</span>
+<strong>Q{{ purchase.payment.amount|floatformat:2 }}</strong>
+</div>
+<div class="summary-line">
+<span>Referencia</span>
+<strong>{{ purchase.payment.reference }}</strong>
+</div>
+<p>Enviado {{ purchase.payment.submitted_at|date:'d M Y · H:i' }}</p>{% if purchase.payment.rejection_reason %}<p class="notice notice--error">{{ purchase.payment.rejection_reason }}</p>{% endif %}{% else %}<p class="muted">El cliente todavía no ha enviado un comprobante.</p>{% endif %}{% if purchase.status == 'CONFIRMED' or purchase.status == 'REJECTED' %}<a class="button button--primary" href="{{ whatsapp }}" target="_blank" rel="noreferrer noopener">Enviar WhatsApp ↗</a>{% endif %}</section>
+<aside class="event-panel">{% if purchase.payment %}<h2>Comprobante</h2>
+<a href="{% url 'events:proof' purchase.public_code %}" target="_blank" rel="noopener">
+<img class="proof-image" src="{% url 'events:proof' purchase.public_code %}" alt="Comprobante de transferencia">
+</a>{% endif %}</aside>
+</div>{% if purchase.status == 'PAYMENT_REVIEW' %}<section class="event-panel review-actions">{% if perms.events.verify_event_payment %}<form method="post" class="event-form">{% csrf_token %}<input name="action" value="confirm" type="hidden">
+<input name="confirmation" value="{{ confirm_token }}" type="hidden">
+<label class="event-check">
+<input type="checkbox" name="confirmed" value="yes" required>Verifiqué la transferencia y confirmo el monto recibido.</label>
+<button class="button button--primary">Confirmar pago y emitir entradas</button>
+</form>{% endif %}{% if perms.events.reject_event_payment %}<form method="post" class="event-form">{% csrf_token %}<input name="action" value="reject" type="hidden">
+<input name="confirmation" value="{{ reject_token }}" type="hidden">
+<label>Motivo del rechazo<input name="reason" required maxlength="2000">
+</label>
+<label class="event-check">
+<input type="checkbox" name="confirmed" value="yes" required>Confirmo el rechazo y la liberación del cupo.</label>
+<button class="button button--ghost">Rechazar pago</button>
+</form>{% endif %}</section>{% endif %}{% endblock %}

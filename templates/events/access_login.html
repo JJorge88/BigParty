@@ -1,0 +1,11 @@
+{% extends 'events/public_base.html' %}{% block public_content %}<section class="event-panel standalone">
+<p class="eyebrow">CONTROL DE ACCESO</p>
+<h1>Ingreso de guardia</h1>
+<p class="muted">Utiliza tu usuario y PIN de acceso.</p>
+<form method="post" class="event-form">{% csrf_token %}<label>Usuario<input name="username" required maxlength="150" autocomplete="username">
+</label>
+<label>PIN<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,12}" maxlength="12" required autocomplete="current-password">
+</label>
+<button class="button button--primary">Ingresar</button>
+</form>
+</section>{% endblock %}

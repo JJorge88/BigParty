@@ -1,0 +1,42 @@
+{
+  "event": "Noche Especial",
+  "configured_capacity": {
+    "individual": 740,
+    "tables": 60,
+    "total": 800
+  },
+  "capacity_before_reschedule": {
+    "maximum_capacity": 800,
+    "held": 0,
+    "sold_individual": 3,
+    "courtesy": 2,
+    "table_accesses": 6,
+    "used_at_entrance": 2,
+    "remaining": 789
+  },
+  "individual_tickets": 3,
+  "table_tickets": 6,
+  "courtesy_tickets": 2,
+  "concurrent_guards": [
+    "USED",
+    "VALID"
+  ],
+  "pdf_individual_pages": 1,
+  "pdf_combined_pages": 3,
+  "snapshot_schema_version": 1,
+  "snapshot_tickets": 11,
+  "snapshot_private_data": false,
+  "qr_image_decoded_in_browser": true,
+  "physical_phone_camera_tested": false,
+  "rescheduled_history": 1,
+  "all_qr_preserved": true,
+  "cancelled_tickets": 11,
+  "used_metadata_preserved": 4,
+  "confirmed_purchases_preserved": 2,
+  "confirmed_payments_preserved": 2,
+  "refunds_executed": 0,
+  "duplicate_configuration_only": true,
+  "cancelled_snapshot_statuses": [
+    "CANCELLED"
+  ]
+}

@@ -1,4 +1,4 @@
-# BIG PARTY — Fases 0 a 2E
+# BIG PARTY — Fases 0 a 3C
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
@@ -10,7 +10,8 @@ La Fase 1E incorpora caja física, entregas de efectivo, conteo ciego y jornadas
 La Fase 2A inicia la interfaz operativa del mesero: dispositivo, PIN, mapa y apertura de mesas.
 La Fase 2B añade catálogo y pedidos visuales, modificadores, adiciones y selección de subcuentas.
 La Fase 2C incorpora Ver cuenta, selección por cantidades, pagos y cierre explícito.
-Caja visual e impresión física quedan para las siguientes fases.
+Las fases 2D–2F incorporan Caja visual, venta rápida e impresión.
+Las fases 3A–3C añaden Gerencia, reservas y eventos con entradas y control de acceso.
 
 ## Requisitos
 
@@ -2473,4 +2474,222 @@ las alertas de entregas pendientes muestran mesa/monto, sin usuario técnico ni 
 Escenarios A–E, capturas reales de 1280×800 y decisiones de revisión visual:
 [Verificación Fase 3B](docs/phase-3b/VERIFICACION.md).
 
-La siguiente fase pendiente es **3C — Eventos**. No se inicia en este cambio.
+La Fase 3B quedó completada; la implementación de Eventos se documenta a continuación.
+
+## Fase 3C — Eventos, entradas, aforo y acceso
+
+`apps.events` es un dominio independiente de `apps.reservations`. No añade campos
+ni migra datos de reservas normales, órdenes o pagos comerciales. Sus ventas no se
+mezclan con consumo, anticipos de reserva ni cobros de una jornada de Caja.
+
+### Modelos y creación
+
+| Modelo | Responsabilidad |
+|---|---|
+| `Event` | Información, imagen, intervalo con zona horaria, aforo y estado |
+| `EventSettings` | Retención, ventana de pago e instrucciones de transferencia |
+| `EventTicketType` | Precio, cupo individual, ventana de venta, máximo por compra y cortesía |
+| `EventTableConfiguration` | Mesa habilitada, capacidad snapshot, tipo de acceso y cover por persona |
+| `EventPurchase` | Comprador, estado, plazos, código público y secreto del portal |
+| `EventPurchaseItem` | Cantidad y precio unitario histórico de cada tipo |
+| `EventTableReservation` | Una mesa completa, importe histórico y estado propio |
+| `EventPurchasePayment` | Transferencia declarada, referencia, comprobante privado y revisión |
+| `EventTicket` | Un acceso individual, número humano, secreto QR y trazabilidad de uso/cancelación |
+| `EventScheduleHistory` | Fechas anteriores/nuevas, autor y motivo de reprogramación |
+| `GuardLoginAttempt` | Límite de intentos de PIN por usuario/IP con identificadores HMAC; nunca guarda PIN |
+
+Gerencia activa **Eventos** en `/gerencia/eventos/`. El asistente guarda el borrador
+tras el paso 1 y continúa con entradas, mesas/aforo y revisión/publicación. Usa
+Inter, carbón y champagne del sistema existente. Las fechas de inicio y fin son
+explícitas: 3 oct 21:00 → 4 oct 03:00. No se supone que termina el mismo día.
+No se crean tipos de entrada automáticamente.
+
+Estados: `DRAFT`, `PUBLISHED`, `RESCHEDULED`, `FINISHED`, `CANCELLED`.
+“En curso” se deriva del intervalo en eventos publicados/reprogramados. Publicar
+requiere imagen, fechas coherentes, aforo positivo, entradas de venta activas si
+la venta está habilitada y configuración dentro del límite. El servicio devuelve
+errores estructurados para la revisión. No se elimina mediante interfaz/Admin.
+
+`duplicate_event` copia únicamente información, tipos, mesas, cover y capacidades;
+crea otro slug y `DRAFT`, sin fecha de publicación, compras, pagos, entradas ni
+historial de accesos. La imagen existente se referencia como archivo inmutable;
+reemplazarla en un evento no cambia la del otro.
+
+### Capacidad y concurrencia
+
+La capacidad configurada es **cuotas individuales activas + capacidad de mesas
+habilitadas**. Cortesías forman parte de la cuota individual. Los compromisos de
+un tipo desactivado siguen reservando su parte del aforo. Publicar o editar un
+evento publicado no permite superar el máximo ni reducir cuotas por debajo de
+lo comprometido.
+
+Ejemplo: Preventa 200 + General 340 + VIP 150 + Cortesía 50 = 740; diez mesas de
+seis personas = 60; total 800. Una mesa VIP de seis personas con cover Q100 cuesta
+Q600 y emite seis entradas VIP, **sin consumir otros seis lugares de la cuota
+individual VIP**. No hay consumo mínimo, depósito adicional ni compra parcial de
+una mesa. La capacidad snapshot nunca sigue cambios posteriores de `VenueTable`.
+
+`get_event_capacity_summary` devuelve máximo, holds, individuales vendidos,
+cortesías, accesos de mesas, utilizados y restante. Cuenta tickets vigentes
+(`VALID`/`USED`) una sola vez; una reserva confirmada no añade otra vez sus seis
+personas. `USED` equivale a un ingreso, sin salidas ni reingreso. Tras cancelar,
+el aforo vigente deja de contar las entradas, pero los indicadores históricos de
+entradas vendidas y los pagos se conservan.
+
+Todos los servicios que modifican cupos bloquean primero la fila de `Event` dentro
+de `transaction.atomic()`. Después bloquean compra/pago o ticket, siempre en ese
+orden. PostgreSQL decide la disponibilidad al escribir. También se serializan
+ediciones de configuración, cortesías, expiración, cancelación y snapshots.
+No hay contadores redundantes, colas ni consistencia eventual.
+
+La disponibilidad de mesa es **por evento**. Las reservas normales conservan su
+agenda y comportamiento; esta fase no integra ni reasigna mesas de la operación
+normal. La planificación de eventos y reservas normales debe coordinarse en Gerencia.
+
+### Compras, retenciones y transferencias
+
+`/eventos/<slug>/` acepta eventos `PUBLISHED` y `RESCHEDULED`. La reprogramación es
+un estado público informativo, compatible con nuevas ventas. Una compra contiene
+varios tipos individuales **o** una mesa completa. La mezcla de ambas modalidades
+en una compra queda excluida deliberadamente.
+
+Un tipo individual se ofrece solo si está activo, tiene precio positivo, no es
+cortesía, su ventana inclusiva ya comenzó y no terminó, quedan cuota y aforo y el
+evento permite ventas. No se activa un tipo futuro por agotarse otro. No se vende
+tras el fin del evento. Cortesías Q0 se emiten desde Gerencia, con permiso explícito,
+autor, cantidad y motivo opcional; no requieren transferencia ficticia.
+
+`create_purchase` valida límites, nombre/teléfono y precios en servidor y toma
+snapshots. `PENDING_PAYMENT` retiene cupo. Los dos plazos comienzan al crear la
+compra; vence el primero entre retención y ventana de pago, ambos de 15 minutos
+por defecto. Se configuran en `/gerencia/eventos/configuracion/` y aplican a nuevas
+compras. Configura allí las instrucciones bancarias reales antes de abrir ventas.
+No se inventa una cuenta bancaria.
+
+`submit_event_payment` exige referencia, imagen real y monto exactamente igual al
+total. Cambia a `PAYMENT_REVIEW`: ya no expira automáticamente. Confirmar registra
+revisor/fecha, marca compra y transferencia `CONFIRMED` y emite exactamente N tickets.
+La confirmación y `generate_purchase_tickets` son idempotentes. Rechazar exige
+motivo y libera cupos/mesa sin emitir tickets. No se confirma editando un dropdown.
+
+```bash
+python manage.py expire_event_purchases
+```
+
+El comando es idempotente, solo expira `PENDING_PAYMENT` vencidas y sincroniza el
+estado de la reserva de mesa. Las consultas ignoran holds vencidos aunque aún no
+se haya ejecutado el comando. No se instala un programador en esta fase.
+
+### Portal, QR y PDF
+
+`/eventos/compra/<secure_token>/` es un portal privado sin login que muestra solo
+esa compra. El token tiene 256 bits aleatorios y es independiente de cada QR.
+El código humano `BP-C-…` y el número `BP-E26-…` no son secretos ni sirven para
+acceder al portal. Los números de ticket usan sufijo aleatorio único para evitar
+secuencias globales innecesarias.
+
+Los QR contienen únicamente `PUBLIC_BASE_URL/entrada/<qr_token>/`; no incluyen
+nombre, teléfono, importe ni el secreto del portal. La página individual tampoco
+muestra esos datos. El portal confirmado permite descargar un PDF individual o
+un PDF combinado, **una entrada por página**, nunca un ZIP. El comprador distribuye
+cada QR sin nombrar invitados. Las cortesías se pueden volver a consultar/descargar
+en Gerencia (las 30 más recientes); la emisión redirige para evitar repetición por
+refrescar un POST.
+
+Se usa [qrcode](https://pypi.org/project/qrcode/) para PNG dinámico y
+[ReportLab](https://docs.reportlab.com/install/open_source_installation/) para PDF,
+sin navegador ni dependencia de conversión del sistema. El PDF contiene evento,
+fecha, tipo, número, QR, estado y comprador; el portal controla la descarga. Con
+los mismos datos y `PUBLIC_BASE_URL` produce los mismos bytes. Reprogramar/cancelar
+se refleja en las siguientes descargas, conservando el QR. El PDF no consulta
+precios actuales ni altera estados.
+
+Los enlaces manuales `wa.me` tras confirmar/rechazar incluyen el portal construido
+con `PUBLIC_BASE_URL`. No hay API, envío automático ni contacto realizado por el
+servidor. Gerencia decide si abre y envía el mensaje.
+
+### Guardia, seguridad y operación local
+
+`/acceso/` usa usuario + PIN existente en `accounts.User`, rol activo `GUARDIA` y
+`events.scan_event_ticket`. No asigna permisos por rol. La cookie HttpOnly
+`bigparty_access`, limitada a `/acceso/`, es independiente de Gerencia/Admin/Tablet.
+Expira a los 30 minutos de inactividad. Cinco intentos fallidos bloquean durante
+cinco minutos; permisos y elegibilidad se comprueban en cada solicitud.
+
+El guardia solo ve resultado, evento, tipo y hora original si ya fue utilizada.
+No puede consultar compradores, importes ni administración. `validate_and_use_ticket`
+bloquea evento/ticket, registra el primer `VALID → USED` y devuelve `USED` en el
+segundo intento sin sobrescribir hora/guardia. Evento cancelado responde `CANCELLED`;
+evento finalizado no admite ingresos. No se impone una ventana horaria adicional
+al escaneo: Gerencia habilita mediante publicación y cierra manualmente al finalizar.
+
+El lector [Nimiq qr-scanner](https://github.com/nimiq/qr-scanner) 1.4.2, incluido con
+licencia MIT en `static/vendor/qr-scanner`, utiliza la cámara tras pulsar Activar.
+Necesita HTTPS en teléfonos; localhost permite desarrollo. Pausa entre resultados
+y permite continuar con Siguiente entrada. Si no hay conexión, no muestra un acceso
+válido local inventado. Se probó decodificación real de PNG con el mismo lector;
+**no se probó una cámara física de teléfono**. Los campos de token/imagen de prueba
+solo se renderizan con `DEBUG=True`; no son búsqueda de compradores ni UI de producción.
+
+Todas las mutaciones HTTP conservan CSRF. Revisión de pago usa confirmación firmada
+con usuario/sesión/compra/versión; reprogramar/cancelar/finalizar/cortesías requieren
+confirmación explícita del formulario. Los servicios vuelven a validar permisos,
+estados y cupos. Portal, QR, PDF y comprobantes no se cachean ni se indexan; se usa
+`Referrer-Policy: same-origin` para conservar CSRF y evitar filtrar tokens a terceros.
+
+Imagen de evento y comprobantes: JPEG, PNG o WebP reales, hasta 5 MB, verificados
+con Pillow; la extensión se normaliza según el formato leído. Comprobantes viven en
+`private/event-proofs/`, fuera de `MEDIA_ROOT`; solamente Gerencia con permiso de
+compras puede leerlos. Respalda ese directorio como información privada. Admin
+registra todos los modelos solo para lectura, sin mutaciones de pagos/estados.
+
+### Reprogramar, cancelar y preparar snapshots
+
+`reschedule_event` exige motivo y guarda `EventScheduleHistory`. Conserva todos
+los tokens y no desplaza automáticamente las ventanas de venta de los tipos;
+Gerencia puede ajustar esas ventanas con su permiso. `cancel_event` exige motivo,
+cancela todas las entradas (también las utilizadas), preserva sus datos de uso,
+compras confirmadas y pagos, y cancela las compras aún sin confirmar. No ejecuta
+reembolsos. Los portales muestran la cancelación. `finish_event` usa `change_event`
+y requiere resolver comprobantes pendientes; no hay cron de finalización.
+
+`build_event_access_snapshot` devuelve evento/identificador/estado, `generated_at`,
+`schema_version=1`, checksum/version SHA-256 determinista y tickets con hash SHA-256
+del token, estado y tipo. Incluye utilizados/cancelados para permitir futuras
+revocaciones; nunca nombre, teléfono, importe ni token del portal. Obtiene un corte
+coherente bajo el mismo bloqueo del evento. Es una función interna exportable;
+no hay endpoint público de descarga, Local Node ni protocolo de sincronización.
+
+### Permisos, migración y comprobación
+
+Permisos `events`: `view_events`, `create_event`, `change_event`, `publish_event`,
+`duplicate_event`, `reschedule_event`, `cancel_event`, `manage_event_ticket_types`,
+`manage_event_tables`, `view_event_purchases`, `verify_event_payment`,
+`reject_event_payment`, `issue_courtesy_tickets`, `view_event_capacity`,
+`scan_event_ticket`. Asignarlos explícitamente a usuarios/grupos autorizados.
+Configurar plazos/finalizar reutiliza `change_event`; no se añade otro permiso implícito.
+
+Auditoría: creación/edición/publicación, tipos/mesas, duplicación, reprogramación,
+cancelación de evento/tickets, compras, comprobantes/revisión, emisión de entradas,
+cortesías, expiración y escaneos válidos/duplicados. No registra secretos QR/portal.
+Única migración nueva: `events.0001_initial`, con índices de estado/fecha, relaciones
+y unicidad de tokens/números. No cambia migraciones históricas de otras apps.
+
+```bash
+python -m pip install -r requirements/dev.txt
+python manage.py migrate
+python manage.py check
+python manage.py makemigrations --check
+python manage.py test
+node --test apps/operations/tests/*.test.mjs
+```
+
+Resultado final: **859 pruebas Django (79 nuevas) y 7 JavaScript**. Ocho pruebas de
+concurrencia usan conexiones PostgreSQL distintas e hilos simultáneos; cubren última
+cuota, última mesa, aforo global, doble confirmación/generación, dos guardias,
+confirmar/rechazar y escanear/cancelar.
+
+[Verificación y capturas 3C](docs/phase-3c/VERIFICACION.md) y
+[evidencia de dominio](docs/phase-3c/verificacion-dominio.json).
+No se implementan gateway, envíos automáticos, devoluciones, Local Node, sincronización
+cloud ni sitio premium. **Fase 3D — Inventario/Usuarios queda pendiente de revisión.**

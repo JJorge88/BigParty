@@ -1,0 +1,120 @@
+{% extends 'events/base.html' %}
+{% block management_content %}
+<a class="back-link" href="{% url 'events:list' %}">← Eventos</a>
+<div class="event-heading">
+<div>
+<span class="badge">{{ event.display_status }}</span>
+<h1>{{ event.name }}</h1>
+<p class="muted">{{ event.starts_at|date:'d M Y · H:i' }} → {{ event.ends_at|date:'d M Y · H:i' }}{% if event.artist_name %} · {{ event.artist_name }}{% endif %}</p>
+</div>
+<div class="actions">{% if perms.events.change_event %}<a class="button button--ghost" href="{% url 'events:wizard' event.pk 1 %}">Editar</a>{% endif %}{% if perms.events.duplicate_event %}<form method="post">{% csrf_token %}<button class="button button--ghost" name="action" value="duplicate">Duplicar</button>
+</form>{% endif %}<a class="button button--ghost" href="#more">Más opciones ↓</a>
+</div>
+</div>
+{% if event.status == 'CANCELLED' %}<div class="notice notice--error">Evento cancelado · {{ event.cancellation_reason }}</div>{% endif %}
+{% if capacity %}<div class="event-kpis">
+<div>
+<span>Entradas vendidas</span>
+<strong>{{ sold_count }}</strong>
+</div>
+<div>
+<span>Entradas utilizadas</span>
+<strong>{{ capacity.used_at_entrance }}</strong>
+</div>
+<div>
+<span>Aforo presente / máximo</span>
+<strong>{{ capacity.used_at_entrance }} <small>/ {{ capacity.maximum_capacity }}</small>
+</strong>
+</div>
+<div>
+<span>Disponible</span>
+<strong>{{ capacity.remaining }}</strong>
+</div>
+</div>
+<div class="event-detail-grid">
+<section class="event-panel">
+<div class="section-heading">
+<h2>Ventas por tipo</h2>
+<a href="{% url 'events:wizard' event.pk 2 %}">Ver configuración ↗</a>
+</div>{% for kind in types %}<div class="type-progress">
+<div class="summary-line">
+<strong>{{ kind.name }}</strong>
+<span>{{ kind.sold }} emitidas · {{ kind.available }} disponibles / {{ kind.capacity }}</span>
+</div>
+<progress value="{{ kind.percent }}" max="100">
+</progress>
+<small>{% if not kind.available %}Agotada{% elif kind.sellable %}En venta · Q{{ kind.price|floatformat:2 }}{% elif kind.is_courtesy_type %}Emisión interna{% else %}Fuera de ventana o inactiva{% endif %}</small>
+</div>{% endfor %}</section>
+<aside class="event-panel">
+<p class="eyebrow">VENTA ACTUAL</p>{% for kind in current_types %}<h2>{{ kind.name }} <small>Q{{ kind.price|floatformat:2 }}</small>
+</h2>{% empty %}<h2>Sin venta abierta</h2>{% endfor %}<hr>
+<h3>Aforo sin doble conteo</h3>
+<div class="summary-line">
+<span>Individuales</span>
+<b>{{ capacity.sold_individual }}</b>
+</div>
+<div class="summary-line">
+<span>Cortesías</span>
+<b>{{ capacity.courtesy }}</b>
+</div>
+<div class="summary-line">
+<span>Accesos de mesas</span>
+<b>{{ capacity.table_accesses }}</b>
+</div>
+<div class="summary-line">
+<span>Retenciones activas</span>
+<b>{{ capacity.held }}</b>
+</div>
+</aside>
+</div>
+<section class="event-panel">
+<div class="section-heading">
+<h2>Mesas del evento</h2>
+<a href="{% url 'events:wizard' event.pk 3 %}">Ver todas →</a>
+</div>
+<p class="muted">{{ table_count }} habilitadas · {{ table_reserved }} reservadas · {{ table_available }} disponibles · {{ table_capacity }} personas</p>{% for table in tables %}<div class="ticket-row">
+<strong>{{ table.table.name }}</strong>
+<span>{{ table.capacity_snapshot }} personas</span>
+<span>Q{{ table.total_price|floatformat:2 }}</span>
+<span class="badge">{% if table.available %}Disponible{% else %}Reservada / deshabilitada{% endif %}</span>
+</div>{% endfor %}</section>{% endif %}
+<div class="actions section-actions">{% if perms.events.view_event_purchases %}<a class="button button--primary" href="{% url 'events:purchases' event.pk %}?filter=PAYMENT_REVIEW">Compras por verificar</a>
+<a class="button button--ghost" href="{% url 'events:purchases' event.pk %}">Todas las compras</a>{% endif %}<a class="button button--ghost" href="{% url 'events:preview' event.pk %}">Vista previa pública</a>{% if event.status == 'PUBLISHED' or event.status == 'RESCHEDULED' %}<a class="button button--ghost" href="{% url 'event-public:event' event.slug %}">Ver página pública ↗</a>{% endif %}{% if event.status == 'DRAFT' %}<a class="button button--primary" href="{% url 'events:wizard' event.pk 4 %}">Revisar y publicar</a>{% endif %}</div>
+{% if perms.events.issue_courtesy_tickets %}<details class="event-panel" {% if request.GET.courtesias %}open{% endif %}>
+<summary>Emitir cortesías</summary>
+<form method="post" class="event-form two-columns">{% csrf_token %}<input type="hidden" name="action" value="courtesy">
+<label>Tipo<select name="ticket_type" required>{% for kind in courtesy_types %}<option value="{{ kind.pk }}">{{ kind.name }}</option>{% endfor %}</select>
+</label>
+<label>Cantidad<input type="number" name="quantity" min="1" max="100" required>
+</label>
+<label>Motivo (opcional)<input name="reason" maxlength="2000">
+</label>
+<label class="event-check">
+<input type="checkbox" name="confirmed" value="yes" required>Confirmo la emisión</label>
+<button class="button button--primary">Emitir cortesías</button>
+</form>{% for ticket in issued %}<div class="ticket-row">
+<span>{{ ticket.ticket_number }}</span>
+<a href="{% url 'event-access:ticket' ticket.qr_token %}">Ver entrada</a>
+<a href="{% url 'events:courtesy-pdf' ticket.ticket_number %}">Descargar PDF</a>
+</div>{% endfor %}</details>{% endif %}
+<details id="more" class="event-panel">
+<summary>Más opciones del evento</summary>{% if perms.events.reschedule_event %}<h3>Reprogramar</h3>
+<form method="post" class="event-form two-columns">{% csrf_token %}<input type="hidden" name="action" value="reschedule">{% with form=reschedule_form %}{% include 'events/fields.html' %}{% endwith %}<label class="event-check">
+<input type="checkbox" name="confirmed" value="yes" required>Confirmo las nuevas fechas. Los QR se conservan.</label>
+<button class="button button--ghost">Reprogramar evento</button>
+</form>{% endif %}{% if perms.events.cancel_event %}<hr>
+<h3>Cancelar evento</h3>
+<p class="muted">Invalida todas las entradas. Conserva compras y pagos; no realiza devoluciones.</p>
+<form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="action" value="cancel">
+<label>Motivo de cancelación<input name="reason" required maxlength="2000">
+</label>
+<label class="event-check">
+<input type="checkbox" name="confirmed" value="yes" required>Confirmo la cancelación de este evento</label>
+<button class="button button--ghost">Cancelar evento</button>
+</form>{% endif %}{% if perms.events.change_event %}<hr>
+<form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="action" value="finish">
+<label class="event-check">
+<input type="checkbox" name="confirmed" value="yes" required>Confirmo que el evento finalizó</label>
+<button class="button button--ghost">Finalizar evento</button>
+</form>{% endif %}</details>
+{% endblock %}

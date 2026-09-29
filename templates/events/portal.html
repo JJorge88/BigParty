@@ -1,0 +1,39 @@
+{% extends 'events/public_base.html' %}{% load static %}{% block public_content %}<p class="eyebrow">TU COMPRA · {{ purchase.public_code }}</p>
+<div class="event-heading">
+<div>
+<h1>{{ purchase.event.name }}</h1>
+<p class="muted">{{ purchase.event.starts_at|date:'d M Y · H:i' }} → {{ purchase.event.ends_at|date:'d M Y · H:i' }}</p>
+</div>
+<span class="badge">{% if purchase.effective_expired %}Expirada{% else %}{{ purchase.get_status_display }}{% endif %}</span>
+</div>{% if purchase.event.status == 'CANCELLED' %}<div class="notice notice--error">Evento cancelado. Contacta al establecimiento para gestionar tu compra.</div>{% endif %}{% if purchase.event.status == 'RESCHEDULED' %}<div class="notice">Evento reprogramado. Tus entradas conservan el mismo QR.</div>{% endif %}<section class="event-panel">
+<h2>Resumen de compra</h2>{% include 'events/items.html' %}<div class="summary-line total">
+<span>Total</span>
+<strong>Q{{ purchase.amount|floatformat:2 }}</strong>
+</div>
+</section>{% if purchase.status == 'PENDING_PAYMENT' and not purchase.effective_expired and purchase.event.status != 'CANCELLED' %}<section class="event-panel">
+<h2>Completa tu transferencia</h2>
+<p class="deadline" data-deadline="{{ purchase.deadline|date:'c' }}">Cupo reservado hasta {{ purchase.deadline|date:'H:i' }}.</p>
+<p>{{ transfer_instructions|linebreaksbr }}</p>
+<form method="post" enctype="multipart/form-data" class="event-form">{% csrf_token %}{% include 'events/fields.html' %}<p class="hint">JPEG, PNG o WebP · hasta 5 MB. Al enviar el comprobante, tu cupo se conserva durante la revisión.</p>
+<button class="button button--primary">Enviar comprobante</button>
+</form>
+</section>{% endif %}{% if purchase.status == 'PAYMENT_REVIEW' %}<section class="event-panel">
+<h2>Estamos revisando tu pago</h2>
+<p>Tu cupo está reservado. Las entradas aparecerán aquí cuando Gerencia confirme la transferencia.</p>
+</section>{% endif %}{% if purchase.status == 'REJECTED' %}<section class="event-panel">
+<h2>Pago rechazado</h2>
+<p>{{ purchase.payment.rejection_reason }}</p>
+<p>El cupo fue liberado. Contacta al establecimiento si necesitas ayuda.</p>
+</section>{% endif %}{% if tickets %}<div class="section-heading">
+<h2>Tus entradas</h2>
+<a class="button button--primary" href="{% url 'event-public:all-pdf' purchase.secure_token %}">Descargar todas · PDF</a>
+</div>
+<p class="hint">Comparte cada entrada por separado. Conserva este enlace de compra en privado.</p>
+<div class="ticket-grid">{% for ticket in tickets %}<article class="event-panel ticket-card">
+<span class="badge">{{ ticket.get_status_display }}</span>
+<h2>{{ ticket.ticket_type.name }}</h2>
+<img src="{% url 'event-access:qr' ticket.qr_token %}" alt="QR de entrada {{ ticket.ticket_number }}">
+<strong>{{ ticket.ticket_number }}</strong>
+<a class="button button--ghost" href="{% url 'event-public:pdf' purchase.secure_token ticket.ticket_number %}">Descargar PDF</a>
+</article>{% endfor %}</div>{% endif %}{% endblock %}{% block scripts %}<script type="module" src="{% static 'js/events/countdown.js' %}">
+</script>{% endblock %}

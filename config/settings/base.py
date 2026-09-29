@@ -56,6 +56,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "apps.operations.management.middleware.ManagementSessionMiddleware",
+    "apps.events.middleware.GuardSessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -144,3 +145,7 @@ MANAGEMENT_SESSION_COOKIE_NAME = "bigparty_management"
 RESERVATION_PROOF_ROOT = BASE_DIR / 'private' / 'reservation-proofs'
 PUBLIC_BASE_URL = os.environ.get('PUBLIC_BASE_URL', 'http://localhost:8000').rstrip('/')
 INSTALLED_APPS += ['apps.reservations']
+
+INSTALLED_APPS += ['apps.events']
+EVENT_PROOF_ROOT = BASE_DIR / 'private' / 'event-proofs'
+EVENT_GUARD_IDLE_SECONDS = 30 * 60

@@ -1,0 +1,36 @@
+{% extends 'events/public_base.html' %}{% load static %}{% block topbar %}<form method="post" action="{% url 'event-access:logout' %}" class="guard-exit">{% csrf_token %}<button class="button button--ghost">Salir</button>
+</form>{% endblock %}{% block public_content %}<section class="scanner" data-scan-url="{% url 'event-access:scan' %}">
+<p class="eyebrow">CONTROL DE ACCESO</p>
+<h1>Escanear entrada</h1>
+<p id="scan-event" class="muted">Acerca el QR al visor de la cámara.</p>
+<div class="camera-frame">
+<video id="camera" muted playsinline>
+</video>
+<div class="camera-guide" aria-hidden="true">
+</div>
+<span class="camera-hint">Coloca el QR dentro del recuadro</span>
+</div>
+<div id="scan-result" class="scan-result" role="status" aria-live="assertive" hidden>
+<h2 id="scan-label">
+</h2>
+<p id="scan-kind">
+</p>
+<p id="scan-time">
+</p>
+</div>
+<p id="camera-error" role="alert">
+</p>
+<div class="actions">
+<button type="button" id="start-camera" class="button button--primary">Activar cámara</button>
+<button type="button" id="next-scan" class="button button--ghost" hidden>Siguiente entrada</button>
+</div>{% csrf_token %}{% if debug %}<details class="dev-scan">
+<summary>Prueba de desarrollo</summary>
+<form id="dev-scan-form" class="event-form">
+<label>Token de prueba<input id="dev-token" autocomplete="off" required>
+</label>
+<button class="button button--ghost">Validar token de prueba</button>
+</form>
+<label class="event-form">Leer QR desde imagen de prueba<input type="file" id="dev-qr-image" accept="image/png,image/jpeg,image/webp">
+</label>
+</details>{% endif %}</section>{% endblock %}{% block scripts %}<script type="module" src="{% static 'js/events/scanner.js' %}">
+</script>{% endblock %}

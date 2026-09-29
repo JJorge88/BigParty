@@ -1,0 +1,7 @@
+{% extends 'events/base.html' %}{% block management_content %}<a class="back-link" href="{% url 'events:list' %}">← Eventos</a>
+<h1>Configuración de eventos</h1>
+<section class="event-panel narrow">
+<p class="muted">Los cambios aplican a nuevas compras. El plazo disponible termina cuando vence el primero de los dos límites.</p>
+<form method="post" class="event-form">{% csrf_token %}{% include 'events/fields.html' %}<button class="button button--primary">Guardar configuración</button>
+</form>
+</section>{% endblock %}

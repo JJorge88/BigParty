@@ -1,0 +1,39 @@
+{% extends 'events/base.html' %}{% block management_content %}<a class="back-link" href="{% url 'events:detail' event.pk %}">← {{ event.name }}</a>
+<div class="event-heading">
+<div>
+<p class="eyebrow">CONTROL DE COMPRAS</p>
+<h1>Compras de evento</h1>
+<p class="muted">Transferencias y entradas de {{ event.name }}</p>
+</div>
+</div>
+<nav class="event-tabs">{% for value,label in filters %}<a href="?filter={{ value }}" {% if value == selected %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+<section class="event-panel table-scroll">
+<table class="event-table">
+<thead>
+<tr>
+<th>Compra / cliente</th>
+<th>Fecha</th>
+<th>Total</th>
+<th>Estado</th>
+<th>
+</th>
+</tr>
+</thead>
+<tbody>{% for purchase in rows %}<tr>
+<td>
+<strong>{{ purchase.customer_name }}</strong>
+<small>{{ purchase.public_code }}</small>
+</td>
+<td>{{ purchase.created_at|date:'d M · H:i' }}</td>
+<td>Q{{ purchase.amount|floatformat:2 }}</td>
+<td>
+<span class="badge">{% if purchase.effective_expired %}Expirada{% else %}{{ purchase.get_status_display }}{% endif %}</span>
+</td>
+<td>
+<a href="{% url 'events:purchase' purchase.public_code %}">Revisar →</a>
+</td>
+</tr>{% empty %}<tr>
+<td colspan="5" class="empty">No hay compras en este estado.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</section>{% include 'events/pagination.html' %}{% endblock %}

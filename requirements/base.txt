@@ -8,3 +8,8 @@ Pillow==12.3.0
 # Dependencias transitivas fijadas para instalaciones reproducibles.
 asgiref==3.12.1
 sqlparse==0.6.0
+
+# Entradas QR y PDF sin navegador externo.
+qrcode==8.2
+reportlab==5.0.1
+charset-normalizer==3.5.1
