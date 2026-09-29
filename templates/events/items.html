@@ -1,8 +1,8 @@
 {% if purchase.table_reservation %}<div class="summary-line">
 <span>Mesa {{ purchase.table_reservation.table_configuration.table.name }} · {{ purchase.table_reservation.table_configuration.capacity_snapshot }} personas</span>
-<strong>Q{{ purchase.amount|floatformat:2 }}</strong>
+<strong>Q{{ purchase.amount|floatformat:"2u" }}</strong>
 </div>{% else %}{% for item in purchase.items.all %}<div class="summary-line">
-<span>{{ item.quantity }} × {{ item.ticket_type.name }} <small>Q{{ item.unit_price_snapshot|floatformat:2 }} c/u</small>
+<span>{{ item.quantity }} × {{ item.ticket_type.name }} <small>Q{{ item.unit_price_snapshot|floatformat:"2u" }} c/u</small>
 </span>
-<strong>Q{{ item.subtotal|floatformat:2 }}</strong>
+<strong>Q{{ item.subtotal|floatformat:"2u" }}</strong>
 </div>{% endfor %}{% endif %}

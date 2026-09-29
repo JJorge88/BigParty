@@ -1,3 +1,1 @@
-{% extends 'operations/base.html' %}{% load static %}{% block title %}BIG PARTY · Eventos{% endblock %}{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}">
-<link rel="stylesheet" href="{% static 'css/events/events.css' %}">{% endblock %}{% block body_attributes %}class="management event-public"{% endblock %}{% block content %}<main id="main" class="public-main">{% if error %}<div class="notice notice--error" role="alert">{{ error }}</div>{% endif %}{% block public_content %}{% endblock %}<footer class="management-footer">BIG PARTY · Vive la noche</footer>
-</main>{% endblock %}
+{% extends 'public/base.html' %}{% block content %}<div class="public-section">{% block public_content %}{% endblock %}</div>{% endblock %}

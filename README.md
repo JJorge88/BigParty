@@ -2956,3 +2956,117 @@ Se corrigieron también “Visible en punto de venta” y el mensaje de contrase
 Ver `docs/phase-3e/VERIFICACION.md`, las diez capturas A–J y el PDF de demostración.
 La verificación usa una base local temporal, datos ficticios y limpieza posterior.
 No se inicia website, Local Node, sincronización, failover ni módulos fiscales.
+
+## Fase 4A — Website público premium
+
+La portada y los flujos públicos usan Django Templates, Inter local y JavaScript
+ligero. La identidad combina negro, carbón y champagne. No se agregó una SPA,
+un segundo motor de reservas/pagos ni modelos nuevos.
+
+### Rutas públicas
+
+| Ruta | Uso |
+| --- | --- |
+| `/` | Portada, siguiente evento publicado y tres experiencias |
+| `/eventos/` | Calendario paginado de eventos publicados o reprogramados vigentes |
+| `/eventos/<slug>/` | Detalle, selección de entradas mixtas o mesa de evento |
+| `/reservas/` | Fecha, hora y número de personas |
+| `/reservas/mesas/` | Mapa público filtrado por área |
+| `/reservas/datos/` | Nombre, teléfono y resumen de mesa; selección firmada |
+| `/reservas/r/<token>/` | Portal privado de reserva normal |
+| `/eventos/compra/<token>/` | Portal privado de compra y sus PDF |
+| `/entrada/<token>/` | Entrada individual; no concede acceso al portal de compra |
+| `/sitemap.xml`, `/robots.txt` | Descubrimiento público y exclusiones de indexación |
+
+### Reservas normales
+
+Fecha/hora/personas → mapa → nombre/teléfono → solicitud recibida. El mapa usa
+`get_available_tables()` como fuente de disponibilidad y muestra únicamente mesas
+reservables en web de áreas activas. Los estados visibles son disponible/no
+disponible; no se publican clientes, pedidos ni razones operativas. Si una
+configuración aún no tiene posiciones distintas, se muestra una cuadrícula por
+área. Los planos configurados conservan posiciones y formas con desplazamiento
+local en pantallas pequeñas. La selección conserva nombre, área y capacidad.
+
+Una selección firmada vale 30 minutos, pero **no retiene** una mesa. Solo el POST
+válido llama a `create_public_reservation_request()`, que vuelve a validar y
+bloquea la disponibilidad de forma transaccional. Una selección antigua, mesa
+retirada o conflicto de disponibilidad produce una recuperación clara. Los
+servicios mantienen la duración y el plazo de retención configurados.
+
+El resumen explica el anticipo previsto antes de solicitar. Un importe fijo
+muestra el monto y su aplicación. Si la política es porcentual, se comunica que
+Gerencia debe fijar el consumo estimado y el monto antes de pagar. La solicitud
+pública no inventa esa base ni confirma automáticamente: los términos definitivos
+se muestran después de la aprobación en el portal existente.
+
+El portal distingue solicitud, aprobación pendiente de pago, comprobante en
+revisión, confirmación, llegada, rechazo/cancelación y expiración. Las reservas
+normales no generan QR. La confirmación de llegada conserva el flujo de Gerencia.
+
+### Eventos, compras y entradas
+
+El detalle muestra tipos activos de venta dentro de su ventana, incluidos tipos
+agotados, y mesas habilitadas disponibles. Los botones +/− respetan máximos; el
+servidor valida nuevamente tipos, ventanas, cantidad, mesa y aforo. Se pueden
+combinar tipos de entrada o comprar una mesa completa. El total se actualiza en
+centavos, y solo se solicitan nombre y teléfono.
+
+Una mesa muestra capacidad, precio por persona y total. Ejemplo verificado:
+VIP 2, seis personas × Q100 = Q600; después de confirmar el pago se generan seis
+entradas individuales. `create_purchase()`, los holds, la revisión de transferencia,
+la emisión de tickets y los PDF son los servicios existentes. No se cambió el
+control de acceso ni el motor de documentos.
+
+Los portales muestran el plazo real del servidor. El contador calcula tiempo
+transcurrido con reloj monotónico del navegador; al llegar a cero recarga el estado
+real. Al volver a una pestaña después de 15 segundos se actualiza si no hay un
+formulario editado. También existe «Actualizar estado». No hay polling continuo.
+Los comprobantes aceptan JPEG/PNG/WebP hasta 5 MB con validación del backend.
+
+### Banco y privacidad
+
+Ambos portales usan la configuración bancaria central de Gerencia. Banco,
+titular, cuenta e instrucciones proceden de `BankTransferSettings`; no hay datos
+bancarios reales inventados. Si falta configuración, se explica que Gerencia debe
+completarla antes de pagar. Los comprobantes mantienen su almacenamiento privado
+y su acceso restringido.
+
+Los tokens existentes y sus rutas conservan compatibilidad. Portales, QR y PDF
+mantienen no-store/noindex y separación entre compradores. La selección y el mapa
+también son noindex y no-cache. Formularios POST conservan CSRF. No se exponen
+estadísticas internas de aforo, identidades ajenas ni enlaces administrativos.
+
+### SEO, imágenes y comportamiento móvil
+
+`PUBLIC_BASE_URL` es la base absoluta de canonical, Open Graph y sitemap, además
+de los enlaces seguros existentes. El valor local por defecto es
+`http://localhost:8000`; se configura mediante el entorno, sin dominio de producción
+fijo. El sitemap solo incluye portada, calendario, inicio de reservas y eventos
+públicos vigentes. `robots.txt` excluye Gerencia, operación, caja, acceso, QR y
+portales privados. No se publicó schema Event porque aún no hay ubicación real
+configurada que permita completarlo correctamente.
+
+La imagen conceptual provisional pesa aproximadamente 110 KiB en WebP. Inter se
+sirve desde `static/fonts/` con su licencia OFL; no hay solicitudes a Google Fonts.
+Hero y fuente se precargan, las imágenes secundarias usan carga diferida y el
+calendario está paginado. La imagen de cada evento sigue siendo la administrada
+en Gerencia. No se inventaron redes sociales, teléfono ni dirección del negocio.
+
+Imágenes editoriales reemplazables sin migraciones: `PUBLIC_HERO_IMAGE`,
+`PUBLIC_SPORT_BAR_IMAGE`, `PUBLIC_DISCOTECA_IMAGE` y `PUBLIC_PREMIUM_IMAGE` reciben
+rutas relativas a static. `PUBLIC_LEVEL_IMAGES` reúne las tres últimas en settings.
+Hasta disponer de fotografía real, las áreas reutilizan encuadres del mismo recurso
+conceptual. Prompt y procedencia en `docs/phase-4a/IMAGEN.md`.
+
+Móvil: menú compacto con Escape y foco, formularios de una columna, controles de
+44 px, total fijo durante selección y QR grandes. Verificados 390×844, 430×932,
+tablet y escritorio. Sin JavaScript, formularios y cantidades nativas siguen
+utilizando el backend y las áreas quedan visibles.
+
+También se ajustó 3E: referencia humana de producto en auditoría, conteos separados
+de impresoras registradas/configuradas/con fallos, y aclaración de que los pagos
+por verificar ya están incluidos en el saldo pendiente. Los cálculos no cambiaron.
+
+Evidencia y capturas: `docs/phase-4a/VERIFICACION.md`. No se inició Local Node,
+despliegue, sincronización offline, PWA, analytics ni FEL.

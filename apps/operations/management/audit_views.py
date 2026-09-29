@@ -162,6 +162,7 @@ def present_many(logs):
         if order: context.append(('Cuenta', text_value(order.display_name)))
         if product: context.append(('Producto', text_value(product)))
         if line: context.append(('Producto', f'{line.quantity} × {text_value(line.product_name_snapshot)}'))
+        item['human_reference'] = text_value(product) if product else (text_value(order.display_name) if order else item['entity'])
         item['context'] = context + item['context']
         item['summary'] = ' · '.join(f'{key}: {value}' for key,value in item['context'][:4]) or item['summary']
         result.append(item)

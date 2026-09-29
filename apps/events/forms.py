@@ -26,6 +26,7 @@ class PaymentForm(forms.ModelForm):
     class Meta:
         model = EventPurchasePayment
         fields = ['amount', 'reference', 'proof_image']
+        widgets = {'proof_image': forms.ClearableFileInput(attrs={'accept':'image/jpeg,image/png,image/webp'})}
 
 class SettingsForm(forms.ModelForm):
     class Meta:

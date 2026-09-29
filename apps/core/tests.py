@@ -1,16 +1,16 @@
 from django.conf import settings
 from django.contrib.staticfiles import finders
-from django.test import Client, SimpleTestCase
+from django.test import Client, TestCase
 from django.urls import reverse
 
 
-class FoundationTests(SimpleTestCase):
+class FoundationTests(TestCase):
     def test_home_renders_base_template_in_spanish(self):
         response = self.client.get(reverse("core:home"))
         self.assertContains(response, "BIG PARTY")
-        self.assertContains(response, "Sistema en desarrollo")
+        self.assertContains(response, "La noche")
         self.assertContains(response, '<html lang="es">')
-        self.assertTemplateUsed(response, "base.html")
+        self.assertTemplateUsed(response, "public/base.html")
 
     def test_admin_login_is_available_in_spanish(self):
         response = self.client.get(reverse("admin:login"))

@@ -1,4 +1,5 @@
 from apps.core.configuration import bank as transfer_bank
+from apps.core import public_site as site
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -137,7 +138,7 @@ def detail(request, code):
         except (ValidationError, Reservation.payment.RelatedObjectDoesNotExist) as exc:
             error = ' '.join(exc.messages) if isinstance(exc, ValidationError) else 'No hay un pago pendiente para esta reserva.'
         row.refresh_from_db()
-    expired = bool(row.deadline and row.deadline <= timezone.now())
+    expired = row.status == 'EXPIRED' or bool(row.deadline and row.deadline <= timezone.now())
     actions = {action.replace('-', '_') + '_token': security.confirmation(request, action, code, row.updated_at.isoformat()) for action in ACTIONS}
     allowed = {'can_' + action.replace('-', '_'): request.user.has_perm('reservations.' + permission) for action, permission in ACTIONS.items()}
     return page(request, 'detail.html', {'bank_details': transfer_bank(), 'reservation': row, 'form': form, 'error': error, 'expired': expired,
@@ -150,7 +151,7 @@ def detail(request, code):
 @require_http_methods(['GET', 'POST'])
 def client_detail(request, secure_token):
     row = get_object_or_404(Reservation.objects.select_related('table'), secure_token=secure_token)
-    expired = bool(row.deadline and row.deadline <= timezone.now())
+    expired = row.status == 'EXPIRED' or bool(row.deadline and row.deadline <= timezone.now())
     form = SubmitPaymentForm(request.POST or None, request.FILES or None, initial={'amount': row.payment_amount})
     form.fields['proof_image'].required = not row.created_by_id
     error = ''
@@ -161,9 +162,10 @@ def client_detail(request, secure_token):
         except ValidationError as exc:
             error = ' '.join(exc.messages)
         row.refresh_from_db()
-    response = render(request, 'reservations/client.html', {'bank_details': transfer_bank(), 'reservation': row, 'form': form, 'expired': expired, 'error': error})
+    response = render(request, 'reservations/client.html', {**site.context(request, title='Tu reserva', private=True), 'bank_details': transfer_bank(), 'reservation': row, 'form': form, 'expired': expired, 'error': error})
     response['Referrer-Policy'] = 'same-origin'
     response['X-Robots-Tag'] = 'noindex, nofollow, noarchive'
+    response['X-Content-Type-Options'] = 'nosniff'
     return response
 
 

@@ -1,44 +1,7 @@
-{% extends 'events/public_base.html' %}{% block public_content %}{% if preview %}<p class="notice">Vista previa · las compras están deshabilitadas</p>{% endif %}<div class="public-hero">{% if event.image %}<img src="{{ event.image.url }}" alt="{{ event.name }}">{% endif %}<div>
-<p class="eyebrow">BIG PARTY PRESENTA</p>
-<span class="badge">{{ event.display_status }}</span>
-<h1>{{ event.name }}</h1>
-<p>{{ event.artist_name }}</p>
-<p>{{ event.starts_at|date:'d M Y · H:i' }} → {{ event.ends_at|date:'d M Y · H:i' }}</p>
-</div>
-</div>
-<p class="event-description">{{ event.description|linebreaksbr }}</p>{% if sale_open or preview %}<section class="event-panel">
-<h2>Elige tus entradas</h2>
-<form method="post" class="event-form">{% csrf_token %}{% for kind in types %}<div class="ticket-row">
-<div>
-<strong>{{ kind.name }}</strong>
-<small>{{ kind.available }} disponibles · máximo {{ kind.max_per_purchase }}</small>
-</div>
-<strong>Q{{ kind.price|floatformat:2 }}</strong>
-<label>Cantidad<input class="quantity" type="number" name="qty_{{ kind.pk }}" value="0" min="0" max="{{ kind.max_per_purchase }}" aria-label="Cantidad {{ kind.name }}">
-</label>
-</div>{% empty %}<p>No hay entradas individuales a la venta en este momento.</p>{% endfor %}<div class="two-columns">
-<label>Nombre<input name="customer_name" maxlength="120" required autocomplete="name">
-</label>
-<label>Teléfono<input name="customer_phone" maxlength="20" required autocomplete="tel" type="tel">
-</label>
-</div>
-<button class="button button--primary" {% if preview or not types %}disabled{% endif %}>Continuar con entradas →</button>
-</form>
-</section>
-<h2>Reserva una mesa completa</h2>
-<div class="event-grid">{% for table in tables %}<section class="event-panel">
-<h3>{{ table.table.name }}</h3>
-<p>{{ table.capacity_snapshot }} personas · {{ table.ticket_type.name }}</p>
-<p class="muted">Q{{ table.cover_per_person|floatformat:2 }} por persona</p>
-<h2>Q{{ table.total_price|floatformat:2 }}</h2>
-<form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="table" value="{{ table.pk }}">
-<label>Nombre<input name="customer_name" maxlength="120" required>
-</label>
-<label>Teléfono<input name="customer_phone" maxlength="20" required type="tel">
-</label>
-<button class="button button--ghost" {% if preview %}disabled{% endif %}>Reservar mesa</button>
-</form>
-</section>{% empty %}<p class="muted">No hay mesas disponibles.</p>{% endfor %}</div>{% else %}<section class="event-panel">
-<h2>Venta cerrada</h2>
-<p>No se reciben nuevas compras.</p>
-</section>{% endif %}{% endblock %}
+{% extends 'public/base.html' %}{% load static l10n %}{% block content %}
+<section class="event-hero">{% if event.image %}<img src="{{ event.image.url }}" alt="{{ event.name }}" fetchpriority="high">{% else %}<img src="{% static hero_image %}" alt="" width="1536" height="1024" fetchpriority="high">{% endif %}<div class="event-hero-content"><p class="eyebrow">BIG PARTY PRESENTA{% if preview %} · VISTA PREVIA{% endif %}</p><h1>{{ event.name }}</h1>{% if event.artist_name %}<p>{{ event.artist_name }}</p>{% endif %}<p class="event-date">{{ event.starts_at|date:'l d M Y' }} · {{ event.starts_at|date:'H:i' }} — {{ event.ends_at|date:'d M · H:i' }}</p>{% if event.status == 'RESCHEDULED' %}<span class="badge">Evento reprogramado</span>{% endif %}</div></section>
+<section class="public-section checkout-section"><div class="event-description">{{ event.description|linebreaks }}</div>{% if error %}<div class="notice notice--error" role="alert">{{ error }}</div>{% endif %}{% if preview %}<div class="notice">Vista previa de Gerencia. La compra se habilita al publicar el evento.</div>{% endif %}
+{% if sale_open or preview %}<form method="post" data-checkout {% if preview %}data-preview{% endif %}>{% csrf_token %}<p class="eyebrow">TU ACCESO A LA NOCHE</p><h2>Elige tus entradas</h2><p>Combina los tipos de entrada para tu grupo.</p><div class="ticket-options">{% for kind in types %}<article class="ticket-option"><div><h3>{{ kind.name }}</h3><strong class="ticket-price">Q{{ kind.price|floatformat:"2u" }}</strong>{% if kind.sellable %}<p>Máximo {{ kind.max_per_purchase }} por compra</p>{% else %}<span class="badge">{% if preview %}Vista previa{% else %}Agotado{% endif %}</span>{% endif %}</div>{% if kind.sellable %}<div class="stepper"><button type="button" data-delta="-1" aria-label="Quitar una entrada {{ kind.name }}">−</button><input type="number" name="qty_{{ kind.pk }}" aria-label="Cantidad de entradas {{ kind.name }}" value="0" min="0" max="{{ kind.public_max }}" inputmode="numeric" data-price="{{ kind.price|unlocalize }}"><button type="button" data-delta="1" aria-label="Añadir una entrada {{ kind.name }}">+</button></div>{% endif %}</article>{% empty %}<p class="notice">No hay entradas individuales a la venta en este momento.</p>{% endfor %}</div>
+{% if tables %}<section class="event-tables"><p class="eyebrow">LA NOCHE EN GRUPO</p><h2>Reserva una mesa para el evento.</h2><p>Elige entradas individuales o una mesa completa.</p><div class="event-table-grid">{% for config in tables %}<label class="event-table-card"><input type="radio" name="table" value="{{ config.pk }}" data-total="{{ config.total_price|unlocalize }}" aria-label="Reservar {{ config.table.name }} por Q{{ config.total_price|floatformat:"2u" }}"><span class="eyebrow">{{ config.table.area.name }}</span><h3>{{ config.table.name }}</h3><p>{{ config.capacity_snapshot }} personas · Q{{ config.cover_per_person|floatformat:"2u" }} por persona</p><strong>Q{{ config.total_price|floatformat:"2u" }}</strong><p>Total por la mesa</p><p>Recibirás {{ config.capacity_snapshot }} entradas individuales con QR al confirmarse el pago.</p></label>{% endfor %}</div><button type="button" class="clear-table" data-clear-table>Quitar mesa seleccionada</button></section>{% endif %}
+<section class="checkout-guest" data-checkout-guest><p class="eyebrow">TUS DATOS</p><h2>¿A nombre de quién?</h2><div class="public-form">{% include 'public/partials/fields.html' with form=guest_form %}</div><p class="fine-print">Retendremos tu selección mientras realizas la transferencia. Guarda el enlace privado que recibirás a continuación.</p></section>
+<div class="purchase-bar"><div><span class="eyebrow">TOTAL</span><strong data-total-display aria-live="polite">Q0.00</strong><p>Pago por transferencia</p></div><button class="button button-gold" type="submit" data-purchase-action {% if preview %}disabled{% endif %}>Confirmar y pagar ↗</button></div></form>{% else %}<div class="empty-state"><h2>La venta está cerrada.</h2><p>Descubre los próximos eventos de BIG PARTY.</p><a class="button button-gold" href="{% url 'core:events' %}">Ver eventos ↗</a></div>{% endif %}</section>{% endblock %}

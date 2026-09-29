@@ -1,0 +1,12 @@
+{% load static %}<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101110"><meta name="referrer" content="same-origin">
+<title>{{ page_title|default:'Vive la noche' }} · {{ brand.business_name|default:'BIG PARTY' }}</title>
+<meta name="description" content="{{ meta_description|default:'Eventos, entradas y reservas en BIG PARTY.' }}">
+{% if private_page %}<meta name="robots" content="noindex,nofollow,noarchive">{% else %}<link rel="canonical" href="{{ canonical }}"><meta property="og:type" content="website"><meta property="og:title" content="{{ page_title }} · {{ brand.business_name }}"><meta property="og:description" content="{{ meta_description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ og_image }}"><meta property="og:locale" content="es_GT">{% endif %}
+<link rel="preload" href="{% static 'fonts/InterVariable.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{% static 'css/public/site.css' %}">{% block head %}{% endblock %}</head>
+<body data-server-now="{{ server_now }}"><a class="skip-link" href="#main">Ir al contenido</a>
+<header class="site-header"><a class="brand" href="{% url 'core:home' %}" aria-label="BIG PARTY · Inicio">BIG PARTY<span class="brand-dot">●</span></a><button class="menu-toggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="public-nav" data-menu-toggle>Menú <span aria-hidden="true">☰</span></button><nav id="public-nav" aria-label="Navegación principal"><a href="{% url 'core:events' %}">Eventos</a><a href="{% url 'core:reservations' %}">Reservas</a><a class="button button-gold header-cta" href="{% url 'core:reservations' %}">Reservar mesa <span aria-hidden="true">↗</span></a></nav></header>
+<main id="main">{% block content %}{% endblock %}</main>
+<footer class="site-footer"><div><a class="brand" href="{% url 'core:home' %}">BIG PARTY<span class="brand-dot">●</span></a><p>Tres espacios. Una misma noche.</p></div><nav aria-label="Enlaces del pie"><a href="{% url 'core:events' %}">Eventos</a><a href="{% url 'core:reservations' %}">Reservas</a></nav><span class="footer-note">{{ brand.business_name|default:'BIG PARTY' }} · {% now 'Y' %}</span></footer>
+<script type="module" src="{% static 'js/public/site.js' %}"></script>{% block scripts %}{% endblock %}</body></html>

@@ -149,3 +149,11 @@ INSTALLED_APPS += ['apps.reservations']
 INSTALLED_APPS += ['apps.events']
 EVENT_PROOF_ROOT = BASE_DIR / 'private' / 'event-proofs'
 EVENT_GUARD_IDLE_SECONDS = 30 * 60
+
+# Imágenes editoriales públicas: rutas relativas a static, reemplazables sin CMS.
+PUBLIC_HERO_IMAGE = os.environ.get('PUBLIC_HERO_IMAGE', 'images/public/nightlife-hero.webp')
+PUBLIC_LEVEL_IMAGES = {
+    'sport_bar': os.environ.get('PUBLIC_SPORT_BAR_IMAGE', PUBLIC_HERO_IMAGE),
+    'discoteca': os.environ.get('PUBLIC_DISCOTECA_IMAGE', PUBLIC_HERO_IMAGE),
+    'premium': os.environ.get('PUBLIC_PREMIUM_IMAGE', PUBLIC_HERO_IMAGE),
+}

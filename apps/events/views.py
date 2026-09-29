@@ -1,4 +1,6 @@
 from apps.core.configuration import bank as transfer_bank
+from apps.core import public_site as site
+from apps.core.public_forms import GuestForm
 from urllib.parse import urlencode
 from django.conf import settings
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -260,10 +262,24 @@ def event_checkout(request, event, preview=False):
             purchase = services.create_purchase(event, request.POST.get('customer_name', ''), request.POST.get('customer_phone', ''), quantities, table)
             return redirect('event-public:portal', secure_token=purchase.secure_token)
         except ValidationError as exc:
-            error = error_text(exc)
-    return private(render(request, 'events/public.html', dict(event=event, error=error, preview=preview,
-        types=[t for t in queries.ticket_type_rows(event) if t.sellable or (preview and not t.is_courtesy_type)],
-        tables=[t for t in queries.table_rows(event) if t.available], sale_open=event.ticket_sales_enabled and event.ends_at > timezone.now())))
+            error = site.public_error(exc)
+    now = timezone.now()
+    sale_open = event.ticket_sales_enabled and event.ends_at > now
+    types = [t for t in queries.ticket_type_rows(event) if t.is_active and not t.is_courtesy_type and t.price > 0
+             and (preview or t.sale_starts_at <= now <= t.sale_ends_at)]
+    for kind in types:
+        kind.public_max = min(kind.max_per_purchase, kind.available)
+    remaining = queries.get_event_capacity_summary(event)['remaining']
+    tables = [t for t in queries.table_rows(event) if t.available and t.enabled and t.cover_per_person > 0
+              and t.table.is_active and t.table.area.is_active and t.table.operational_status == 'ACTIVE'
+              and t.ticket_type.is_active and t.capacity_snapshot <= remaining] if sale_open else []
+    response = render(request, 'events/public.html', {
+        **site.context(request, title=event.name, description=event.description[:155] or 'Entradas y mesas para '+event.name,
+                       image=event.image.url if event.image else None, private=preview),
+        'event':event, 'error':error, 'preview':preview, 'types':types, 'tables':tables,
+        'guest_form':GuestForm(initial={'customer_name':request.POST.get('customer_name',''), 'customer_phone':request.POST.get('customer_phone','')}),
+        'sale_open':sale_open})
+    return private(response) if preview else response
 
 
 @security.required
@@ -285,15 +301,15 @@ def portal(request, secure_token):
             return redirect('event-public:portal', secure_token=secure_token)
         except ValidationError as exc:
             error = error_text(exc)
-    return private(render(request, 'events/portal.html', dict(purchase=purchase, form=form, error=error, bank_details=transfer_bank(),
-        transfer_instructions=queries.get_settings().transfer_instructions, tickets=purchase.tickets.select_related('ticket_type'))))
+    return private(render(request, 'events/portal.html', dict(**site.context(request, title='Tu compra', private=True), purchase=purchase, form=form, error=error, bank_details=transfer_bank(),
+        tickets=purchase.tickets.select_related('ticket_type'))))
 
 
 @never_cache
 @require_GET
 def ticket_page(request, qr_token):
     ticket = get_object_or_404(EventTicket.objects.select_related('event', 'ticket_type'), qr_token=qr_token)
-    return private(render(request, 'events/ticket.html', {'ticket': ticket}))
+    return private(render(request, 'events/ticket.html', {**site.context(request, title='Tu entrada', private=True), 'ticket': ticket}))
 
 
 @never_cache
