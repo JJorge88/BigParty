@@ -1,3 +1,4 @@
+from apps.core.configuration import enabled_methods
 from django.contrib import messages
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
@@ -153,7 +154,7 @@ def checkout(request, order_id):
         return fail(request, exc)
     if json_request(request):
         return JsonResponse({"state": state})
-    return render(request, "operations/cash/checkout.html", {**safe_context(request.cash), **paths(order), "order": order, "state": state, "area": order.area})
+    return render(request, "operations/cash/checkout.html", {**safe_context(request.cash), **paths(order), "order": order, "state": state, "payment_methods": enabled_methods(), "area": order.area})
 
 
 @require_POST

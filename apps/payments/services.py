@@ -190,6 +190,8 @@ def refresh_order_payment_status(order, user=None):
 def _create(order, account, allocations, method, user, *, reference="", notes="", received_amount=None, card_approved=False, cash_session=None):
     if method not in Payment.Method.values:
         raise ValidationError("Método de pago inválido.")
+    from apps.core.configuration import require_method
+    require_method(method)
     if not isinstance(reference, str) or not isinstance(notes, str):
         raise ValidationError("La referencia y las notas deben ser texto.")
     reference = reference.strip()

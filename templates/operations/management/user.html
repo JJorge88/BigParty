@@ -51,7 +51,7 @@
 <div class="admin-credential">
 <div>
 <strong>Contraseña</strong>
-<p>{{ has_password|yesno:'Configurada,Sin configurar' }} · acceso a Gerencia</p>
+<p>{% if not has_password and target.role != 'GERENTE' and target.role != 'PROPIETARIO' %}No requerida para este rol{% else %}{{ has_password|yesno:'Configurada,Sin configurar' }} · acceso a Gerencia{% endif %}</p>
 </div>{% if perms.accounts.change_user_credentials %}<button class="admin-button" data-open-dialog="password-dialog">Cambiar contraseña</button>{% endif %}</div>
 <p class="admin-help">Las credenciales existentes nunca se muestran. Restablecer el PIN cierra las sesiones operativas de esta persona.</p>
 </section>

@@ -46,3 +46,14 @@ urlpatterns += [
     path('usuarios/<int:pk>/estado/', users.user_state, name='user-state'),
     path('usuarios/<int:pk>/permisos/', users.user_permissions, name='user-permissions'),
 ]
+
+from . import configuration_views as configuration, report_views as reports, audit_views as audit
+urlpatterns += [
+    path('reportes/', reports.hub, name='reports'),
+    path('reportes/<slug:kind>/', reports.report, name='report'),
+    path('reportes/<slug:kind>/pdf/', reports.report, {'pdf': True}, name='report-pdf'),
+    path('auditoria/', audit.listing, name='audit'),
+    path('auditoria/<int:pk>/', audit.detail, name='audit-detail'),
+    path('configuracion/', configuration.hub, name='configuration'),
+    path('configuracion/<slug:kind>/', configuration.edit, name='configuration-edit'),
+]

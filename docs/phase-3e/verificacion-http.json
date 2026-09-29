@@ -1,0 +1,9 @@
+{
+  "pos_http": 200,
+  "csrf_enforced": true,
+  "tarjeta_oculta": true,
+  "backend_rechaza_tarjeta": true,
+  "historial_tarjeta": "150.00",
+  "reembolso_historico": "10.00",
+  "base": "temporal aislada"
+}

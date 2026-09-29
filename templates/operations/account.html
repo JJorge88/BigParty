@@ -40,10 +40,7 @@
         <div class="payment-amount"><span id="payment-amount-label">Monto a pagar</span><strong id="payment-amount">—</strong></div>
         <div id="mixed-entry" class="mixed-entry" hidden><label class="field-label" for="mixed-amount">Monto a registrar</label><input class="input money-input" id="mixed-amount" inputmode="decimal" placeholder="0.00" autocomplete="off"><p class="muted">Registra un método a la vez. Los pagos por verificar reservan su saldo.</p></div>
         <div class="payment-methods" id="payment-methods" role="group" aria-label="Método de pago">
-          <button type="button" data-method="efectivo"><span class="method-symbol" aria-hidden="true">Q</span>Efectivo</button>
-          <button type="button" data-method="tarjeta"><svg aria-hidden="true"><use href="#icon-card"/></svg>Tarjeta</button>
-          <button type="button" data-method="transferencia"><svg aria-hidden="true"><use href="#icon-transfer"/></svg>Transferencia</button>
-          <button type="button" data-method="deposito"><svg aria-hidden="true"><use href="#icon-bank"/></svg>Depósito</button>
+          {% for method in payment_methods %}<button type="button" data-method="{{ method.slug }}">{{ method.name }}</button>{% endfor %}
           <button type="button" id="mixed-method"><svg aria-hidden="true"><use href="#icon-split"/></svg>Pago mixto</button>
         </div>
         <form id="payment-form" class="payment-form" hidden>

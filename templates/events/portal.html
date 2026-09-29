@@ -13,7 +13,7 @@
 </section>{% if purchase.status == 'PENDING_PAYMENT' and not purchase.effective_expired and purchase.event.status != 'CANCELLED' %}<section class="event-panel">
 <h2>Completa tu transferencia</h2>
 <p class="deadline" data-deadline="{{ purchase.deadline|date:'c' }}">Cupo reservado hasta {{ purchase.deadline|date:'H:i' }}.</p>
-<p>{{ transfer_instructions|linebreaksbr }}</p>
+{% include 'operations/management/partials/bank_details.html' %}<p>{{ transfer_instructions|linebreaksbr }}</p>
 <form method="post" enctype="multipart/form-data" class="event-form">{% csrf_token %}{% include 'events/fields.html' %}<p class="hint">JPEG, PNG o WebP · hasta 5 MB. Al enviar el comprobante, tu cupo se conserva durante la revisión.</p>
 <button class="button button--primary">Enviar comprobante</button>
 </form>

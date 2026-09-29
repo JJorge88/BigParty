@@ -1,3 +1,4 @@
+from apps.core.configuration import bank as transfer_bank
 from urllib.parse import urlencode
 from django.conf import settings
 from django.core.exceptions import ValidationError, PermissionDenied
@@ -284,7 +285,7 @@ def portal(request, secure_token):
             return redirect('event-public:portal', secure_token=secure_token)
         except ValidationError as exc:
             error = error_text(exc)
-    return private(render(request, 'events/portal.html', dict(purchase=purchase, form=form, error=error,
+    return private(render(request, 'events/portal.html', dict(purchase=purchase, form=form, error=error, bank_details=transfer_bank(),
         transfer_instructions=queries.get_settings().transfer_instructions, tickets=purchase.tickets.select_related('ticket_type'))))
 
 

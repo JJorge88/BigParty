@@ -21,6 +21,7 @@ class AuditLog(models.Model):
         verbose_name = "registro de auditoría"
         verbose_name_plural = "registros de auditoría"
         ordering = ("-created_at", "-pk")
+        permissions = [("view_audit_log", "Puede consultar auditoría")]
 
     def __str__(self):
         return f"{self.action}: {self.entity} ({self.entity_id})"

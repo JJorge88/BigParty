@@ -13,6 +13,7 @@ class ProductForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not user.has_perm('catalog.change_product_price'):
             self.fields['base_price'].disabled = True
+        self.fields['visible_in_pos'].label = 'Visible en punto de venta'
         self.fields['image'].help_text = 'JPEG, PNG o WebP. Máximo 5 MB.'
 
     def clean_image(self):

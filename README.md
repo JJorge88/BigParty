@@ -2818,3 +2818,141 @@ PostgreSQL separadas. Evidencias, recorrido manual y capturas A–J en
 
 Resultado verificado de Fase 3D: **902 pruebas Django (43 nuevas) y 7 JavaScript**.
 Las capturas y pruebas de recorrido usan una base aislada eliminada al terminar.
+
+## Fase 3E — Reportes, auditoría y configuración
+
+Gerencia incorpora `/gerencia/reportes/`, `/gerencia/auditoria/` y
+`/gerencia/configuracion/`. El encabezado conserva Inicio, Cierres, Reservas y
+Eventos. Los enlaces de Administrar requieren permisos individuales; el rol
+Gerente o Propietario no concede acceso por sí solo.
+
+### Reportes y significado de los importes
+
+Se ofrecen diez reportes: resumen de jornada, productos, áreas, meseros, cajas,
+pagos, cancelaciones/reembolsos, descuentos/cortesías, reservas y eventos.
+El periodo permite jornada abierta, fecha comercial específica o rango inclusivo
+de hasta **93 días**. Ventas, pagos, ajustes, reembolsos, entregas y sesiones de caja
+se seleccionan mediante `BusinessDay`, no mediante la fecha civil de creación.
+Una venta después de medianoche conserva la jornada a la que pertenece. Los
+pedidos históricos sin jornada no se asignan implícitamente a una fecha.
+
+- **Bruto:** cantidad × precio final de las líneas `SENT`, incluidos modificadores.
+  Borradores y líneas anuladas no son ventas. Un combo cuenta como producto
+  comercial; sus componentes solo representan consumo de inventario.
+- **Ajustes y reembolsos por producto/área/mesero:** asignaciones efectivas a las
+  líneas, sumadas por separado para evitar multiplicar filas al combinar relaciones.
+  **Consumo neto = bruto − ajustes − reembolsos.**
+- **Cobros confirmados netos:** pagos `CONFIRMED` o `REFUNDED` menos sus
+  reembolsos. Pendientes y rechazados aparecen en columnas independientes.
+  Deshabilitar un método no elimina su información del reporte.
+- **Abonos de reserva aplicados:** solo `ReservationCreditAllocation` aplicado
+  a consumo enviado; el crédito disponible todavía no utilizado no reduce el saldo.
+  **Saldo = consumo neto − cobros confirmados netos − abonos aplicados.**
+  Estos abonos no se suman otra vez como un ingreso nuevo del punto de venta.
+- Los pedidos por área incluyen mesas y ventas rápidas. Los conteos excluyen el
+  contenedor `MERGED` para no duplicar cuentas; los vínculos históricos permiten
+  contar mesas distintas. La categoría del producto es la categoría **actual**;
+  su nombre comercial viene de la instantánea de la línea.
+- El reporte de meseros distingue responsabilidad comercial (`responsible_waiter`),
+  cobros registrados por usuario (`recorded_by`) y entregas (`CashHandoff.waiter`).
+  No es un ranking de desempeño.
+- Caja: fondo + ingresos directos + entregas − retiros − reembolsos en efectivo.
+  Contado y diferencia solo se presentan para sesiones cerradas. No se introducen
+  nuevas reglas de liquidación ni cierres automáticos.
+- Cancelaciones y reembolsos son secciones distintas. La anulación presenta un
+  importe informativo y comprueba las devoluciones de inventario registradas;
+  los reembolsos muestran el dinero efectivamente devuelto. Se diferencian
+  borradores retirados, productos enviados anulados y ventas rápidas anuladas.
+- **Reservas y eventos no tienen una FK propia a BusinessDay.** Sus reportes usan
+  las fechas programadas locales dentro del mismo intervalo de fechas elegido,
+  y lo indican en el título de cada sección. No representan cobros bancarios por
+  fecha de depósito. Los anticipos confirmados `CREDIT` y `FEE` permanecen separados.
+- Eventos: ingreso confirmado exclusivamente desde `EventPurchasePayment`.
+  Cortesías aportan cero. Entradas vendidas individuales, cortesías y accesos de
+  mesa son categorías separadas; usadas significa `used_at` registrado. Los
+  conteos conservan entradas emitidas aunque después se anulen. “Por verificar”
+  suma comprobantes `PENDING`; una intención de compra sin comprobante no es ingreso.
+
+Los agregados se calculan en PostgreSQL. Cada conjunto admite como máximo 5,000
+filas, con 25 filas por página; el exceso solicita reducir el periodo sin presentar
+un total parcial como completo. El resumen muestra los 20 productos principales
+por bruto. Las lecturas del reporte usan una instantánea transaccional consistente.
+
+### PDF
+
+Todos los reportes exportan con **ReportLab**, sin agregar bibliotecas de producción.
+El PDF incluye identidad, periodo, fecha/hora de Guatemala, usuario, totales,
+tablas con encabezados repetidos y numeración. Usa papel blanco, texto oscuro y
+acento discreto; los motivos extensos pueden continuar entre páginas.
+La respuesta es directa, autenticada, `no-store`, con nombre sanitizado, sin un
+modelo `ReportFile`, almacenamiento público ni enlaces permanentes. Máximo 1,000
+filas por PDF; cuando se excede, se solicita reducir el periodo. Se omiten tablas
+sin filas. El ejemplo en `output/pdf/` contiene únicamente datos ficticios de QA.
+
+### Auditoría
+
+Se reutiliza `AuditLog` en un listado paginado y detalle de **solo lectura**.
+Filtros: fechas locales, nombre/usuario, módulo, acción y referencia de entidad.
+La búsqueda no consulta el JSON privado. Los módulos incluyen Operación, Caja,
+Inventario, Pagos, Reservas, Eventos, Impresión, Usuarios y Configuración.
+Acciones desconocidas reciben una descripción genérica segura; registros sin
+usuario muestran “Sistema”. El visor agrega contexto de producto/mesa mediante
+consultas por lotes y no inventa información histórica ausente.
+
+La presentación usa una **lista explícita de campos y tipos permitidos**. No
+serializa el JSON, ni recorre objetos anidados arbitrarios. Cambios admitidos de
+identidad/configuración se proyectan campo por campo; importes e identificadores
+se validan numéricamente. Texto con patrones de credenciales/tokens se reserva.
+Contraseñas, PIN, hashes, claves de sesión y tokens completos nunca se extraen de
+sus campos. El Admin técnico mantiene su protección contra edición y borrado.
+
+### Configuración
+
+Se añadieron únicamente `BusinessSettings`, `PaymentMethodSettings` y
+`BankTransferSettings`. Las migraciones inicializan los cuatro códigos de pago
+sin conceder permisos a usuarios existentes.
+
+- **Negocio:** nombre editable; por ahora zona `America/Guatemala`, moneda `GTQ`
+  y símbolo `Q` permanecen fijos para preservar consistencia histórica. El nombre
+  se usa en los nuevos PDF. No se refactorizaron los recibos previos ni se agregó FEL.
+- **Métodos de pago:** cuatro códigos inmutables, habilitación y orden editables.
+  Al volver a abrir la cuenta/cobro, los botones reflejan la configuración. Un
+  navegador ya abierto también encuentra la validación del servicio al intentar
+  pagar. La desactivación y la creación de pagos comparten la barrera transaccional
+  existente. Confirmar/rechazar pendientes y reembolsar pagos previos sigue permitido.
+  Esta disponibilidad corresponde a los cobros operativos `Payment`; los portales
+  de reservas y eventos mantienen sus flujos propios de transferencia.
+- **Transferencias web:** banco, titular, número de cuenta e instrucciones públicas;
+  no se almacenan credenciales bancarias. Reservas y eventos muestran estos datos
+  cuando requieren transferencia. Sin configuración completa/habilitada aparece
+  un error administrativo explícito y se pide contactar al negocio antes de pagar.
+  Se eligió esta alternativa para conservar solicitudes y comprobantes históricos.
+- **Reservas/Eventos:** enlaces y resumen de sus configuraciones existentes.
+  **Impresoras:** enlace a `/impresoras/`, conteo de equipos y de impresoras con
+  fallos en los últimos siete días. Los trabajos sin impresora no cuentan como
+  dispositivos fallidos. Su editor técnico conserva inicio de sesión técnico,
+  `is_staff` y permisos existentes.
+- **Mesas/Dispositivos:** resumen y acceso técnico cuando el usuario tiene acceso
+  al Admin correspondiente; no se creó otro editor de mesas ni administración MDM.
+- **Seguridad/Sistema:** tiempos de sesión, intentos y bloqueo de PIN, zona horaria,
+  modo de desarrollo y backend de impresión en solo lectura. `PUBLIC_BASE_URL`
+  sigue en el entorno. No se muestran secretos ni parámetros de conexión de BD.
+
+Todo cambio realizado desde las nuevas pantallas requiere POST, CSRF, sesión de
+Gerencia vigente y permiso específico, y genera `AuditLog`. Las lecturas no crean
+configuración de negocio/banco automáticamente. No se ofrece borrar métodos.
+
+Permisos nuevos (sin asignación automática):
+`core.view_reports`, `core.export_reports_pdf`, `audit.view_audit_log`,
+`core.view_configuration`, `core.change_business_configuration`,
+`core.change_payment_method_configuration` y `core.change_bank_transfer_configuration`.
+Están disponibles en la matriz de permisos de Gerencia existente.
+
+Se corrigieron también “Visible en punto de venta” y el mensaje de contraseña
+“No requerida para este rol” en usuarios operativos sin contraseña.
+
+### Validación 3E
+
+Ver `docs/phase-3e/VERIFICACION.md`, las diez capturas A–J y el PDF de demostración.
+La verificación usa una base local temporal, datos ficticios y limpieza posterior.
+No se inicia website, Local Node, sincronización, failover ni módulos fiscales.

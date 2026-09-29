@@ -1,3 +1,4 @@
+from apps.core.configuration import bank as transfer_bank
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
@@ -139,7 +140,7 @@ def detail(request, code):
     expired = bool(row.deadline and row.deadline <= timezone.now())
     actions = {action.replace('-', '_') + '_token': security.confirmation(request, action, code, row.updated_at.isoformat()) for action in ACTIONS}
     allowed = {'can_' + action.replace('-', '_'): request.user.has_perm('reservations.' + permission) for action, permission in ACTIONS.items()}
-    return page(request, 'detail.html', {'reservation': row, 'form': form, 'error': error, 'expired': expired,
+    return page(request, 'detail.html', {'bank_details': transfer_bank(), 'reservation': row, 'form': form, 'error': error, 'expired': expired,
         'waiters': get_user_model().objects.filter(is_active=True, role='MESERO').order_by('first_name', 'username'),
         'whatsapp': whatsapp_url(row), 'client_url': client_url(row), 'credit': credit_summary(row.order) if row.order_id else None,
         **actions, **allowed}, status=409 if error else 200)
@@ -160,7 +161,7 @@ def client_detail(request, secure_token):
         except ValidationError as exc:
             error = ' '.join(exc.messages)
         row.refresh_from_db()
-    response = render(request, 'reservations/client.html', {'reservation': row, 'form': form, 'expired': expired, 'error': error})
+    response = render(request, 'reservations/client.html', {'bank_details': transfer_bank(), 'reservation': row, 'form': form, 'expired': expired, 'error': error})
     response['Referrer-Policy'] = 'same-origin'
     response['X-Robots-Tag'] = 'noindex, nofollow, noarchive'
     return response

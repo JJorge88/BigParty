@@ -1,0 +1,3 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading"><div><span class="eyebrow">GERENCIA · INFORMACIÓN</span><h1>Reportes</h1><p>Información para entender la operación.</p></div><span class="admin-badge">Hasta 93 días</span></header>
+{% include 'operations/management/partials/report_period.html' %}<div class="report-cards">{% for card in report_cards %}<a class="admin-panel admin-context report-card" href="{% url 'management:report' card.code %}?{{ filter_query }}"><span class="eyebrow">{{ forloop.counter|stringformat:'02d' }} / REPORTE</span><h2>{{ card.title }}</h2><p>{{ card.description }}</p><span class="text-link">Consultar →</span></a>{% endfor %}</div>{% endblock %}

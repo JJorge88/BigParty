@@ -10,7 +10,7 @@ MODULES = {
     'Inventario': ('inventory.InventoryMovement', 'catalog.Product'),
     'Reservas': ('reservations.Reservation',),
     'Eventos': ('events.Event',),
-    'Gerencia': ('cash.BusinessDay',),
+    'Gerencia': ('cash.BusinessDay', 'core.BusinessSettings', 'audit.AuditLog'),
     'Impresión': ('printing.Printer', 'printing.PrintJob'),
     'Usuarios': ('accounts.User',),
 }

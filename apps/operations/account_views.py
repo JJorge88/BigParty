@@ -1,3 +1,4 @@
+from apps.core.configuration import enabled_methods
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import JsonResponse
@@ -32,7 +33,7 @@ def account_page(request, order_id):
         return render(request, "operations/order_unavailable.html", {"message": message}, status=status)
     if _json(request):
         return JsonResponse({"success": True, "state": state})
-    return render(request, "operations/account.html", {**context, "order": order, "state": state,
+    return render(request, "operations/account.html", {**context, "order": order, "state": state, "payment_methods": enabled_methods(),
         "operator_name": context["user"].get_full_name().strip() or context["user"].username,
         "idle_timeout": settings.OPERATIONAL_IDLE_TIMEOUT_SECONDS})
 
