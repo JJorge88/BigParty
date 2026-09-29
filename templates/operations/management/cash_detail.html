@@ -1,0 +1,78 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:closures' %}?jornada={{ day.pk }}">← Volver a Cierres</a>
+<div class="page-heading">
+<div><span class="eyebrow">Detalle de caja · sesión #{{ cash_session.pk }}</span>
+<h1>{{ cash_session.register.name }}
+</h1><p class="muted">{{ cash_session.cashier.get_full_name|default:cash_session.cashier.username }} · Apertura {{ cash_session.opened_at|date:'d/m/Y H:i' }}{% if cash_session.closed_at %} · Cierre {{ cash_session.closed_at|date:'d/m/Y H:i' }}{% endif %}</p>
+</div><span class="day-badge"><span class="status-dot {% if cash_session.status == 'CLOSED' %}status-dot--closed{% endif %}"></span>{{ cash_session.get_status_display }}</span>
+</div>{% if can_financial %}{% if cash_session.status == 'CLOSED' %}
+<section class="result-banner"><span class="result-mark">{% if cash_session.difference == 0 %}✓{% else %}!{% endif %}</span>
+<div><span class="eyebrow">Resultado del cierre</span>
+<h2>{% if cash_session.difference == 0 %}Caja cuadrada{% elif cash_session.difference < 0 %}Faltante Q{{ difference_amount|floatformat:2 }}{% else %}Sobrante Q{{ difference_amount|floatformat:2 }}{% endif %}
+</h2>{% if cash_session.closing_reason %}<p>Motivo: {{ cash_session.closing_reason }}</p>{% endif %}
+</div>
+<div class="result-actor">Cerrada por<br><strong>{{ cash_session.closed_by.get_full_name|default:cash_session.closed_by.username }}</strong>
+</div>
+</section>{% endif %}
+<div class="kpi-grid">
+<section class="kpi"><span>{% if cash_session.status == 'OPEN' %}Ventas asociadas{% else %}Fondo inicial{% endif %}</span><strong>Q{% if cash_session.status == 'OPEN' %}{{ associated_sales|floatformat:2 }}{% else %}{{ financial.opening_float|floatformat:2 }}{% endif %}</strong><small>{% if cash_session.status == 'OPEN' %}Cobros netos vinculados a esta caja{% else %}Efectivo al iniciar{% endif %}</small>
+</section>
+<section class="kpi kpi--featured"><span>Efectivo esperado</span><strong>Q{{ financial.expected_cash|floatformat:2 }}</strong><small>Según movimientos registrados</small>
+</section>
+<section class="kpi"><span>{% if cash_session.status == 'OPEN' %}Retiros{% else %}Efectivo contado{% endif %}</span><strong>Q{% if cash_session.status == 'OPEN' %}{{ financial.withdrawals|floatformat:2 }}{% else %}{{ financial.counted_cash|floatformat:2 }}{% endif %}</strong><small>{% if cash_session.status == 'OPEN' %}Salidas autorizadas{% else %}Conteo de cierre{% endif %}</small>
+</section>
+<section class="kpi"><span>{% if cash_session.status == 'OPEN' %}Handoffs recibidos{% else %}Diferencia{% endif %}</span><strong>Q{% if cash_session.status == 'OPEN' %}{{ financial.waiter_handoffs|floatformat:2 }}{% else %}{{ financial.difference|floatformat:2 }}{% endif %}</strong><small>{% if cash_session.status == 'OPEN' %}Efectivo entregado por meseros{% else %}Contado menos esperado{% endif %}</small>
+</section>
+</div>
+<div class="dashboard-grid">
+<section class="panel">
+<div class="panel-heading">
+<h2>Movimientos recientes
+</h2><span class="muted small">Últimos 30</span>
+</div>
+<div class="table-scroll">
+<table>
+<thead>
+<tr><th>Hora</th><th>Tipo / referencia</th><th class="numeric">Monto</th>
+</tr>
+</thead>
+<tbody>{% for movement in movements %}
+<tr><td>{{ movement.created_at|date:'d/m H:i' }}</td><td><strong>{{ movement.get_movement_type_display }}</strong><small>{% if movement.payment_id %}Pago #{{ movement.payment_id }}{% else %}{{ movement.reason }}{% endif %}</small></td><td class="numeric">{% if movement.movement_type == 'WITHDRAWAL' or movement.movement_type == 'CASH_REFUND' %}− {% endif %}Q{{ movement.amount|floatformat:2 }}</td>
+</tr>{% empty %}
+<tr><td colspan="3" class="empty">Aún no hay movimientos en esta caja.</td>
+</tr>{% endfor %}
+</tbody>
+</table>
+</div>
+</section>
+<section class="panel">
+<h2>Control de efectivo
+</h2>
+<dl class="financial-list">
+<div><dt>Fondo inicial</dt><dd>Q{{ financial.opening_float|floatformat:2 }}</dd>
+</div>
+<div><dt>Cobros directos</dt><dd>Q{{ financial.direct_cash_receipts|floatformat:2 }}</dd>
+</div>
+<div><dt>Entregas recibidas</dt><dd>Q{{ financial.waiter_handoffs|floatformat:2 }}</dd>
+</div>
+<div><dt>Retiros</dt><dd>− Q{{ financial.withdrawals|floatformat:2 }}</dd>
+</div>
+<div><dt>Reembolsos en efectivo</dt><dd>− Q{{ financial.cash_refunds|floatformat:2 }}</dd>
+</div>
+</dl>{% if cash_session.status == 'OPEN' %}
+<h3>Entregas pendientes del área
+</h3>{% for handoff in pending_handoffs %}<p class="small">{{ handoff.waiter.get_full_name|default:handoff.waiter.username }} · Pago #{{ handoff.payment_id }} · Q{{ handoff.amount|floatformat:2 }}</p>{% empty %}<p class="help">No hay entregas pendientes en {{ cash_session.register.area.name }}.</p>{% endfor %}{% endif %}
+</section>
+</div>
+<section class="panel">
+<h2>Pagos asociados por método
+</h2>
+<div class="method-grid">{% for method in methods %}
+<div><span class="method-label"><i class="method-{{ method.code|lower }}"></i>{{ method.name }}</span><strong>Q{{ method.confirmed_net|floatformat:2 }}</strong><small class="muted">Pendiente Q{{ method.pending|floatformat:2 }}</small>
+</div>{% endfor %}
+</div><p class="help">Cobros netos de ventas rápidas vinculadas a esta sesión y efectivo recibido en caja. Otros pagos de mesas pertenecen a la jornada y no se atribuyen a una caja sin un vínculo registrado.</p>
+</section>{% else %}
+<section class="panel empty">
+<h2>Información financiera restringida
+</h2><p>Necesitas el permiso de consulta financiera de caja para ver importes y movimientos.</p>
+</section>{% endif %}<p class="help">Vista de consulta. El conteo y los movimientos se realizan desde la operación de Caja.</p>{% endblock %}

@@ -1,0 +1,20 @@
+<section class="panel">
+<div class="panel-heading">
+<h2>Resumen de la jornada
+</h2><span class="muted small">{{ day.business_date|date:'d/m/Y' }}</span>
+</div>{% if can_financial %}
+<dl class="financial-list">
+<div><dt>Ventas brutas</dt><dd>Q{{ summary.gross_sales|floatformat:2 }}</dd>
+</div>
+<div><dt>Descuentos / cortesías</dt><dd>− Q{{ summary.adjustments|floatformat:2 }}</dd>
+</div>
+<div><dt>Reembolsos</dt><dd>− Q{{ summary.refunds|floatformat:2 }}</dd>
+</div>
+<div class="total"><dt>Ventas netas</dt><dd>Q{{ summary.net_sales|floatformat:2 }}</dd>
+</div>
+<div><dt>Retiros de efectivo</dt><dd>Q{{ summary.withdrawals|floatformat:2 }}</dd>
+</div>
+<div><dt>Diferencias de caja</dt><dd>Q{{ summary.cash_differences|floatformat:2 }}</dd>
+</div>
+</dl><p class="help">Ventas: consumo enviado menos ajustes y reembolsos. Los cobros confirmados se detallan por método.</p>{% else %}<p class="empty">Resumen financiero restringido por permisos.</p>{% endif %}
+</section>

@@ -1,0 +1,24 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:closures' %}">← Volver a Cierres</a>
+<div class="page-heading">
+<div><span class="eyebrow">Revisión final</span>
+<h1>Cerrar jornada
+</h1>
+</div>{% include 'operations/management/partials/day_badge.html' %}
+</div>
+<div class="two-columns">{% include 'operations/management/partials/financial_summary.html' %}{% include 'operations/management/partials/methods.html' %}
+</div>{% include 'operations/management/partials/session_table.html' %}
+<div class="dashboard-grid">{% include 'operations/management/partials/blockers.html' %}
+<section class="panel close-card">
+<h2>Confirmar cierre
+</h2><p class="muted">Una vez cerrada, la jornada quedará bloqueada y requerirá reapertura autorizada para realizar correcciones.</p><button class="button button--primary" type="button" data-open-dialog="close-confirmation" {% if blockers %}disabled{% endif %}>Cerrar jornada →</button><p class="help">Los pendientes se comprueban de nuevo al confirmar.</p>
+</section>
+</div>
+<dialog id="close-confirmation" class="management-dialog">
+<form method="post">{% csrf_token %}<input type="hidden" name="confirmation" value="{{ confirmation }}"><span class="eyebrow">Acción sensible</span>
+<h2>Confirmar cierre de jornada
+</h2><p>Una vez cerrada, la jornada quedará bloqueada y requerirá reapertura autorizada para realizar correcciones.</p><label class="check-label"><input type="checkbox" name="confirmed" value="yes" required>Confirmo el cierre de la jornada</label>
+<div class="dialog-actions"><button class="button button--ghost" type="button" data-close="close-confirmation">Cancelar</button><button class="button button--primary">Cerrar jornada</button>
+</div>
+</form>
+</dialog>{% include 'operations/management/partials/incidents.html' %}{% endblock %}

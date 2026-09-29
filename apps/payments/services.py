@@ -128,9 +128,10 @@ def get_payment_quote(target, *, mode="full", selection=None, amount=None, unit_
 
 def _assert_ledger(order):
     """Comprobación de cierre y frontera de escritura, incluida integridad entre cabeceras y detalles."""
+    from .queries import financial_headers, financial_refunds, financial_allocations
     units = unit_ledger(order)
     for model, relation in ((Payment, "payment"), (OrderAdjustment, "adjustment")):
-        for header in model.objects.filter(order=order).prefetch_related("allocations__order_line"):
+        for header in financial_headers(order, model):
             rows = list(header.allocations.all())
             if not rows or sum((r.amount for r in rows), ZERO) != header.amount:
                 raise ValidationError("Inconsistencia entre el monto y sus asignaciones.")
@@ -141,12 +142,12 @@ def _assert_ledger(order):
                     (row.order_line.status != "SENT" and not (order.order_type == "QUICK_SALE" and order.status == "CANCELLED" and isinstance(header, Payment) and header.status in ("REJECTED", "REFUNDED"))) or
                     (header.subaccount_id and row.order_line.subaccount_id != header.subaccount_id)):
                     raise ValidationError("Asignación fuera del consumo autorizado.")
-    for refund in PaymentRefund.objects.filter(payment__order=order).prefetch_related("allocations__payment_allocation"):
+    for refund in financial_refunds(order):
         rows = list(refund.allocations.all())
         if not rows or sum((r.amount for r in rows), ZERO) != refund.amount or any(r.payment_allocation.payment_id != refund.payment_id for r in rows):
             raise ValidationError("Asignación de reembolso inconsistente.")
-    for allocation in PaymentAllocation.objects.filter(payment__order=order).prefetch_related("refund_allocations"):
-        if allocation.refund_allocations.exists() and allocation.payment.status not in ("CONFIRMED", "REFUNDED"):
+    for allocation in financial_allocations(order):
+        if bool(list(allocation.refund_allocations.all())) and allocation.payment.status not in ("CONFIRMED", "REFUNDED"):
             raise ValidationError("Un pago sin confirmar no puede tener reembolsos.")
         if sum((r.amount for r in allocation.refund_allocations.all()), ZERO) > allocation.amount:
             raise ValidationError("El reembolso supera el pago asignado.")

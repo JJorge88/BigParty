@@ -55,6 +55,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "apps.operations.management.middleware.ManagementSessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -134,3 +135,7 @@ PRINTER_WRITE_TIMEOUT = float(os.environ.get("PRINTER_WRITE_TIMEOUT", "2"))
 PRINTER_STALE_SECONDS = int(os.environ.get("PRINTER_STALE_SECONDS", "120"))
 if not (0 < PRINTER_CONNECT_TIMEOUT <= 5 and 0 < PRINTER_WRITE_TIMEOUT <= 5 and PRINTER_STALE_SECONDS >= 30):
     raise ImproperlyConfigured("Timeouts de impresora: mayor que 0 y máximo 5 segundos; stale mínimo 30.")
+
+# Gerencia usa una sesión Django separada y 30 minutos de inactividad.
+MANAGEMENT_IDLE_TIMEOUT_SECONDS = 30 * 60
+MANAGEMENT_SESSION_COOKIE_NAME = "bigparty_management"

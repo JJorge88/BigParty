@@ -1,0 +1,22 @@
+{% extends 'operations/base.html' %}{% load static %}
+{% block title %}BIG PARTY · Gerencia{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}">{% endblock %}
+{% block body_attributes %}class="management" data-idle-timeout="{{ idle_timeout }}" data-activity-url="{% url 'management:activity' %}" data-logout-url="{% url 'management:logout' %}" data-login-url="{% url 'management:login' %}"{% endblock %}
+{% block topbar %}<span class="management-label">GERENCIA</span>
+<nav class="management-nav" aria-label="Navegación principal"><a href="{% url 'management:home' %}" {% if section == 'inicio' %}aria-current="page"{% endif %}>Inicio</a><a href="{% url 'management:closures' %}" {% if section == 'cierres' %}aria-current="page"{% endif %}>Cierres</a><span aria-disabled="true" title="Disponible en una próxima fase">Reservas</span><span aria-disabled="true" title="Disponible en una próxima fase">Eventos</span>
+</nav>
+<div class="management-user">
+<div><strong>{{ operator_name }}</strong><small>{{ operator_role }}</small>
+</div><span class="avatar">{{ initials }}</span>
+<form method="post" action="{% url 'management:logout' %}">{% csrf_token %}<button class="exit-button" aria-label="Cerrar sesión" title="Cerrar sesión">↪</button>
+</form>
+</div>{% endblock %}
+{% block content %}
+<main id="main" class="management-main {% block main_class %}{% endblock %}">{% if error %}
+<div class="notice notice--error" role="alert">{{ error }}
+</div>{% endif %}
+{% block management_content %}{% endblock %}
+<footer class="management-footer"><span>BIG PARTY · Control de la operación</span><span>Sesión protegida · 30 min de inactividad</span>
+</footer>
+</main>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/management.js' %}"></script>{% endblock %}

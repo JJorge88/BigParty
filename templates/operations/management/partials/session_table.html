@@ -1,0 +1,22 @@
+<section class="panel">
+<div class="panel-heading">
+<h2>Resultados de cajas
+</h2><span class="muted small">Todas las sesiones de la jornada</span>
+</div>
+<div class="table-scroll">
+<table>
+<thead>
+<tr><th>Caja / cajero</th><th>Estado</th>{% if can_financial %}<th class="numeric">Esperado</th><th class="numeric">Contado</th><th class="numeric">Diferencia</th>{% endif %}<th></th>
+</tr>
+</thead>
+<tbody>{% for row in session_rows %}
+<tr><td><strong>{{ row.session.register.name }}</strong><small>{{ row.session.cashier.get_full_name|default:row.session.cashier.username }} · #{{ row.session.pk }}</small></td><td>{{ row.session.get_status_display }}</td>{% if can_financial %}<td class="numeric">Q{{ row.financial.expected_cash|floatformat:2 }}</td><td class="numeric">{% if row.session.status == 'CLOSED' %}Q{{ row.financial.counted_cash|floatformat:2 }}{% else %}—{% endif %}</td><td class="numeric">{% if row.session.status == 'CLOSED' %}Q{{ row.financial.difference|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}<td><a class="text-link" href="{% url 'management:cash-detail' day.pk row.session.pk %}">Ver →</a></td>
+</tr>{% empty %}
+<tr><td>No se registraron aperturas de caja.</td>
+</tr>{% endfor %}{% for card in registers %}{% if not card.session %}
+<tr><td>{{ card.name }}</td><td>Sin apertura</td>{% if can_financial %}<td class="numeric">—</td><td class="numeric">—</td><td class="numeric">—</td>{% endif %}<td></td>
+</tr>{% endif %}{% endfor %}
+</tbody>
+</table>
+</div>
+</section>

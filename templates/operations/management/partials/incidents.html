@@ -1,0 +1,15 @@
+<section class="panel">
+
+<div class="panel-heading">
+<h2>Incidencias de la jornada
+</h2><span class="muted small">Seguimiento operativo</span>
+</div>
+{% for item in incidents %}
+<div class="attention-item"><span class="attention-symbol">!</span>
+<div><p>{{ item.description }}</p>{% if item.url %}<a class="text-link" href="{{ item.url }}">Revisar →</a>{% endif %}
+</div>
+</div>{% empty %}<p class="help">No hay diferencias de caja ni impresiones fallidas registradas.</p>{% endfor %}
+{% if failure_count > 20 %}<p class="help">Se muestran las primeras 20 de {{ failure_count }} impresiones fallidas.{% if print_url %} <a class="text-link" href="{{ print_url }}">Ver historial →</a>{% endif %}</p>{% endif %}
+<p class="help">Estas incidencias conservan su seguimiento. Las condiciones de cierre se consultan en Cierres.</p>
+
+</section>

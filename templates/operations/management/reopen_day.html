@@ -1,0 +1,14 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:day-result' day.pk %}">← Volver al resumen</a>
+<section class="panel action-panel"><span class="eyebrow">Corrección autorizada</span>
+<h1>Reabrir jornada
+</h1><p class="muted">Jornada {{ day.business_date|date:'d/m/Y' }}. La reapertura y su motivo quedarán registrados en auditoría.</p><button class="button button--ghost" type="button" data-open-dialog="reopen-confirmation">Reabrir con motivo</button>
+</section>
+<dialog id="reopen-confirmation" class="management-dialog">
+<form method="post">{% csrf_token %}<input type="hidden" name="confirmation" value="{{ confirmation }}">
+<h2>Confirmar reapertura
+</h2><p>Se habilitarán de nuevo las operaciones comerciales de esta jornada. Las cajas cerradas conservan su cierre.</p><label for="reopen-reason">Motivo de reapertura</label><textarea id="reopen-reason" name="reason" required maxlength="2000" rows="3"></textarea><label class="check-label"><input type="checkbox" name="confirmed" value="yes" required>Confirmo la reapertura autorizada</label>
+<div class="dialog-actions"><button class="button button--ghost" type="button" data-close="reopen-confirmation">Cancelar</button><button class="button button--primary">Reabrir jornada</button>
+</div>
+</form>
+</dialog>{% endblock %}

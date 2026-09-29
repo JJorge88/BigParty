@@ -1,0 +1,13 @@
+{% load l10n %}
+<section class="panel">
+<div class="panel-heading">
+<h2>Métodos de pago
+</h2><span class="muted small">Cobros netos confirmados</span>
+</div>{% if can_financial %}
+<div class="method-bar" aria-hidden="true">{% for method in methods %}{% localize off %}<span class="method-{{ method.code|lower }}" style="width:{{ method.percent }}%"></span>{% endlocalize %}{% endfor %}
+</div>
+<div class="method-grid">{% for method in methods %}
+<div><span class="method-label"><i class="method-{{ method.code|lower }}"></i>{{ method.name }}</span><strong>Q{{ method.confirmed_net|floatformat:2 }}</strong>
+</div>{% endfor %}
+</div><p class="help">Pendiente de verificar: Q{{ summary.pending_verification|default:0|floatformat:2 }} · Se muestra por separado, sin sumar a cobros confirmados.</p>{% else %}<p class="empty">Necesitas permiso para consultar los importes financieros.</p>{% endif %}
+</section>

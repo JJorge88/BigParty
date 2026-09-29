@@ -1,0 +1,14 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:closures' %}?jornada={{ day.pk }}">← Volver a Cierres</a>
+<div class="page-heading">
+<div><span class="eyebrow">Jornada comercial {{ day.business_date|date:'d/m/Y' }}</span>
+<h1>{% if day.status == 'CLOSED' %}Jornada cerrada{% else %}Jornada reabierta{% endif %}
+</h1><p class="muted">{% if day.status == 'CLOSED' %}{{ day.closed_at|date:'d/m/Y H:i' }} · {{ day.closed_by.get_full_name|default:day.closed_by.username }}{% else %}{{ day.reopened_at|date:'d/m/Y H:i' }} · {{ day.reopened_by.get_full_name|default:day.reopened_by.username }}{% endif %}</p>
+</div>{% include 'operations/management/partials/day_badge.html' %}
+</div>
+<div class="notice">{% if day.status == 'CLOSED' %}El cierre fue registrado. Las operaciones comerciales de esta jornada están bloqueadas.{% else %}Reapertura registrada. Motivo: {{ day.reopen_reason }}{% endif %}
+</div>
+<div class="two-columns">{% include 'operations/management/partials/financial_summary.html' %}{% include 'operations/management/partials/methods.html' %}
+</div>{% include 'operations/management/partials/session_table.html' %}{% if day.status == 'CLOSED' and can_reopen %}
+<div class="subtle-action"><span class="muted">¿Necesitas realizar una corrección autorizada?</span><a class="text-link" href="{% url 'management:reopen-day' day.pk %}">Reabrir con motivo →</a>
+</div>{% endif %}{% include 'operations/management/partials/incidents.html' %}{% endblock %}

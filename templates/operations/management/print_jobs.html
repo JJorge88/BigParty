@@ -1,0 +1,10 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:home' %}">← Volver a Inicio</a>
+<div class="page-heading">
+<div><span class="eyebrow">Historial operativo</span>
+<h1>Impresiones
+</h1>
+</div>
+</div>
+<section class="panel printing-history">{% include 'printing/job_list.html' with management_history=True %}
+</section>{% endblock %}

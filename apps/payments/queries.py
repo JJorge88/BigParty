@@ -1,31 +1,81 @@
 """Importes netos y cobertura por unidad, sin modificar las cantidades de consumo."""
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 
-from apps.orders.models import SubAccount
-from .models import Payment, PaymentAllocation, AdjustmentAllocation, RefundAllocation
+from apps.orders.models import SubAccount, OrderLine
+from .models import Payment, PaymentAllocation, OrderAdjustment, AdjustmentAllocation, PaymentRefund, RefundAllocation
 
 ZERO = Decimal("0.00")
 
 
+def prefetch_financials(orders):
+    """Snapshot de lectura por lotes; reutiliza unit_ledger y sus validaciones originales.
+
+    Nunca reutilizar estos objetos para una escritura: servicios releen bajo bloqueo.
+    El número de consultas no crece con órdenes, pagos ni líneas.
+    """
+    allocations = PaymentAllocation.objects.select_related('order_line').prefetch_related('refund_allocations')
+    refunds = PaymentRefund.objects.prefetch_related(
+        Prefetch('allocations', queryset=RefundAllocation.objects.select_related('payment_allocation')))
+    payments = Payment.objects.select_related('subaccount', 'order__primary_table', 'recorded_by').prefetch_related(
+        Prefetch('allocations', queryset=allocations), Prefetch('refunds', queryset=refunds))
+    adjustments = OrderAdjustment.objects.select_related('subaccount').prefetch_related(
+        Prefetch('allocations', queryset=AdjustmentAllocation.objects.select_related('order_line')))
+    return list(orders.prefetch_related(
+        Prefetch('lines', queryset=OrderLine.objects.order_by('pk'), to_attr='_financial_lines'),
+        Prefetch('payments', queryset=payments, to_attr='_financial_payments'),
+        Prefetch('adjustments', queryset=adjustments, to_attr='_financial_adjustments')))
+
+
+def financial_headers(order, model):
+    attr = '_financial_payments' if model is Payment else '_financial_adjustments'
+    if hasattr(order, attr):
+        return getattr(order, attr)
+    return model.objects.filter(order=order).prefetch_related('allocations__order_line')
+
+
+def financial_refunds(order):
+    if hasattr(order, '_financial_payments'):
+        return [refund for payment in order._financial_payments for refund in payment.refunds.all()]
+    return PaymentRefund.objects.filter(payment__order=order).prefetch_related('allocations__payment_allocation')
+
+
+def financial_allocations(order):
+    if hasattr(order, '_financial_payments'):
+        return [row for payment in order._financial_payments for row in payment.allocations.all()]
+    return PaymentAllocation.objects.filter(payment__order=order).prefetch_related('refund_allocations')
+
+
 def unit_ledger(order, *, include_drafts=False):
     units = {}
-    for line in order.lines.filter(status__in=["SENT", "DRAFT"] if include_drafts else ["SENT"]).order_by("pk"):
+    statuses = ["SENT", "DRAFT"] if include_drafts else ["SENT"]
+    lines = ([line for line in order._financial_lines if line.status in statuses] if hasattr(order, '_financial_lines')
+             else order.lines.filter(status__in=statuses).order_by('pk'))
+    for line in lines:
         for number in range(1, line.quantity + 1):
             units[(line.pk, number)] = dict(line=line, unit_number=number, price=line.unit_price,
                 confirmed=ZERO, pending=ZERO, adjustment=ZERO, refunded=ZERO)
-    sources = [
-        (PaymentAllocation.objects.filter(payment__order=order, payment__status__in=["CONFIRMED", "REFUNDED"]), "confirmed"),
-        (PaymentAllocation.objects.filter(payment__order=order, payment__status="PENDING"), "pending"),
-        (AdjustmentAllocation.objects.filter(adjustment__order=order), "adjustment"),
-    ]
+    if hasattr(order, '_financial_payments'):
+        sources = [
+            ([row for p in order._financial_payments if p.status in ('CONFIRMED', 'REFUNDED') for row in p.allocations.all()], 'confirmed'),
+            ([row for p in order._financial_payments if p.status == 'PENDING' for row in p.allocations.all()], 'pending'),
+            ([row for a in order._financial_adjustments for row in a.allocations.all()], 'adjustment'),
+        ]
+        refunds = [row for refund in financial_refunds(order) for row in refund.allocations.all()]
+    else:
+        sources = [
+            (PaymentAllocation.objects.filter(payment__order=order, payment__status__in=["CONFIRMED", "REFUNDED"]), "confirmed"),
+            (PaymentAllocation.objects.filter(payment__order=order, payment__status="PENDING"), "pending"),
+            (AdjustmentAllocation.objects.filter(adjustment__order=order), "adjustment"),
+        ]
+        refunds = RefundAllocation.objects.filter(refund__payment__order=order).select_related("payment_allocation")
     for rows, field in sources:
         for row in rows:
             key = (row.order_line_id, row.unit_number)
             if key in units:
                 units[key][field] += row.amount
-    for row in RefundAllocation.objects.filter(refund__payment__order=order).select_related("payment_allocation"):
+    for row in refunds:
         key = (row.payment_allocation.order_line_id, row.payment_allocation.unit_number)
         if key in units:
             units[key]["refunded"] += row.amount
@@ -123,3 +173,18 @@ def get_receipt_data(target):
         **{key: value for key, value in summary.items() if key not in ("adjustments", "refunds")},
         "adjustment_total": summary["adjustments"], "refund_total": summary["refunds"],
     }
+
+
+def summarize_payment_methods(payments):
+    """Colección con refunds prefetched: separar confirmado, reembolsado y pendiente."""
+    methods = {method:dict(confirmed_gross=ZERO, refunds=ZERO, confirmed_net=ZERO, pending=ZERO) for method in Payment.Method.values}
+    for payment in payments:
+        row = methods[payment.method]
+        if payment.status in ('CONFIRMED','REFUNDED'):
+            row['confirmed_gross'] += payment.amount
+            row['refunds'] += sum((refund.amount for refund in payment.refunds.all()),ZERO)
+        elif payment.status == 'PENDING':
+            row['pending'] += payment.amount
+    for row in methods.values():
+        row['confirmed_net'] = row['confirmed_gross'] - row['refunds']
+    return methods

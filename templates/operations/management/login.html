@@ -1,0 +1,22 @@
+{% extends 'operations/base.html' %}{% load static %}
+{% block title %}Acceso Gerencia · BIG PARTY{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}">{% endblock %}
+{% block body_attributes %}class="management management-login"{% endblock %}
+{% block topbar %}<span class="management-label">GERENCIA</span>{% endblock %}
+{% block content %}
+<main id="main" class="login-grid">
+<section class="login-intro"><span class="eyebrow">Una visión completa</span>
+<h1>Tu operación.<br>En un solo lugar.
+</h1><p>Supervisa la jornada, revisa los pagos y cierra con claridad.</p>
+<div class="login-rule">
+</div><span class="muted">BIG PARTY / GERENCIA OPERATIVA</span>
+</section>
+<section class="panel login-panel"><span class="eyebrow">Acceso privado</span>
+<h2>Bienvenido a Gerencia
+</h2><p class="muted">Ingresa con tu usuario y contraseña.</p>
+<form method="post">{% csrf_token %}{% if form.errors %}
+<div class="notice notice--error" role="alert">{{ form.non_field_errors }}{{ form.username.errors }}{{ form.password.errors }}
+</div>{% endif %}<label for="id_username">Usuario</label>{{ form.username }}<label for="id_password">Contraseña</label>{{ form.password }}<button class="button button--primary login-submit">Ingresar a Gerencia →</button>
+</form><p class="help">Acceso exclusivo para Gerente y Propietario.<br>La sesión termina tras 30 minutos sin actividad.</p>
+</section>
+</main>{% endblock %}

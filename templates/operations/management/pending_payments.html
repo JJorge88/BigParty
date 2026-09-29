@@ -1,0 +1,26 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:home' %}">← Volver a Inicio</a>
+<div class="page-heading">
+<div><span class="eyebrow">Revisión de ingresos</span>
+<h1>Pagos pendientes
+</h1><p class="muted">Transferencias y depósitos por verificar. No suman a los cobros confirmados.</p>
+</div>{% include 'operations/management/partials/day_badge.html' %}
+</div>
+<section class="panel">{% if payments %}
+<div class="table-scroll">
+<table>
+<thead>
+<tr><th>Mesa / pedido</th><th>Método / referencia</th><th>Registrado por</th><th>Área / hora</th><th class="numeric">Monto</th><th></th>
+</tr>
+</thead>
+<tbody>{% for payment in payments %}
+<tr><td><strong>{{ payment.order.display_name }}</strong><small>Pago #{{ payment.pk }}</small></td><td>{{ payment.get_method_display }}<small>{{ payment.reference }}</small></td><td>{{ payment.recorded_by.get_full_name|default:payment.recorded_by.username }}</td><td>{{ payment.order.area.name }}<small>{{ payment.created_at|date:'d/m H:i' }}</small></td><td class="numeric">Q{{ payment.amount|floatformat:2 }}</td><td><a class="button button--ghost" href="{% url 'management:payment' day.pk payment.pk %}">Revisar →</a></td>
+</tr>{% endfor %}
+</tbody>
+</table>
+</div>{% else %}
+<div class="empty empty-day"><span class="ready-mark">✓</span>
+<h2>No hay transferencias ni depósitos pendientes
+</h2><p>{% if day %}Todos los pagos de esta jornada han sido revisados.{% else %}No hay jornada abierta.{% endif %}</p>
+</div>{% endif %}
+</section>{% endblock %}

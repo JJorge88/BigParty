@@ -2125,3 +2125,145 @@ Solo migraciones nuevas: `orders.0006_alter_tableorder_options_and_more` y
 La validación de esta fase y las capturas están en
 [Verificación 2F](docs/phase-2f/verification.md). La compatibilidad real de marca/modelo,
 red, papel, acentos, cutter y ausencia de papel queda pendiente de la instalación física.
+
+## Fase 3A — Gerencia operativa
+
+Acceso en `/gerencia/` mediante el login dedicado `/gerencia/acceso/`, con **username y
+contraseña** del usuario actual. Se usa username porque ya es único; el email del modelo
+no lo es. Solo entran usuarios activos `GERENTE` o `PROPIETARIO`, incluso si un usuario
+de otro rol es superusuario. El rol permite entrar, pero no sustituye los permisos.
+No se crea una app, modelo ni migración: la interfaz se organiza en
+`apps/operations/management/{queries,services,views,security,middleware}.py`.
+
+### Sesión, permisos y confirmaciones
+
+La cookie Django `bigparty_management` está limitada a `/gerencia/`, es `HttpOnly`,
+`SameSite=Lax` y `Secure` con settings de producción. La sesión es independiente de
+Admin, tablet y Caja: abrir/cerrar Gerencia no autentica ni desconecta esas interfaces.
+El middleware conserva la sesión original para las rutas anteriores. La autenticación,
+rotación de sesión, hash de contraseña y revocación por cambio de contraseña siguen
+usando Django. Todas las respuestas protegidas evitan caché.
+
+`MANAGEMENT_IDLE_TIMEOUT_SECONDS = 30 * 60` centraliza el vencimiento. Se comprueban
+actividad, rol y estado activo en cada solicitud. La interfaz informa actividad de
+teclado, pulsación y desplazamiento; no hay polling que mantenga viva una sesión sin
+uso. Las pestañas del mismo origen comparten señales de actividad; la decisión de
+expiración sigue siendo del servidor. Tras vencer se requiere autenticar de nuevo.
+
+| Operación | Permiso |
+| --- | --- |
+| Importes de Inicio, jornada y cajas | `cash.view_cash_session_financials` |
+| Abrir jornada | `cash.open_business_day` |
+| Cerrar jornada | `cash.close_business_day` |
+| Reabrir jornada | `cash.reopen_business_day` |
+| Consultar pagos pendientes | `payments.view_payment`, verificar o rechazar |
+| Confirmar transferencia/depósito | `payments.verify_transfer_payment` |
+| Rechazar transferencia/depósito | `payments.reject_transfer_payment` |
+| Consultar historial de impresión | `printing.view_printjob` o `printing.manage_printers` |
+| Reintentar/reimprimir desde Gerencia | `printing.manage_printers` y permiso de la acción existente |
+
+Los importes del pago individual están disponibles a quien tiene permiso de revisión;
+los resúmenes financieros de caja requieren su permiso específico. Los datos financieros
+se omiten del HTML cuando falta permiso, incluidos diferencias y motivos financieros
+entre las incidencias. Los accesos normales no dirigen al gerente a Admin.
+
+Toda mutación usa POST y CSRF. El helper de confirmación exige checkbox explícito y un
+valor firmado de diez minutos ligado a usuario, sesión, acción, objeto y revisión.
+Cambios de sesión, pago o jornada invalidan la confirmación. Cierre y reapertura usan
+modal; rechazar y reabrir exigen motivo. Los servicios toman la barrera transaccional
+existente de caja/jornada, verifican IDs y vuelven a leer el estado antes de ejecutar
+los servicios del dominio. No hay escritura directa de importes ni cálculo monetario
+en JavaScript o templates.
+
+### Inicio y semántica financiera
+
+Inicio toma exclusivamente la `BusinessDay OPEN`. Sin ella muestra “No hay jornada
+abierta” y ofrece apertura solo con permiso; entrar nunca abre una jornada. Las fechas
+se agrupan por jornada comercial, aunque atraviese medianoche.
+
+- **Ventas de la jornada:** consumo enviado bruto menos descuentos/cortesías y
+  reembolsos, exactamente `get_business_day_summary().net_sales`. Puede incluir consumo
+  aún por cobrar; la ayuda lo identifica como consumo neto y conserva sus componentes.
+- **Mesas ocupadas:** mesas físicas distintas con vínculo activo y cuenta activa de la
+  jornada. Una cuenta multimesa puede ocupar varias mesas.
+- **Cajas abiertas:** sesiones `OPEN`, junto al número de estaciones activas. Cierres
+  cuenta sesiones; una estación puede tener distintos turnos en una misma jornada.
+- **Pendientes:** transferencias/depósitos pendientes, impresiones fallidas de órdenes
+  de esa jornada, entregas de efectivo pendientes e inconsistencias importantes. No se
+  suman todas las cuentas o cajas abiertas como si fueran alertas excepcionales.
+
+“Ventas por hora” representa **cobros confirmados netos**, agrupados por `confirmed_at`
+en hora local. Los reembolsos se descuentan de la hora del pago original, manteniendo
+su componente separado. Las horas intermedias sin cobros aparecen en cero. Un pago
+completamente reembolsado aporta cero neto, no desaparece del componente reembolsado.
+Los pagos `PENDING` nunca suman a esta gráfica ni a la composición confirmada.
+
+Ventas por área usa consumo neto e incluye TABLE y QUICK_SALE según `order.area`,
+incluso si un área con ventas fue desactivada. Métodos distingue efectivo, tarjeta,
+transferencia y depósito, usando confirmado menos reembolsos y mostrando pendientes
+por separado. El efectivo cobrado por un mesero es un pago confirmado, pero solo entra
+al efectivo esperado de una caja cuando se recibe su entrega.
+
+La gráfica es SVG generado a partir de valores del servidor, con detalle accesible por
+hora; no añade Chart.js ni dependencias. Requiere atención muestra como máximo cinco
+items con enlace cuando existe pantalla y permiso. Reservas, Eventos y los demás
+módulos futuros están deshabilitados y no tienen pantallas ficticias.
+
+### Cierres y consulta de cajas
+
+`/gerencia/cierres/` muestra la jornada actual o la última si no hay abierta, con selector
+de las últimas 30 fechas y consulta directa de una jornada histórica por ID. Hay KPIs,
+estaciones activas, cajero, apertura, último cierre, pendientes reales y acceso a cada
+sesión. La tarjeta representa la sesión más reciente; la tabla mantiene accesibles todas
+las sesiones de la fecha, incluidas anteriores o de estaciones ahora inactivas.
+
+`/gerencia/jornada/<id>/caja/<session_id>/` es de consulta. Con permiso financiero muestra
+fondo, cobros asociados, efectivo esperado, retiros, entregas recibidas, pendientes del
+área, últimos 30 movimientos y métodos. Cerrada añade conteo, diferencia, motivo y
+resultado cuadrada/faltante/sobrante. El detalle **no permite corregir importes**;
+movimientos y conteo continúan en Caja. No se genera PDF.
+
+“Ventas asociadas” de una caja son cobros netos de ventas rápidas de esa sesión más
+pagos de efectivo vinculados por sus movimientos. No se atribuyen tarjetas o
+transferencias de mesas a una caja solamente por coincidir el usuario: ese vínculo no
+existe en el modelo. El total completo por método pertenece a la jornada.
+
+El cierre utiliza `get_business_day_close_blockers()` sin sustituir sus reglas. Muestra
+cada motivo, deshabilita el botón si hay pendientes y los recalcula dentro de
+`close_business_day()` al confirmar. El resumen conserva ventas brutas, ajustes,
+reembolsos, netas, métodos, resultados de cajas, retiros e incidencias. Diferencias ya
+justificadas e impresiones fallidas se muestran para seguimiento, pero no se convierten
+en nuevos bloqueos que el servicio de cierre no contempla.
+
+Después aparece el resumen final con fecha comercial, hora y usuario. La reapertura
+es un enlace discreto, exige permiso, motivo y confirmación y llama a
+`reopen_business_day()`. Se mantienen `BusinessDayReopen` y auditoría existentes.
+Reabrir la jornada no reabre las cajas cerradas. La consulta es del estado persistido
+de la jornada; no pretende ser una nueva versión histórica inmutable de reportes.
+
+### Revisión de pagos e impresión
+
+`/gerencia/pagos-pendientes/` muestra solo TRANSFER/DEPOSIT `PENDING` de la jornada
+abierta: mesa/pedido, monto, método, referencia, actor, hora y área. El detalle valida
+la relación pago–jornada. Confirmar usa `confirm_pending_payment()`; rechazar usa
+`reject_pending_payment()`. El pago se conserva y su motivo se presenta. La cuenta y
+subcuentas se actualizan según los servicios actuales; la finalización explícita de
+cuentas/ventas rápidas sigue en POS, no se agrega una regla de autocierre en Gerencia.
+El mesero recibe el estado real al refrescar, sin WebSockets ni intervención en tablet.
+No se añaden comprobantes de imagen.
+
+`/gerencia/impresiones/` reutiliza consultas, acciones y la lista del historial de Fase
+2F dentro de la sesión Gerencia. No reconstruye configuración de impresoras. Los enlaces
+de las alertas no requieren iniciar otra sesión en Admin. No se implementa inventario
+visual ni gestión de stock en esta fase.
+
+### Consultas, pruebas y revisión
+
+Los snapshots de lectura agrupan líneas, pagos, ajustes, asignaciones, reembolsos,
+vínculos de mesas, sesiones y movimientos. Reutilizan `unit_ledger`, `_assert_ledger`
+y resúmenes del dominio. Son transitorios y **no autorizan escrituras**; los servicios
+vuelven a leer con bloqueos. La prueba de consultas compara una orden con nueve,
+incluyendo pagos y reembolsos, para detectar crecimiento por orden.
+
+Validación y capturas reales: [docs/phase-3a/VERIFICACION.md](docs/phase-3a/VERIFICACION.md).
+No se inicia Fase 3B / Reservas.

@@ -1,0 +1,56 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:pending-payments' %}">← Volver a pagos pendientes</a>
+<div class="page-heading">
+<div><span class="eyebrow">Pago #{{ payment.pk }} · {{ payment.get_method_display }}</span>
+<h1>{% if payment.status == 'CONFIRMED' %}Pago confirmado{% elif payment.status == 'REJECTED' %}Pago rechazado{% else %}Revisar pago{% endif %}
+</h1>
+</div>{% include 'operations/management/partials/day_badge.html' %}
+</div>
+<div class="payment-grid">
+<section class="panel payment-main">
+<div class="panel-heading">
+<h2>{{ payment.order.display_name }}
+</h2><span class="pill">{{ payment.get_status_display }}</span>
+</div><p class="payment-amount">Q{{ payment.amount|floatformat:2 }}</p><span class="muted">{{ payment.get_method_display }}</span>
+<dl class="financial-list payment-data">
+<div><dt>Referencia</dt><dd class="reference">{{ payment.reference|default:'Sin referencia' }}</dd>
+</div>
+<div><dt>Registrado por</dt><dd>{{ payment.recorded_by.get_full_name|default:payment.recorded_by.username }}</dd>
+</div>
+<div><dt>Hora de registro</dt><dd>{{ payment.created_at|date:'d/m/Y H:i' }}</dd>
+</div>
+<div><dt>Área</dt><dd>{{ payment.order.area.name }}</dd>
+</div>
+<div><dt>Jornada comercial</dt><dd>{{ day.business_date|date:'d/m/Y' }}</dd>
+</div>
+</dl>{% if payment.status == 'CONFIRMED' %}
+<div class="notice">Confirmado por {{ payment.confirmed_by.get_full_name|default:payment.confirmed_by.username }} · {{ payment.confirmed_at|date:'d/m/Y H:i' }}. La cuenta refleja el estado actualizado.
+</div>{% elif payment.status == 'REJECTED' %}
+<div class="notice">Motivo: {{ payment.metadata.rejection_reason }}
+</div>{% endif %}
+</section>
+<section class="panel payment-actions"><span class="eyebrow">Verificación de Gerencia</span>{% if payment.status == 'PENDING' %}
+<h2>Revisa antes<br>de confirmar.
+</h2><p class="muted">Comprueba el monto y la referencia en el registro bancario correspondiente.</p>{% else %}
+<h2>Revisión registrada.
+</h2><p class="muted">El estado del pago ya está disponible para la operación.</p>{% endif %}{% if payment.status == 'PENDING' and day.status == 'OPEN' %}{% if can_confirm %}<button class="button button--primary" type="button" data-open-dialog="confirm-payment">Confirmar pago →</button>{% endif %}{% if can_reject %}<button class="button button--ghost" type="button" data-open-dialog="reject-payment">Rechazar pago</button>{% endif %}{% if not can_confirm and not can_reject %}<p class="help">Tienes acceso de consulta. La verificación requiere un permiso adicional.</p>{% endif %}{% else %}<p class="help">Este pago no admite revisión mientras su estado o la jornada estén cerrados.</p>{% endif %}<p class="help">La acción quedará registrada. El mesero verá el estado real al actualizar su cuenta.</p>
+</section>
+</div>
+
+<dialog id="confirm-payment" class="management-dialog">
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="confirm"><input type="hidden" name="confirmation" value="{{ confirm_token }}"><span class="eyebrow">Confirmación de ingreso</span>
+<h2>Confirmar pago
+</h2><p>{{ payment.order.display_name }} · Q{{ payment.amount|floatformat:2 }} · {{ payment.get_method_display }}<br>Referencia {{ payment.reference }}</p><label class="check-label"><input type="checkbox" name="confirmed" value="yes" required>Verifiqué el ingreso y confirmo este pago</label>
+<div class="dialog-actions"><button type="button" class="button button--ghost" data-close="confirm-payment">Cancelar</button><button class="button button--primary">Confirmar pago</button>
+</div>
+</form>
+</dialog>
+
+<dialog id="reject-payment" class="management-dialog">
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="reject"><input type="hidden" name="confirmation" value="{{ reject_token }}">
+<h2>Rechazar pago
+</h2><p>El pago se conservará con el motivo del rechazo. No se eliminará.</p><label for="reject-reason">Motivo del rechazo</label><textarea id="reject-reason" name="reason" rows="3" maxlength="2000" required></textarea><label class="check-label"><input type="checkbox" name="confirmed" value="yes" required>Confirmo el rechazo de este pago</label>
+<div class="dialog-actions"><button type="button" class="button button--ghost" data-close="reject-payment">Cancelar</button><button class="button button--primary">Rechazar pago</button>
+</div>
+</form>
+</dialog>{% endblock %}

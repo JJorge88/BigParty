@@ -1,0 +1,8 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}<a class="back-link" href="{% url 'management:home' %}">← Volver a Inicio</a>
+<section class="panel action-panel"><span class="eyebrow">Iniciar operación</span>
+<h1>Abrir jornada
+</h1>{% if current_day %}<p>Ya existe una jornada abierta: {{ current_day.business_date|date:'d/m/Y' }}.</p><a href="{% url 'management:home' %}" class="text-link">Ver jornada →</a>{% else %}<p class="muted">La fecha comercial identifica toda la operación, incluso después de medianoche.</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="confirmation" value="{{ confirmation }}"><label for="business-date">Fecha comercial</label><input id="business-date" type="date" name="business_date" value="{{ today|date:'Y-m-d' }}" required><label class="check-label"><input type="checkbox" name="confirmed" value="yes" required>Confirmo la apertura de esta jornada</label><button class="button button--primary">Abrir jornada →</button>
+</form>{% endif %}
+</section>{% endblock %}
