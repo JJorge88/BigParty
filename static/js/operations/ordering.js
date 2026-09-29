@@ -15,6 +15,8 @@ let noteLine = null;
 let quoteVersion = 0;
 let quoteReady = false;
 let quoteTimer;
+let printTimer;
+let printPolls = 0;
 const baseUrl = document.body.dataset.orderUrl;
 const $ = id => document.getElementById(id);
 const text = (id, value) => { $(id).textContent = value; };
@@ -135,7 +137,25 @@ function renderDrafts() {
   text('draft-total', state.draft_total); text('mobile-total', state.draft_total);
   text('cart-context', state.selected_name);
 }
+function renderPrinting() {
+  const notice = state.printing || {};
+  text('printing-status', notice.message || '');
+  $('printing-status').hidden = !notice.message;
+  clearTimeout(printTimer);
+  if (!notice.waiting) printPolls = 0;
+  else if (printPolls < 5) printTimer = setTimeout(async () => {
+    printPolls++;
+    // Solo refrescar el aviso: no sustituir borradores ni el alias que se está escribiendo.
+    try {
+      const result = await request(`${baseUrl}?${new URLSearchParams({subaccount: state.selected_account || ''})}`);
+      if (result.ok && result.data.state) state.printing = result.data.state.printing;
+    } catch { /* El botón Actualizar permite volver a consultar. */ }
+    renderPrinting();
+  }, 1200);
+}
 function render() {
+  renderPrinting();
+  if ($('customer-alias-field')) $('customer-alias-field').hidden = !state.has_kitchen;
   const accountLink = $('order-account-link');
   if (accountLink) accountLink.href = baseUrl.replace('/pedido/', '/cuenta/') + (state.selected_account ? `?subaccount=${state.selected_account}` : '');
   renderCategories(); renderAccounts(); renderProducts(); renderDrafts(); updateControls(); fulfillmentLabel();

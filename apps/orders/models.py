@@ -27,6 +27,7 @@ class TableOrder(models.Model):
     customer_alias = models.CharField("alias del cliente", max_length=100, blank=True)
     cash_session = models.ForeignKey("cash.CashSession", on_delete=models.PROTECT, null=True, blank=True, related_name="quick_sales")
     fulfilled_at = models.DateTimeField(null=True, blank=True)
+    reservation_released_at = models.DateTimeField(null=True, blank=True)
     business_day = models.ForeignKey("cash.BusinessDay", verbose_name="jornada", on_delete=models.PROTECT, null=True, blank=True, related_name="orders")
     primary_table = models.ForeignKey("tables.VenueTable", verbose_name="mesa principal", on_delete=models.PROTECT, related_name="primary_orders", null=True, blank=True)
     tables = models.ManyToManyField("tables.VenueTable", through="OrderTableLink", related_name="orders", verbose_name="mesas vinculadas")
@@ -47,6 +48,7 @@ class TableOrder(models.Model):
         verbose_name_plural = "Cuentas de mesa"
         ordering = ("-opened_at", "-pk")
         permissions = [
+            ("cancel_quick_sale", "Puede cancelar o liberar reservas de ventas rápidas"),
             ("create_quick_sale", "Puede crear ventas rápidas"),
             ("add_products_from_cash_register", "Puede cargar productos a mesas desde caja"),
             ("open_table_order", "Puede abrir mesas"), ("add_order_line", "Puede agregar y corregir productos"),

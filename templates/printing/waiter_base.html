@@ -1,0 +1,5 @@
+{% extends 'operations/base.html' %}{% load static %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/cash.css' %}">{% endblock %}
+{% block body_attributes %}data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'operations:lock' %}" data-activity-url="{% url 'operations:activity' %}" data-access-url="{% url 'operations:access' %}"{% endblock %}
+{% block topbar %}<div class="topbar-area">{{ area.name }}</div><form method="post" action="{% url 'operations:lock' %}">{% csrf_token %}<button class="operator" type="submit">{{ operator_name }} · Bloquear</button></form>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/session.js' %}"></script>{% endblock %}

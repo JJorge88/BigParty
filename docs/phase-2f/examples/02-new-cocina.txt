@@ -1,0 +1,14 @@
+BIG PARTY
+COCINA
+
+MESA 07
+PEDIDO 000001
+28/09/2026 19:40:19
+------------------------------------------------
+1  HAMBURGUESA
+NOTA:
+Sin cebolla · Extra queso
+Bien cocida
+
+------------------------------------------------
+MESERO: CARLOS

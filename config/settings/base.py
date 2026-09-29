@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "apps.catalog.apps.CatalogConfig",
     "apps.inventory.apps.InventoryConfig",
     "apps.orders.apps.OrdersConfig",
+    "apps.printing.apps.PrintingConfig",
     "apps.payments.apps.PaymentsConfig",
     "apps.cash.apps.CashConfig",
     "apps.operations.apps.OperationsConfig",
@@ -122,3 +123,14 @@ CASH_IDLE_TIMEOUT_SECONDS = 600
 CASH_PIN_MAX_ATTEMPTS = 5
 CASH_PIN_LOCK_SECONDS = 300
 CASH_REGISTER_COOKIE_AGE = 365 * 24 * 60 * 60
+
+# El nodo local ejecuta la impresión. El entorno elige el backend, independientemente de DEBUG.
+PRINTER_BACKEND = os.environ.get("PRINTER_BACKEND", "debug")
+if PRINTER_BACKEND not in {"debug", "network"}:
+    raise ImproperlyConfigured("PRINTER_BACKEND debe ser debug o network.")
+PRINTER_DEBUG_DIR = Path(os.environ.get("PRINTER_DEBUG_DIR", str(BASE_DIR / "var" / "print-jobs")))
+PRINTER_CONNECT_TIMEOUT = float(os.environ.get("PRINTER_CONNECT_TIMEOUT", "1"))
+PRINTER_WRITE_TIMEOUT = float(os.environ.get("PRINTER_WRITE_TIMEOUT", "2"))
+PRINTER_STALE_SECONDS = int(os.environ.get("PRINTER_STALE_SECONDS", "120"))
+if not (0 < PRINTER_CONNECT_TIMEOUT <= 5 and 0 < PRINTER_WRITE_TIMEOUT <= 5 and PRINTER_STALE_SECONDS >= 30):
+    raise ImproperlyConfigured("Timeouts de impresora: mayor que 0 y máximo 5 segundos; stale mínimo 30.")

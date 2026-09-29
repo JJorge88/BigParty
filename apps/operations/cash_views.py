@@ -74,7 +74,10 @@ def safe_context(context):
     user, register, session = context["user"], context["register"], context["session"]
     return {"authenticated": True, "register_name": register.name, "operator_name": security.name(user),
         "operator_role": user.get_role_display(), "idle_timeout": settings.CASH_IDLE_TIMEOUT_SECONDS,
-        "cash_session_id": session.pk if session else "", "permissions": {
+        "cash_session_id": session.pk if session else "",
+        "can_print_jobs": any(user.has_perm("printing." + permission) for permission in
+            ("view_printjob", "retry_print_job", "reprint_preparation_ticket", "manage_printers")),
+        "permissions": {
             key: user.has_perm(permission) for key, permission in PERMISSIONS.items()}}
 
 

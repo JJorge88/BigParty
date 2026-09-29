@@ -69,7 +69,7 @@
       <div id="mixed-history" class="mixed-history" hidden><h3>Pagos registrados</h3><div id="mixed-payment-history"></div></div>
     </aside>
   </div>
-  <section id="closed-view" class="closed-view" hidden><span class="closed-check">✓</span><p class="eyebrow">CUENTA CERRADA</p><h2>{{ order.primary_table.name }} disponible</h2><p>El consumo quedó liquidado y la mesa está libre.</p><a class="button button--primary" href="{% url 'operations:tables' %}">Volver a mesas</a></section>
+  <section id="closed-view" class="closed-view" hidden><span class="closed-check">✓</span><p class="eyebrow">CUENTA CERRADA</p><h2>{{ order.primary_table.name }} disponible</h2><p>El consumo quedó liquidado y la mesa está libre.</p><a id="closed-receipt" class="button button--ghost" hidden>Imprimir recibo</a><a class="button button--primary" href="{% url 'operations:tables' %}">Volver a mesas</a></section>
   <noscript><p class="form-error">Activa JavaScript para revisar y cobrar la cuenta.</p></noscript>
 </main>
 {{ state|json_script:'account-state' }}

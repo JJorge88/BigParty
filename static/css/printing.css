@@ -1,0 +1,16 @@
+/* Administración técnica de impresión; comparte la tipografía base. */
+table { width: 100%; border-collapse: collapse; margin-top: 24px; background: white; }
+th, td { padding: 16px 18px; text-align: left; border-bottom: 1px solid #dfe3e8; vertical-align: middle; }
+th { font-size: .85rem; color: #505967; }
+td form { margin: 8px 0 0; }
+button { padding: 10px 14px; border: 1px solid #bcc4ce; border-radius: 6px; background: white; cursor: pointer; font: inherit; }
+button:hover { background: #eef1f5; }
+input:not([type=checkbox]), select { padding: 9px 10px; border: 1px solid #bcc4ce; border-radius: 5px; font: inherit; max-width: 100%; }
+form p label { display: block; margin-bottom: 6px; }
+.helptext { display: block; color: #505967; font-size: .85rem; margin-top: 5px; }
+.errorlist { color: #a12222; }
+.cash-card { background: white; border: 1px solid #dfe3e8; border-radius: 8px; padding: 20px; margin: 18px 0; }
+.cash-card h2 { margin: 0; font-size: 1.15rem; }
+.cash-card form { margin-top: 16px; }
+pre { font-size: 14px; line-height: 1.5; padding: 16px; background: #f3f5f8; }
+@media (max-width: 700px) { main { margin: 24px 12px; } table { display: block; overflow-x: auto; } }

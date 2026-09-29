@@ -1,0 +1,1 @@
+{% extends 'printing/base.html' %}{% block content %}<h1>Configurar {{ printer.name }}</h1><p><a href="{% url 'printing:printers' %}">← Impresoras</a></p><form method="post">{% csrf_token %}{{ form.as_p }}<button>Guardar configuración</button></form>{% endblock %}

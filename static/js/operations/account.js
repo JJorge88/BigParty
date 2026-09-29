@@ -221,6 +221,7 @@ $('close-account').addEventListener('click', async () => {
     if (result.ok) {
       ['account-layout','accounts-section','draft-warning','pending-warning','payment-feedback'].forEach(id => show(id,false));
       document.querySelectorAll('.add-products').forEach(link => { link.hidden = true; });
+      if (result.data.receipt_url) { $('closed-receipt').href = result.data.receipt_url; $('closed-receipt').hidden = false; }
       show('closed-view',true); $('refresh-account').hidden = true; toast('Cuenta cerrada');
     } else { if (result.data.state) state = result.data.state; error(result.data.message || 'No se pudo cerrar. Actualiza la cuenta.'); render(); }
   } catch { blocked = true; error('No pudimos confirmar el cierre. Vuelve a mesas para comprobar el estado.'); }

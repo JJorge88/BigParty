@@ -205,6 +205,10 @@ def submit_blind_cash_count(session, counted_cash, user):
     errors = get_session_integrity_errors(current)
     if errors:
         raise ValidationError(errors)
+    if TableOrder.objects.filter(cash_session=current, order_type="QUICK_SALE", fulfilled_at__isnull=True,
+            status__in=["OPEN", "PARTIALLY_PAID", "PAYMENT_PENDING"], lines__status="SENT",
+            lines__components__stock_deducted=True).exists():
+        raise ValidationError("Libera la reserva de las ventas rápidas inconclusas antes de presentar el conteo de caja.")
     current.counted_cash = _money(counted_cash, zero=True)
     current.counted_by, current.counted_at = user, timezone.now()
     current.expected_cash_at_close = get_expected_cash(current)

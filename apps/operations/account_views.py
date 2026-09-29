@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import JsonResponse
 from django.shortcuts import render
+from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.payments import services as payments
@@ -55,6 +56,7 @@ def account_action(request, order_id, action):
         if action == "cerrar":
             payments.close_order(order, context["user"])
             return JsonResponse({"success": True, "closed": True,
+                "receipt_url": reverse("operations:receipt", args=[order.pk]) if context["user"].has_perm("printing.print_customer_receipt") else "",
                 "message": "Cuenta cerrada", "table_name": order.primary_table.name})
         account = accounts.account_target(order, request.POST.get("subaccount"), writable=True)
         if action in ("seleccion", "preparar", "mixto"):

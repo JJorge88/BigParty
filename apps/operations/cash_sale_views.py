@@ -1,9 +1,11 @@
+from django.contrib import messages
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from apps.printing.services import order_print_status
 
 from apps.orders import services as orders
 from apps.orders.models import TableOrder, ACTIVE_STATUSES
@@ -34,7 +36,8 @@ def quick_sales(request):
         return fail(request, exc)
     rows = TableOrder.objects.filter(cash_session=request.cash["session"], order_type="QUICK_SALE", status__in=ACTIVE_STATUSES).order_by("-pk")
     data = {**safe_context(request.cash), "sales": [{"id": row.pk, "number": row.order_number, "alias": row.customer_alias,
-        "status": "Pago pendiente de verificación" if row.status == "PAYMENT_PENDING" else "Pago parcial" if row.payments.exists() else "Borrador",
+        "cancel_url": reverse("cash_operations:cancel-sale", args=[row.pk]) if request.cash["user"].has_perm("orders.cancel_quick_sale") else "",
+        "status": "Reserva liberada · resolver o continuar" if row.reservation_released_at else "Pago pendiente de verificación" if row.status == "PAYMENT_PENDING" else "Pago parcial" if row.payments.exists() else "Borrador",
         "url": reverse("cash_operations:sale-account" if row.payments.exists() else "cash_operations:sale-order", args=[row.pk])} for row in rows]}
     return render(request, "operations/cash/quick_sales.html", data)
 
@@ -192,9 +195,30 @@ def complete(request, order_id):
         order = ops.resolve_order(request.cash, order_id, closed=True)
         if order.order_type != "QUICK_SALE" or order.status != "CLOSED":
             raise ValidationError("Esta venta todavía no está completada.")
-        data = {"number": order.order_number, "alias": order.customer_alias, "total": money_label(get_financial_summary(order)["charge_total"]),
+        data = {"printing": order_print_status(order),
+            "receipt_url": reverse("cash_operations:receipt", args=[order.pk]) if request.cash["user"].has_perm("printing.print_customer_receipt") else "",
+            "number": order.order_number, "alias": order.customer_alias, "total": money_label(get_financial_summary(order)["charge_total"]),
             "methods": ", ".join(dict.fromkeys(payment.get_method_display() for payment in order.payments.filter(status="CONFIRMED").order_by("pk"))),
             "kitchen": order.tickets.filter(items__route="KITCHEN").exists()}
     except (ValidationError, PermissionDenied) as exc:
         return fail(request, exc)
     return render(request, "operations/cash/complete.html", {**safe_context(request.cash), **data})
+
+
+@require_http_methods(["GET", "POST"])
+@required
+def cancel_sale(request, order_id):
+    try:
+        order = ops.resolve_order(request.cash, order_id)
+        orders._require(request.cash["user"], "cancel_quick_sale")
+        if order.order_type != "QUICK_SALE":
+            raise ValidationError("Esta acción solo corresponde a ventas rápidas.")
+        if request.method == "POST":
+            with transaction.atomic():
+                order = orders.cancel_quick_sale(order, request.cash["user"], request.POST.get("reason", ""))
+            messages.success(request, "Venta anulada y reserva liberada." if order.status == "CANCELLED" else
+                "Reserva liberada. La venta conserva pagos o ajustes: resuélvelos antes de anularla. Continuar volverá a validar existencias.")
+            return JsonResponse({"next": reverse("cash_operations:quick-sales")}) if json_request(request) else redirect("cash_operations:quick-sales")
+        return render(request, "operations/cash/cancel_sale.html", {**safe_context(request.cash), "order":order})
+    except (ValidationError, PermissionDenied) as exc:
+        return fail(request, exc)

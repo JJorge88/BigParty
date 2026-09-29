@@ -138,7 +138,7 @@ def _assert_ledger(order):
                 raise ValidationError("Subcuenta financiera inconsistente.")
             for row in rows:
                 if (row.order_line.order_id != order.pk or row.unit_number > row.order_line.quantity or
-                    row.order_line.status != "SENT" or
+                    (row.order_line.status != "SENT" and not (order.order_type == "QUICK_SALE" and order.status == "CANCELLED" and isinstance(header, Payment) and header.status in ("REJECTED", "REFUNDED"))) or
                     (header.subaccount_id and row.order_line.subaccount_id != header.subaccount_id)):
                     raise ValidationError("Asignación fuera del consumo autorizado.")
     for refund in PaymentRefund.objects.filter(payment__order=order).prefetch_related("allocations__payment_allocation"):
@@ -213,6 +213,9 @@ def _create(order, account, allocations, method, user, *, reference="", notes=""
         metadata["received_amount"] = str(received)
     if method == "CARD":
         metadata["terminal_approved"] = True
+    if order.order_type == "QUICK_SALE":
+        from apps.orders.services import reserve_quick_sale_stock
+        reserve_quick_sale_stock(order, user)
     payment = Payment(order=order, subaccount=account, method=method,
         status="PENDING" if pending else "CONFIRMED", amount=amount, recorded_by=user,
         confirmed_by=None if pending else user, confirmed_at=None if pending else timezone.now(),
@@ -277,6 +280,9 @@ def confirm_pending_payment(payment, user):
     current, order = _locked_payment(payment)
     if current.status != "PENDING" or current.method not in ("TRANSFER", "DEPOSIT"):
         raise ValidationError("Este pago no está pendiente de verificación.")
+    if order.order_type == "QUICK_SALE":
+        from apps.orders.services import reserve_quick_sale_stock
+        reserve_quick_sale_stock(order, user)
     current.status, current.confirmed_by, current.confirmed_at = "CONFIRMED", user, timezone.now()
     current.save(update_fields=["status", "confirmed_by", "confirmed_at"])
     _log(order, user, "PAYMENT_CONFIRMED", f"Pago #{current.pk} verificado", payment_id=current.pk)
@@ -294,6 +300,9 @@ def reject_pending_payment(payment, user, reason):
     current.status = "REJECTED"
     current.metadata = {**current.metadata, "rejection_reason": reason, "rejected_by": user.pk, "rejected_at": timezone.now().isoformat()}
     current.save(update_fields=["status", "metadata"])
+    if order.order_type == "QUICK_SALE":
+        from apps.orders.services import release_quick_sale_stock
+        release_quick_sale_stock(order, user, "Pago rechazado: " + reason)
     _log(order, user, "PAYMENT_REJECTED", f"Pago #{current.pk} rechazado: {reason}", payment_id=current.pk, reason=reason)
     _refresh(order, user)
     return current
@@ -340,7 +349,8 @@ def close_order(order, user):
     if not can_close_order(current):
         raise ValidationError("No se puede cerrar: hay borradores, saldo, pagos pendientes o inconsistencias.")
     if current.order_type == "QUICK_SALE" and not current.fulfilled_at:
-        from apps.orders.services import _ticket
+        from apps.orders.services import _ticket, reserve_quick_sale_stock
+        reserve_quick_sale_stock(current, user)
         lines = list(current.lines.filter(status="SENT").prefetch_related("components", "modifiers"))
         if not lines:
             raise ValidationError("Agrega productos antes de completar la venta.")
@@ -365,6 +375,11 @@ def refund_payment(payment, user, *, reason, amount=None, allocation_ids=None, r
         raise ValidationError("Solo se reembolsa un pago confirmado con monto disponible.")
     if current.method == "CASH" and current.cash_handoff_status == "PENDING":
         raise ValidationError("Confirma primero la entrega del efectivo del mesero; no se puede reembolsar dinero aún pendiente de recepción.")
+    if order.order_type == "QUICK_SALE" and not order.fulfilled_at:
+        # No hubo entrega física: devolver la reserva completa antes de resolver dinero.
+        # Así un refund con inventario nunca devuelve por segunda vez la misma reserva.
+        from apps.orders.services import release_quick_sale_stock
+        release_quick_sale_stock(order, user, "Reembolso de venta sin entregar: " + reason)
     allocations = list(current.allocations.order_by("order_line_id", "unit_number").prefetch_related("refund_allocations", "order_line__components"))
     entries = []
     if allocation_ids is not None:

@@ -1,0 +1,15 @@
+BIG PARTY
+COCINA
+
+*** ACTUALIZACIÓN ***
+
+MESA 07
+PEDIDO 000001
+28/09/2026 19:40:19
+------------------------------------------------
+1  HAMBURGUESA
+NUEVA NOTA:
+Sin salsa
+
+------------------------------------------------
+MESERO: CARLOS

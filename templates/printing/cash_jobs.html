@@ -1,0 +1,1 @@
+{% extends 'operations/cash/base.html' %}{% block cash_content %}<section class="cash-list-page"><a class="cash-back" href="{% url 'cash_operations:page' 'activa' %}">← Volver a caja</a><h1>Trabajos de impresión</h1>{% include 'printing/job_list.html' with cash_history=True %}</section>{% endblock %}

@@ -1,0 +1,1 @@
+{% extends 'printing/base.html' %}{% block content %}<h1>Trabajos de impresión</h1><a href="{% url 'printing:printers' %}">← Impresoras</a>{% for message in messages %}<p role="status">{{ message }}</p>{% endfor %}{% include 'printing/job_list.html' %}{% endblock %}

@@ -84,6 +84,7 @@ def verify_drafts(value, order, context, account):
 def catalog_state(context, order, account=None):
     state = ordering.order_state(order, context["user"], account, draft_origin=origin(context))
     state.update(cash_mode="quick" if order.order_type == "QUICK_SALE" else "table",
+        has_kitchen=order.lines.exclude(status="CANCELLED").filter(components__route_snapshot="KITCHEN").exists(),
         send_token=draft_token(order, context, account), customer_alias=order.customer_alias,
         checkout_url=reverse("cash_operations:sale-account", args=[order.pk]))
     if order.order_type == "QUICK_SALE" and order.payments.exists():
@@ -94,7 +95,7 @@ def catalog_state(context, order, account=None):
 
 def checkout_state(context, order):
     state = accounting.account_state(order, context["user"], include_drafts=True)
-    state.update(quick_sale=True, has_drafts=False, can_add=not order.payments.exists(),
+    state.update(reservation_released=bool(order.reservation_released_at), quick_sale=True, has_drafts=False, can_add=not order.payments.exists(),
         selected_name="Venta rápida",
         order_url=reverse("cash_operations:sale-order", args=[order.pk]),
         completed=order.status == "CLOSED", completion_url=reverse("cash_operations:sale-complete", args=[order.pk]))
@@ -113,6 +114,7 @@ def pay_quick_sale(context, order, token, method, data):
     plan = accounting.read_plan(token, payment_context(context), order, None)
     if order.lines.filter(status="DRAFT").exists():
         orders.send_order(order, user, draft_origin=origin(context), fulfillment_mode="TAKE_AT_BAR", defer_ticket=True)
+    orders.reserve_quick_sale_stock(order, user)
     options = {"cash_session": context["session"], "received_amount": data.get("received", "")} if method == "CASH" else {"card_approved": True} if method == "CARD" else {"reference": data.get("reference", "")}
     payment = payments.create_amount_payment(order, plan["amount"], method, user, unit_keys=plan["scope_keys"], **options)
     # El primer pago inmoviliza stock; un fallo revierte stock, líneas, pago y movimiento.

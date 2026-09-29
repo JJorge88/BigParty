@@ -1,0 +1,5 @@
+{% extends "operations/cash/base.html" %}{% block cash_content %}
+<section class="cash-centered"><h1>Anular {{ order.display_name }}</h1>
+<p>Libera las existencias de esta venta sin entregar. Si hay pagos pendientes, cobros o ajustes, la cuenta seguirá abierta para resolverlos. Continuar el cobro volverá a comprobar stock.</p>
+<form method="post" data-cash-form>{% csrf_token %}<label class="field-label" for="reason">Motivo</label><textarea class="input" name="reason" id="reason" required maxlength="1000"></textarea><button class="button button--primary">Confirmar y liberar reserva</button></form>
+<a class="button button--ghost" href="{% url 'cash_operations:quick-sales' %}">Volver a ventas</a></section>{% endblock %}

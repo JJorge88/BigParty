@@ -99,7 +99,8 @@ def order_state(order, user, account=None, *, category="", search="", draft_orig
     lines = [{"id": line.pk, "name": line.product_name_snapshot, "quantity": line.quantity,
         "modifiers": [modifier.option_name_snapshot for modifier in line.modifiers.all()],
         "notes": line.notes, "unit_price": money_label(line.unit_price), "subtotal": money_label(line.subtotal)} for line in drafts]
-    return {"order_id": order.pk, "table_name": order.display_name, "area": order.area.name,
+    from apps.printing.services import order_print_status
+    return {"printing": order_print_status(order), "order_id": order.pk, "table_name": order.display_name, "area": order.area.name,
         "billing_mode": order.billing_mode, "selected_account": account.pk if account else None,
         "selected_name": account.name if account else "Una sola cuenta" if order.billing_mode == "SINGLE" else "Selecciona una cuenta",
         "accounts": [{"id": sub.pk, "name": sub.name, "closed": sub.status == "CLOSED", "total": money_label(get_subaccount_grand_total(sub))}

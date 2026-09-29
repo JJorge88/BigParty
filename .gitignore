@@ -24,3 +24,6 @@ staticfiles/
 ._*
 .idea/
 .vscode/
+
+# Salidas de impresoras de desarrollo
+var/print-jobs/

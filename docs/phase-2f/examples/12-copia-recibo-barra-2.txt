@@ -1,0 +1,21 @@
+*** REIMPRESIÓN ***
+Original #11
+Motivo: Nueva solicitud de recibo por el cliente
+------------------------------------------------
+BIG PARTY
+RECIBO
+28/09/2026 19:42:36
+PEDIDO 000002
+------------------------------------------------
+Gallo
+2 x Q25.00  Q50.00
+Hamburguesa
+1 x Q50.00  Q50.00
+------------------------------------------------
+SUBTOTAL Q100.00
+TOTAL Q100.00
+------------------------------------------------
+Efectivo Q100.00
+SALDO Q0.00
+
+Gracias por tu visita

@@ -310,6 +310,8 @@ def _ticket(order, lines, kind, user, reason=""):
         PreparationTicketItem.objects.create(ticket=ticket, order_line=line, route=component.route_snapshot,
             area=order.area, quantity=line.quantity * component.quantity_per_unit,
             description_snapshot=description, notes_snapshot=(f"{line.notes}\nAnulación: {reason}".strip() if reason else line.notes))
+    from .signals import preparation_ticket_created
+    preparation_ticket_created.send(sender=PreparationTicket, ticket=ticket)
     return ticket
 
 
@@ -547,3 +549,79 @@ def merge_orders(primary_order, secondary_order, user):
     _save(secondary)
     _log(primary, user, "TABLES_MERGED", f"Cuenta #{secondary.order_number} unida a #{primary.order_number}", secondary_order_id=secondary.pk, table_ids=[link.table_id for link in links])
     return primary
+
+
+@transaction.atomic
+def release_quick_sale_stock(order, user, reason):
+    """Liberación interna autorizada por rechazo o cancelación; conserva el historial financiero."""
+    current = _locked_order(order)
+    if current.order_type != 'QUICK_SALE' or current.fulfilled_at:
+        raise ValidationError('Solo se puede liberar una venta rápida aún no entregada.')
+    reason = _text(reason, 'El motivo')
+    if not reason:
+        raise ValidationError('Indica el motivo para liberar la reserva.')
+    lines = list(current.lines.filter(status='SENT').prefetch_related('components'))
+    products = _locked_products(lines)
+    for line in lines:
+        for item in line.components.all():
+            if item.stock_deducted:
+                _record_movement(products[item.product_id], line.quantity * item.quantity_per_unit, user, reason,
+                    InventoryMovement.MovementType.CANCELLATION_RETURN, metadata={'order_id':current.pk,'line_id':line.pk,'reservation_release':True})
+                item.stock_deducted = False
+                item.save(update_fields=['stock_deducted'])
+    current.reservation_released_at = timezone.now()
+    current.save(update_fields=['reservation_released_at','updated_at'])
+    _log(current, user, 'NOTE_UPDATED', 'Reserva liberada: ' + reason, reservation_released=True)
+    return current
+
+
+@transaction.atomic
+def reserve_quick_sale_stock(order, user):
+    current = _locked_order(order)
+    if current.order_type != 'QUICK_SALE' or not current.reservation_released_at:
+        return current
+    if current.payments.filter(refunds__isnull=False).exists():
+        raise ValidationError('Esta venta sin entregar tiene reembolsos. Resuelve los pagos restantes y anúlala; inicia otra venta para continuar.')
+    lines = list(current.lines.filter(status='SENT').prefetch_related('components'))
+    products = _locked_products(lines)
+    needed = Counter()
+    for line in lines:
+        main = products[line.product_id]
+        if not main.is_active or not main.visible_in_pos or not main.category.is_active:
+            raise ValidationError(f'«{main.name}» ya no está disponible.')
+        for item in line.components.all():
+            product = products[item.product_id]
+            if not product.is_active:
+                raise ValidationError(f'«{product.name}» ya no está disponible.')
+            if product.track_inventory and not item.stock_deducted:
+                needed[product.pk] += line.quantity * item.quantity_per_unit
+    for pk, quantity in needed.items():
+        if products[pk].stock_quantity < quantity:
+            raise ValidationError(f'Stock insuficiente de «{products[pk].name}» para continuar esta venta.')
+    for line in lines:
+        for item in line.components.all():
+            if products[item.product_id].track_inventory and not item.stock_deducted:
+                _record_movement(products[item.product_id], -line.quantity * item.quantity_per_unit, user,
+                    'Reserva renovada al continuar venta rápida', InventoryMovement.MovementType.SALE,
+                    metadata={'order_id':current.pk,'line_id':line.pk,'reservation_renewed':True})
+                item.stock_deducted = True
+                item.save(update_fields=['stock_deducted'])
+    current.reservation_released_at = None
+    current.save(update_fields=['reservation_released_at','updated_at'])
+    return current
+
+
+@transaction.atomic
+def cancel_quick_sale(order, user, reason):
+    _require(user, 'cancel_quick_sale')
+    current = release_quick_sale_stock(order, user, reason)
+    from apps.payments.queries import get_financial_summary
+    financial = get_financial_summary(current)
+    if financial['confirmed_paid'] or financial['pending_verification'] or current.adjustments.exists():
+        # No inventar devolución de efectivo ni borrar pagos. Gerencia debe resolverlos.
+        return current
+    current.lines.exclude(status='CANCELLED').update(status='CANCELLED')
+    current.status, current.closed_at = 'CANCELLED', timezone.now()
+    current.save(update_fields=['status','closed_at','updated_at'])
+    _log(current, user, 'LINE_CANCELLED', 'Venta rápida anulada: ' + reason, sale_cancelled=True)
+    return current

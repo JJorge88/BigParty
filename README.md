@@ -1914,3 +1914,214 @@ Los recorridos manuales y seis capturas reales de 1280 × 800 están documentado
 [Verificación de Fase 2E](docs/phase-2e/verification.md). Se usó y eliminó una base temporal
 separada de los datos reales. La fase termina aquí: no incluye impresoras, recibos/PDF,
 Gerencia final, reservas, eventos, QR, offline ni sincronización cloud.
+
+## Fase 2F — Impresoras de red, comandas y recibos
+
+`apps.printing` convierte los `PreparationTicketItem` existentes en trabajos persistentes.
+La señal de dominio se emite después de guardar todos los ítems; órdenes no conoce sockets
+ni modelos de impresora. La fase no incluye la interfaz final de Gerencia.
+
+### Configuración inicial
+
+```bash
+python manage.py migrate
+python manage.py seed_bigparty_defaults
+python manage.py seed_printer_defaults
+```
+
+El seed es idempotente y conserva configuración existente. Crea `BAR-SPORT` (Barra 1,
+Sport Bar), `BAR-DISCO` (Barra 2, Discoteca), `BAR-PREMIUM` (Barra 3, Premium) y `KITCHEN`
+(Cocina compartida). Los hosts quedan vacíos: **no se asignan IPs ficticias**.
+
+`Printer` contiene nombre, código único, tipo, área, host, puerto, ancho, codificación,
+transliteración, tabla ESC t opcional, cortador, activo y fechas. BAR exige área; KITCHEN
+exige área nula. Solo puede haber una barra activa por área y una cocina activa. Puerto
+por defecto **9100**, validado entre 1 y 65535. Papel de **80 mm** por defecto o **58 mm**;
+texto de 48 o 32 columnas respectivamente, pendiente de ajustar al modelo/fuente físicos.
+
+En `/impresoras/`, staff con `printing.manage_printers` configura nombre, host, puerto,
+papel, codificación, normalización, corte y estado activo. El panel muestra backend,
+configuración y último resultado; `get_printer_status` también devuelve último éxito/error.
+La página de prueba requiere además `printing.test_printer`. Incluye letras, números,
+acentos y corte solo cuando está habilitado. No se realiza SNMP ni descubrimiento.
+
+| Variable | Valor inicial | Uso |
+| --- | --- | --- |
+| `PRINTER_BACKEND` | `debug` | `debug` o `network`, independiente de `DEBUG` |
+| `PRINTER_DEBUG_DIR` | `var/print-jobs/` | Directorio local ignorado por Git |
+| `PRINTER_CONNECT_TIMEOUT` | `1` | Segundos totales de resolución/conexión |
+| `PRINTER_WRITE_TIMEOUT` | `2` | Segundos máximos de envío TCP |
+| `PRINTER_STALE_SECONDS` | `120` | Antigüedad para recuperación manual |
+
+Los timeouts deben ser mayores que cero y como máximo 5 segundos cada uno; stale al
+menos 30 segundos. La resolución DNS está acotada y admite un máximo de cuatro consultas
+simultáneas; se utiliza la primera dirección resuelta. No hay sondeos ni bucles infinitos.
+
+### Trabajos, transacciones y concurrencia
+
+`PrintJob` conserva destino lógico, impresora, tipo (`PREPARATION`, `CANCELLATION`, `UPDATE`,
+`RECEIPT`, `TEST`), estado (`PENDING`, `PRINTING`, `PRINTED`, `FAILED`), ticket/orden/pago
+opcionales, snapshot Unicode, autor, intentos, error, backend/ruta de archivo y fechas.
+`reprint_of` y motivo identifican copias; `request_key` evita repetir confirmaciones de UI.
+`printing_started_at` y un token de reclamación identifican el intento en curso.
+
+1. La misma transacción confirma orden, inventario, ticket y trabajos por destino.
+2. `transaction.on_commit(..., robust=True)` reclama el trabajo y envía después del commit.
+3. Una transacción breve bloquea solo el trabajo, cambia a `PRINTING` e incrementa intentos.
+4. El transporte ocurre **fuera de una transacción de base de datos**. Después se registra
+   `PRINTED` o `FAILED`. Una excepción del transporte no revierte consumo ni pagos.
+
+Un constraint garantiza un original por `(preparation_ticket, destination_key)`; la clave
+lógica se conserva aunque se reemplace la configuración de una impresora. Si falta una
+impresora activa, se conserva un trabajo `FAILED`, sin impresora y con explicación,
+en lugar de perder la alerta o rechazar el pedido.
+
+La reclamación usa `select_for_update(of=('self',))` y un candado de sesión PostgreSQL
+por trabajo durante el transporte. Dos conexiones competidoras no envían el mismo
+original. La recuperación utiliza el mismo candado y omite trabajadores vivos. Requiere
+conexión directa a PostgreSQL local o pooling de sesión, **no pooling por transacción**.
+
+**Límite físico:** un TCP completado confirma bytes aceptados por el transporte, no papel
+impreso ni preparación. Tras una desconexión parcial o caída de proceso no es posible
+asegurar entrega física exactamente una vez sin confirmación del hardware. Se registra
+`delivery_uncertain`; antes de reintentar se verifica si salió papel. No se presume éxito.
+
+### Rutas y contenido
+
+| Origen / entrega | `AREA_BAR` | `KITCHEN` | `NONE` |
+| --- | --- | --- | --- |
+| Mesa, envío normal | Barra de `PreparationTicketItem.area` | Cocina compartida | Sin trabajo |
+| Mesa, `TAKE_AT_BAR` | Sin trabajo | Cocina compartida | Sin trabajo |
+| Venta rápida | Sin trabajo | Solo al completar pago y cerrar | Sin trabajo |
+
+Cada trabajo contiene únicamente los ítems de su destino. Un ticket mixto comparte orden,
+mesa y hora entre estaciones. Adición, cancelación y actualización usan sus tickets
+existentes y emiten solo productos afectados, con marcas visibles y motivo/nueva nota.
+Los modificadores provienen del snapshot original, también para combos. Cocina de venta
+rápida muestra pedido, caja y alias si existe, sin inventar una mesa.
+
+Los servicios nunca reconstruyen una comanda antigua desde el catálogo vigente. El
+snapshot original no se modifica al reintentar. Cambiar ancho de una impresora afecta
+nuevos trabajos; un trabajo histórico conserva el layout que fue aceptado.
+
+### Backends y futura instalación local
+
+`PrinterBackend.send(job)` separa servicios del dispositivo. `DebugPrinterBackend` guarda
+UTF-8 en `job-XXXXXXXX-attempt-XXX.txt`, un archivo por intento, sin sobrescribir historia.
+Los ejemplos revisados se encuentran en [docs/phase-2f/examples](docs/phase-2f/examples).
+
+`NetworkEscPosBackend` usa la biblioteca estándar (`socket`) al host y puerto configurados.
+No se agregó `python-escpos`: en esta fase texto, inicialización, selección opcional de
+tabla y corte no requieren esa dependencia; otro adaptador podrá sustituirlo. No utiliza
+`window.print()`, diálogos del navegador ni drivers Windows. Las notas se limpian de
+caracteres de control antes del transporte, para impedir insertar comandos ESC/POS.
+
+Se envía ESC @, texto y avance; ESC t solo con tabla numérica configurada y GS V solo con
+cortador habilitado. Referencias primarias: [ESC @ de Epson](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/esc_atsign.html),
+[corte GS V](https://download4.epson.biz/sec_pubs/pos/reference_en/escpos/gs_cv.html) y
+[referencia ESC/POS](https://download4.epson.biz/sec_pubs/pos/reference_en/).
+
+ASCII con transliteración es el valor conservador (`Cóctel` → `Coctel` en transporte).
+Se admiten CP850, CP858 y UTF-8; la tabla numérica depende del hardware, sin asumir una
+universal. Los caracteres restantes no soportados se sustituyen sin interrumpir el ticket.
+La base y los archivos debug conservan Unicode. Corte está desactivado inicialmente.
+
+En la instalación futura, Django/worker debe ejecutarse en el **nodo local de BIG PARTY**
+con acceso a la LAN de impresoras y `PRINTER_BACKEND=network`. Configurar IPs/hosts reales,
+puerto, papel, codepage y corte usando prueba física. No enviar desde cloud a IPs privadas;
+una futura entrega al Local Node puede reutilizar estos trabajos/adaptadores. No se
+agregaron USB, Bluetooth, logos gráficos, Celery, Redis, KDS, estados de preparación ni FEL.
+
+### Reintentos, copias y recuperación
+
+Existe **un intento automático** por trabajo nuevo, sin reintento automático tras error:
+evita duplicaciones ambiguas y mantiene breve el request. Con dos destinos y los timeouts
+iniciales, el límite de transporte es aproximadamente seis segundos en el peor caso,
+más el tiempo de base de datos. Cada destino se procesa independientemente.
+
+- `retry_print_job(job, user, scope_area=...)`: solo `FAILED`; mismo ID, mismo snapshot,
+  siguiente intento y auditoría del error previo. No toca destinos ya impresos.
+- `reprint_ticket(ticket, printer, user, reason, ...)`: exige original impreso, permiso,
+  relación válida, impresora activa y motivo; crea otro trabajo con `reprint_of` y auditoría.
+- La UI firma confirmaciones vinculadas al actor, objetivo y propósito; repetir el mismo
+  formulario no crea otra copia. Las sesiones operativas vigentes se validan en cada POST.
+
+```bash
+# Recuperar trabajos PRINTING abandonados, sin volver a imprimir:
+python manage.py recover_stale_print_jobs
+# Solo PENDING que sobrevivieron a un cierre antes del callback; tanda máxima 100:
+python manage.py process_print_jobs --limit 20
+```
+
+La recuperación marca stale como `FAILED`, conserva intentos y deja una alerta de salida
+incierta. Solo después de revisar papel se usa Reintentar. El comando de pendientes nunca
+reintenta `FAILED` o `PRINTING`. No hay un trabajador permanente ni calendario instalado.
+
+### Pantallas, recibos y permisos
+
+El pedido aceptado mantiene su resultado aunque falle una impresora. La tablet/caja muestra
+“Pedido registrado. No se pudo imprimir en Cocina. Avisa a Caja/Gerencia.”. Consulta el
+resultado tras el envío con hasta cinco actualizaciones breves del aviso, sin borrar
+borradores ni alias. El botón Actualizar permite consultar después.
+
+Caja ofrece **Trabajos de impresión** en `/caja/impresiones/`, inicialmente filtrado por
+fallidos, con contenido conservado, reintento y copia autorizada. La vista técnica está en
+`/impresoras/trabajos/`. El historial conserva trabajos; `PrintJobAdmin` es de solo lectura,
+con filtros por impresora, estado, tipo y fecha y sin edición ni borrado de estados.
+
+**Imprimir recibo** es una acción secundaria en Venta completada; cerrar cuenta en tablet
+ofrece el enlace cuando el actor tiene permiso. Abrir esa pantalla no imprime. El POST
+explícito exige cuenta cerrada sin saldo ni verificación pendiente; resuelve barra del
+área de la orden, o de `CashRegister.area` en venta rápida. Incluye productos, cantidades,
+precios, subtotal, descuentos/cortesías, reembolsos aplicables, total, pagos por método y
+saldo. Un nuevo pedido de recibo conserva el original y crea una copia auditada; un
+original pendiente o fallido requiere atender ese trabajo, sin multiplicarlo. No hay FEL,
+NIT, datos fiscales ni PDF inventados.
+
+| Permiso | Alcance |
+| --- | --- |
+| `printing.manage_printers` | Configuración staff y alcance administrativo entre áreas |
+| `printing.test_printer` | Prueba, junto con configuración staff |
+| `printing.view_printjob` | Historial de caja del área y admin readonly según acceso staff |
+| `printing.retry_print_job` | Reintentar trabajos fallidos |
+| `printing.reprint_preparation_ticket` | Copias de comandas con motivo |
+| `printing.print_customer_receipt` | Recibo solicitado y sus copias |
+| `orders.cancel_quick_sale` | Anulación/liberación explícita de ventas sin entregar |
+
+No se asignan permisos automáticamente por rol. Un mesero normal no recibe permiso de
+reimpresión. Caja exige acceso PIN válido, estación/jornada/sesión activa y área propia;
+`manage_printers` habilita alcance amplio en historial/servicios administrativos. Las
+mutaciones exigen POST y CSRF, y se verifica actor activo, relaciones e impresora activa.
+
+### Ajustes 2E: alias y existencias de ventas inconclusas
+
+“Cobrar” reemplaza “Ver cobro”. Alias aparece si hay al menos un componente KITCHEN;
+al retirar toda la comida se oculta sin vaciar el valor que se está escribiendo.
+
+Rechazar transferencia/depósito de venta rápida libera su reserva de inventario y
+conserva el pago rechazado. **Anular / liberar reserva**, con permiso y motivo, ofrece un
+flujo explícito desde Ventas rápidas. Sin cobros/pagos pendientes/ajustes, anula la venta;
+si hay alguno, libera stock y conserva la cuenta para resolver el dinero. No inventa
+reembolsos ni elimina historia financiera. La anulación puede conservar pagos rechazados
+o totalmente reembolsados; las asignaciones siguen siendo auditables.
+
+Continuar el cobro, confirmar un pendiente o cerrar revalida productos/existencias y
+reserva otra vez atómicamente. Si no alcanza stock, no confirma el nuevo pago ni emite
+Cocina. Una venta sin entregar con reembolsos libera la reserva y requiere resolver el
+resto/anular; no vuelve a entregarse. Se evita devolver doble inventario si un reembolso
+solicita reposición después de liberar la reserva. Las ventas entregadas no se liberan por
+este mecanismo. No existe expiración automática.
+
+Antes de presentar el conteo ciego de caja se exige liberar reservas de ventas rápidas
+inconclusas; así no quedan inmovilizadas al congelar la sesión. Resolver pagos antiguos
+fuera de sesión sigue correspondiendo a los servicios administrativos existentes y la
+futura interfaz de Gerencia.
+
+### Migraciones y evidencia
+
+Solo migraciones nuevas: `orders.0006_alter_tableorder_options_and_more` y
+`printing.0001_initial`. No se modificaron migraciones históricas ni datos operativos.
+
+La validación de esta fase y las capturas están en
+[Verificación 2F](docs/phase-2f/verification.md). La compatibilidad real de marca/modelo,
+red, papel, acentos, cutter y ausencia de papel queda pendiente de la instalación física.
