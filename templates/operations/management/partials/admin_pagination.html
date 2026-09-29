@@ -1,0 +1,4 @@
+<div class="admin-pagination">
+<span>{{ rows.paginator.count }} registros · Página {{ rows.number }} de {{ rows.paginator.num_pages }}</span>
+<div>{% if rows.has_previous %}<a class="admin-button" href="?{{ filter_query }}&page={{ rows.previous_page_number }}">Anterior</a>{% endif %}{% if rows.has_next %}<a class="admin-button" href="?{{ filter_query }}&page={{ rows.next_page_number }}">Siguiente</a>{% endif %}</div>
+</div>

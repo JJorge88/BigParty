@@ -1,0 +1,112 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}
+<header class="admin-heading">
+<div>
+<span class="eyebrow">{{ product.category.name }}</span>
+<h1>{{ product.name }}</h1>
+<p>{{ product.slug }} · {{ product.is_active|yesno:'Activo,Inactivo' }}</p>
+</div>
+<div class="admin-actions">{% if perms.catalog.change_product %}<a class="admin-button" href="{% url 'management:product-edit' product.pk %}">Editar producto</a>{% endif %}{% if product.track_inventory %}{% if perms.inventory.adjust_inventory %}<a class="admin-button" href="{% url 'management:stock-adjust' product.pk %}">Ajustar stock</a>{% endif %}{% if perms.inventory.receive_inventory %}<a class="admin-button admin-button--primary" href="{% url 'management:stock-receive' product.pk %}">＋ Registrar entrada</a>{% endif %}{% endif %}</div>
+</header>
+<div class="admin-detail-grid">
+<section class="admin-panel admin-context">
+<div class="admin-section-title">
+<h2>Existencias</h2>
+<span class="admin-badge {{ product.state_code }}">{{ product.state_label }}</span>
+</div>
+<div class="admin-stock-number">
+<strong>{% if product.track_inventory %}{{ product.stock_quantity }}{% else %}—{% endif %}</strong>
+<span>unidades disponibles</span>
+</div>
+<dl class="admin-facts">
+<div>
+<dt>Stock mínimo</dt>
+<dd>{{ product.minimum_stock }}</dd>
+</div>
+<div>
+<dt>Control de inventario</dt>
+<dd>{{ product.track_inventory|yesno:'Sí,No' }}</dd>
+</div>
+<div>
+<dt>Visible en POS</dt>
+<dd>{{ product.visible_in_pos|yesno:'Sí,No' }}</dd>
+</div>
+<div>
+<dt>Preparación</dt>
+<dd>{{ product.get_preparation_route_display }}</dd>
+</div>
+<div>
+<dt>Combo</dt>
+<dd>{{ product.is_combo|yesno:'Sí,No' }}</dd>
+</div>
+</dl>{% if product.image %}<img class="admin-product-image" src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}{% if product.is_out_of_stock %}<p class="admin-warning">Agotado. Registra una entrada o un ajuste para reponer existencias.</p>{% endif %}</section>
+<section class="admin-panel admin-context">
+<div class="admin-section-title">
+<h2>Precios por área</h2>{% if perms.catalog.change_product_price %}<a class="admin-text-link" href="{% url 'management:product-price' product.pk %}">Cambiar precio ↗</a>{% endif %}</div>
+<div class="admin-base-price">
+<span>Precio general</span>
+<strong>Q{{ product.base_price|floatformat:2 }}</strong>
+</div>{% for row in areas %}<div class="admin-price-row">
+<span>{{ row.area.name }}<small>{% if row.special %}Precio especial{% else %}Usar precio general{% endif %}</small>
+</span>
+<strong>Q{% if row.special %}{{ row.price|floatformat:2 }}{% else %}{{ product.base_price|floatformat:2 }}{% endif %}</strong>
+</div>{% endfor %}</section>
+</div>
+<section class="admin-panel">
+<div class="admin-section-title padded">
+<h2>Historial de precios</h2>
+<span>Últimos 15 cambios</span>
+</div>
+<div class="admin-table-wrap">
+<table class="admin-table">
+<thead>
+<tr>
+<th>Fecha</th>
+<th>Área</th>
+<th>Anterior</th>
+<th>Nuevo</th>
+<th>Usuario</th>
+</tr>
+</thead>
+<tbody>{% for row in history %}<tr>
+<td>{{ row.created_at|date:'d M Y · H:i' }}</td>
+<td>{{ row.area.name|default:'General' }}</td>
+<td>{% if row.old_price != None %}Q{{ row.old_price|floatformat:2 }}{% else %}—{% endif %}</td>
+<td>Q{{ row.new_price|floatformat:2 }}</td>
+<td>{{ row.changed_by.get_full_name|default:row.changed_by.username|default:'Sistema' }}</td>
+</tr>{% empty %}<tr>
+<td colspan="5" class="admin-empty">Aún no hay cambios de precio.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>
+</section>
+<section class="admin-panel">
+<div class="admin-section-title padded">
+<h2>Movimientos recientes</h2>
+<a href="{% url 'management:inventory-movements' %}?product={{ product.pk }}">Ver todos ↗</a>
+</div>{% include 'operations/management/partials/movement_table.html' %}</section>
+<section class="admin-panel admin-context">
+<div class="admin-section-title">
+<div>
+<h2>Modificadores</h2>
+<p>Preparación y extras · sin inventario propio</p>
+</div>{% if perms.catalog.add_modifiergroup %}<a class="admin-button" href="{% url 'management:group-create' product.pk %}">＋ Crear grupo</a>{% endif %}</div>
+<div class="admin-modifier-grid">{% for group in product.modifier_groups.all %}<div class="admin-modifier">
+<div class="admin-section-title">
+<h3>{{ group.name }}</h3>{% if perms.catalog.change_modifiergroup %}<a href="{% url 'management:group-edit' product.pk group.pk %}">Editar</a>{% endif %}</div>
+<p>{{ group.get_selection_type_display }} · {{ group.is_active|yesno:'Activo,Inactivo' }} · {{ group.min_selections }}–{{ group.max_selections }} opciones</p>{% for option in group.options.all %}<div class="admin-price-row">
+<span>{{ option.name }}{% if not option.is_active %} · Inactiva{% endif %}</span>
+<span>+Q{{ option.price_delta|floatformat:2 }} {% if perms.catalog.change_modifieroption %}<a href="{% url 'management:option-edit' product.pk group.pk option.pk %}">Editar</a>{% endif %}</span>
+</div>{% endfor %}{% if perms.catalog.add_modifieroption %}<a class="admin-text-link" href="{% url 'management:option-create' product.pk group.pk %}">＋ Agregar opción</a>{% endif %}</div>{% empty %}<p>No hay modificadores para este producto.</p>{% endfor %}</div>
+</section>
+{% if product.is_combo %}<section class="admin-panel admin-context">
+<div class="admin-section-title">
+<div>
+<h2>Componentes del combo</h2>
+<p>{{ combo_available|yesno:'Disponible,No disponible' }} · Máximo disponible: {% if maximum == None %}Sin límite de stock{% else %}{{ maximum }}{% endif %}</p>
+</div>{% if perms.catalog.add_combocomponent %}<a class="admin-button" href="{% url 'management:component-create' product.pk %}">＋ Agregar componente</a>{% endif %}</div>{% for component in product.combo_components.all %}<div class="admin-price-row">
+<span>{{ component.quantity }} × {{ component.component.name }}</span>
+<div class="admin-actions">{% if perms.catalog.change_combocomponent %}<a href="{% url 'management:component-edit' product.pk component.pk %}">Editar</a>{% endif %}{% if perms.catalog.delete_combocomponent %}<form method="post" action="{% url 'management:component-remove' product.pk component.pk %}">{% csrf_token %}<button class="admin-button">Retirar</button>
+</form>{% endif %}</div>
+</div>{% empty %}<p>Agrega componentes para habilitar la venta del combo.</p>{% endfor %}</section>{% endif %}
+{% endblock %}

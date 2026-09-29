@@ -56,6 +56,11 @@ def activity(request):
 def home(request):
     day = queries.current_day()
     data = queries.dashboard(day,request.user) if day else {'day':None}
+    if request.user.has_perm('inventory.view_inventory'):
+        from apps.catalog.models import Product
+        from django.db.models import F
+        data['inventory_attention'] = Product.objects.filter(is_active=True, track_inventory=True,
+            stock_quantity__lte=F('minimum_stock')).count()
     return page(request,'home',data)
 
 

@@ -1,0 +1,52 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading">
+<div>
+<span class="eyebrow">EQUIPO Y ACCESOS</span>
+<h1>Usuarios</h1>
+<p>Las personas de BIG PARTY y sus permisos de operación.</p>
+</div>{% if perms.accounts.add_user %}<a class="admin-button admin-button--primary" href="{% url 'management:user-create' %}">＋ Crear usuario</a>{% endif %}</header>
+<section class="admin-panel">
+<form class="admin-filters" method="get">
+<input aria-label="Buscar usuario" type="search" name="q" value="{{ request.GET.q }}" placeholder="Buscar por nombre o usuario…">
+<select aria-label="Rol o estado" name="role">
+<option value="">Todos los usuarios</option>{% for code,label in roles %}<option value="{{ code }}" {% if request.GET.role == code %}selected{% endif %}>{{ label }}</option>{% endfor %}<option value="inactive" {% if request.GET.role == 'inactive' %}selected{% endif %}>Inactivos</option>
+</select>
+<button class="admin-button">Filtrar</button>
+</form>
+<div class="admin-table-wrap">
+<table class="admin-table">
+<thead>
+<tr>
+<th>Nombre</th>
+<th>Usuario</th>
+<th>Rol base</th>
+<th>Estado</th>
+<th>PIN</th>
+<th>Último acceso</th>
+<th>
+</th>
+</tr>
+</thead>
+<tbody>{% for row in rows %}<tr>
+<td>
+<a class="admin-person" href="{% url 'management:user' row.pk %}">
+<span class="admin-avatar">{{ row.first_name|first|default:row.username|first|upper }}</span>
+<strong>{{ row.get_full_name|default:row.username }}</strong>
+</a>
+</td>
+<td>{{ row.username }}</td>
+<td>{{ row.get_role_display }}</td>
+<td>
+<span class="admin-badge {% if row.is_active %}available{% endif %}">{{ row.is_active|yesno:'Activo,Inactivo' }}</span>
+</td>
+<td>{{ row.pin_configured|yesno:'Configurado,Sin configurar' }}</td>
+<td>{{ row.recent_access|date:'d M Y · H:i'|default:'Sin registro' }}</td>
+<td>
+<a class="admin-text-link" href="{% url 'management:user' row.pk %}">Ver usuario ↗</a>
+</td>
+</tr>{% empty %}<tr>
+<td colspan="7" class="admin-empty">No hay usuarios para estos filtros.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>{% include 'operations/management/partials/admin_pagination.html' %}</section>
+<p class="admin-help">El rol define dónde trabaja cada persona. Los permisos individuales definen qué puede hacer.</p>{% endblock %}

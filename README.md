@@ -1,4 +1,4 @@
-# BIG PARTY — Fases 0 a 3C
+# BIG PARTY — Fases 0 a 3D
 
 Fundación técnica de un sistema empresarial para bar, discoteca y restaurante en Guatemala.
 La Fase 0 contiene configuración, usuarios, roles, permisos nativos de Django,
@@ -12,6 +12,7 @@ La Fase 2B añade catálogo y pedidos visuales, modificadores, adiciones y selec
 La Fase 2C incorpora Ver cuenta, selección por cantidades, pagos y cierre explícito.
 Las fases 2D–2F incorporan Caja visual, venta rápida e impresión.
 Las fases 3A–3C añaden Gerencia, reservas y eventos con entradas y control de acceso.
+La Fase 3D incorpora las interfaces finales de inventario, catálogo, usuarios y permisos.
 
 ## Requisitos
 
@@ -2692,4 +2693,128 @@ confirmar/rechazar y escanear/cancelar.
 [Verificación y capturas 3C](docs/phase-3c/VERIFICACION.md) y
 [evidencia de dominio](docs/phase-3c/verificacion-dominio.json).
 No se implementan gateway, envíos automáticos, devoluciones, Local Node, sincronización
-cloud ni sitio premium. **Fase 3D — Inventario/Usuarios queda pendiente de revisión.**
+cloud ni sitio premium. La Fase 3D se documenta en la sección siguiente.
+
+## Fase 3D — Inventario, catálogo, usuarios y permisos
+
+Gerencia incorpora **Inventario** (`/gerencia/inventario/`) y **Usuarios**
+(`/gerencia/usuarios/`) desde Administrar en Inicio. El encabezado conserva Inicio,
+Cierres, Reservas y Eventos. Reportes, Auditoría y Configuración siguen pendientes.
+Una alerta agregada enlaza los productos activos con stock bajo o agotado; no suma
+cada producto al contador de pendientes de la jornada.
+
+### Inventario y catálogo
+
+- Listado paginado de 25 productos, búsqueda por nombre/identificador, categoría y
+  estados derivados: Disponible, Stock bajo, Agotado y Sin control. Los indicadores
+  cuentan productos activos; el listado también permite editar productos inactivos.
+  Stock bajo excluye agotados para evitar duplicarlos en los indicadores.
+- Atención muestra hasta 10 productos, ordenados por existencias ascendentes.
+  Los combos no tienen inventario propio: su detalle muestra disponibilidad y
+  máximo calculados por `get_combo_max_available()` con los componentes existentes.
+- Entrada usa `receive_stock()`; ajuste usa `adjust_stock()`, cantidad positiva,
+  dirección Aumentar/Reducir y motivo obligatorio. Se conservan bloqueos, movimientos
+  y auditoría. Ninguna pantalla habilita vender existencias agotadas.
+- Movimientos son de sólo lectura, con paginación y filtros por producto, tipo y día
+  local. El detalle muestra los últimos 10; el enlace Ver todos conserva el producto.
+- Crear/editar productos no admite `stock_quantity`, aunque se envíe manualmente.
+  Crear empieza en cero; las existencias iniciales se reciben después. Formularios
+  separados por Información, Precio, Inventario y Preparación. Activar/desactivar
+  conserva historial; no hay borrado de productos ni categorías desde Gerencia.
+- Precio general se actualiza mediante `update_base_price()`, incluso al crear.
+  Establecer/modificar un precio especial usa `update_area_price()`; quitarlo usa
+  `remove_area_price()`, registra el regreso al precio general y auditoría explícita
+  de eliminación del precio especial. El detalle muestra los últimos 15 cambios.
+  Todos requieren `catalog.change_product_price`; sin él el precio está bloqueado.
+- Categorías permiten nombre, identificador, descripción, orden numérico y estado.
+  Modificadores permiten grupos y opciones, selección única/múltiple, límites,
+  obligatoriedad, orden, precio adicional y activación. No se añade stock a opciones.
+  Componentes de combos se agregan/editan/retiran con sus validaciones existentes;
+  no permiten autoreferencia ni combos anidados.
+- Imagen opcional con vista previa; se valida contenido real JPEG/PNG/WebP, hasta
+  5 MB, y se normaliza la extensión. No se añaden dependencias ni procesamiento pesado.
+- Lecturas requieren `inventory.view_inventory`. Entradas/ajustes y precios usan
+  sus permisos explícitos; edición de catálogo usa los permisos Django del modelo.
+  Las pantallas cargan relaciones de forma conjunta y paginan listados.
+
+### Usuarios y credenciales
+
+Se reutiliza `accounts.User`. La lista busca nombre/apellido/usuario y filtra roles
+MESERO, CAJERO, GERENTE, PROPIETARIO, GUARDIA o inactivos. Último acceso toma el mayor
+entre `last_login` y la creación de sesiones de tablet/caja; si no existe registro,
+se muestra así. Sólo se informa si el PIN está configurado, nunca sus hashes.
+
+Crear Mesero/Cajero/Guardia exige PIN inicial y confirmación, de **4–6 dígitos**.
+Gerente/Propietario exige contraseña y confirmación con los validadores Django.
+Se usan `set_pin()` y `set_password()`; no hay contraseñas predeterminadas. Se conserva
+la compatibilidad del modelo con PIN históricos de 4–12 dígitos; los nuevos PIN de
+Gerencia se limitan a 4–6, como la operación tablet/caja. Se rechazan identificadores
+que colisionen ignorando mayúsculas para evitar ambigüedad en el ingreso de guardias.
+
+El detalle ofrece identidad, rol, credenciales, permisos y actividad administrativa
+reciente. Restablecer PIN abre un modal sin revelar el anterior. Revoca las sesiones
+PIN existentes de tablet/caja; Guardia verifica la huella de credenciales en cada
+request. Cambiar sólo PIN no cierra Gerencia. Cambiar contraseña invalida las sesiones
+Django anteriores mediante su hash de autenticación. No hay correo ni perfil propio
+nuevo; los cambios de contraseña de esta fase son administrativos.
+
+Desactivar requiere confirmación firmada, vinculada a sesión/usuario/estado y con
+caducidad. Impide nuevos ingresos y bloquea cookies antiguas; se preserva historial.
+El último propietario activo no puede desactivarse ni cambiar de rol. Las escrituras
+de usuarios comparten una puerta transaccional de PostgreSQL y bloqueo de usuario,
+por lo que dos desactivaciones simultáneas tampoco dejan cero propietarios activos.
+Es una protección de la interfaz/servicios normales; Django Admin sigue siendo técnico.
+
+### Matriz de permisos y seguridad
+
+`apps/accounts/permissions.py` publica únicamente permisos especiales declarados en
+modelos de negocio seleccionados y una lista explícita de permisos estándar útiles.
+Se agrupan en Operación, Caja, Inventario, Reservas, Eventos, Gerencia, Impresión y
+Usuarios. Todos se resuelven contra `auth.Permission`: no hay otra matriz ni grupos
+nuevos. Los permisos heredados de grupos existentes se muestran como tales y no se
+retiran aquí; tampoco se alteran permisos técnicos fuera de la lista expuesta.
+
+Cambiar rol **no cambia permisos**. Los permisos sugeridos requieren confirmación y
+son **aditivos**, auditables y editables después. Mesero/Cajero incluyen acceso y
+operación habitual; Gerente recibe sugerencias de consulta; Propietario puede aplicar
+el catálogo completo con confirmación; Guardia sólo escaneo. Nada se concede por una
+condición global de rol Propietario. Superuser/staff permanecen fuera del formulario.
+
+Para cambiar a Guardia se exige retirar explícitamente los permisos incompatibles.
+No se borran silenciosamente. Si provienen de grupos o son permisos técnicos no
+expuestos, se resuelven en Django Admin. La matriz de Guardia ofrece sólo escanear.
+
+Además de `accounts.view_user`, `add_user` y `change_user`, la migración
+`accounts.0002_alter_user_options` crea únicamente:
+
+| Permiso | Acción |
+| --- | --- |
+| `reset_user_pin` | Restablecer PIN |
+| `change_user_credentials` | Cambiar contraseña administrativa |
+| `change_user_role` | Cambiar rol base |
+| `activate_user` | Activar/desactivar |
+| `manage_user_permissions` | Asignar/retirar permisos y aplicar sugerencias |
+
+Cada operación exige sesión Gerencia, POST, CSRF y su permiso. No se asignan estos
+permisos automáticamente a cuentas reales. Un administrador sólo puede administrar
+permisos que posee y no puede editar/recuperar una cuenta más privilegiada, incluso
+inactiva. Las cuentas técnicas staff/superuser requieren un superusuario técnico.
+Edición de identidad/permisos compara una revisión del estado leído bajo bloqueo;
+si otro administrador lo cambió, se pide actualizar en lugar de sobrescribir.
+
+Auditoría registra actor, destinatario y fecha para altas, identidad, rol, estado,
+PIN/contraseña, adiciones/retiros de permisos y sugerencias. Credenciales y hashes no
+aparecen en auditoría, mensajes o formularios renderizados. Parámetros sensibles y
+variables de credenciales se marcan para su exclusión de reportes de errores en producción.
+Las herramientas de prueba de `/acceso/` sólo se renderizan con `DEBUG=True`.
+
+### Verificación 3D
+
+La suite incluye pruebas de interfaz, permisos, CSRF, imágenes inválidas, stock no
+editable, historial de precios, modificadores, combos, credenciales y sesiones,
+escalamiento de privilegios, última administración y concurrencia real con conexiones
+PostgreSQL separadas. Evidencias, recorrido manual y capturas A–J en
+[verificación 3D](docs/phase-3d/VERIFICACION.md). No se implementa Fase 3E.
+
+Resultado verificado de Fase 3D: **902 pruebas Django (43 nuevas) y 7 JavaScript**.
+Las capturas y pruebas de recorrido usan una base aislada eliminada al terminar.

@@ -1,0 +1,29 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading">
+<div>
+<span class="eyebrow">EQUIPO Y ACCESOS</span>
+<h1>{{ title }}</h1>
+<p>Información de la persona y su rol en la operación.</p>
+</div>
+<a class="admin-button" href="{{ back }}">← Volver</a>
+</header>
+<div class="admin-form-layout">
+<section class="admin-panel admin-form-panel">
+<form method="post" data-user-form>{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">{% include 'operations/management/partials/admin_fields.html' %}<div class="admin-form-footer">
+<a href="{{ back }}">Cancelar</a>
+<button class="admin-button admin-button--primary">Guardar usuario</button>
+</div>
+</form>
+</section>
+<aside class="admin-panel admin-context">
+<span class="eyebrow">ACCESO SEGURO</span>
+<h2>Cada persona, su acceso</h2>
+<p>Meseros, cajeros y guardias ingresan con un PIN de 4 a 6 dígitos.</p>
+<p>Gerentes y propietarios necesitan una contraseña segura para entrar a Gerencia.</p>
+<div class="admin-divider">
+</div>
+<h3>Permisos individuales</h3>
+<p>Después de crear el usuario, configura sus permisos o aplica las sugerencias de su rol.</p>
+<p>Cambiar el rol conserva los permisos existentes.</p>
+</aside>
+</div>{% endblock %}

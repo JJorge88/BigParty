@@ -1,0 +1,114 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading">
+<div class="admin-person">
+<span class="admin-avatar admin-avatar--large">{{ target.first_name|first|default:target.username|first|upper }}</span>
+<div>
+<span class="eyebrow">EQUIPO BIG PARTY</span>
+<h1>{{ target.get_full_name|default:target.username }}</h1>
+<p>{{ target.get_role_display }} · {{ target.is_active|yesno:'Activo,Inactivo' }}</p>
+</div>
+</div>
+<div class="admin-actions">{% if perms.accounts.change_user %}<a class="admin-button" href="{% url 'management:user-edit' target.pk %}">Editar usuario</a>{% endif %}{% if perms.accounts.manage_user_permissions %}<a class="admin-button admin-button--primary" href="{% url 'management:user-permissions' target.pk %}">Administrar permisos ↗</a>{% endif %}</div>
+</header>
+{% if credential_error %}<div class="notice notice--error" role="alert">No se pudo actualizar la credencial. Abre el formulario para revisar el motivo.</div>{% endif %}
+<div class="admin-detail-grid">
+<section class="admin-panel admin-context">
+<h2>Información</h2>
+<dl class="admin-facts">
+<div>
+<dt>Nombre</dt>
+<dd>{{ target.first_name|default:'—' }}</dd>
+</div>
+<div>
+<dt>Apellido</dt>
+<dd>{{ target.last_name|default:'—' }}</dd>
+</div>
+<div>
+<dt>Usuario</dt>
+<dd>{{ target.username }}</dd>
+</div>
+<div>
+<dt>Rol base</dt>
+<dd>{{ target.get_role_display }}</dd>
+</div>
+<div>
+<dt>Estado</dt>
+<dd>
+<span class="admin-badge {% if target.is_active %}available{% endif %}">{{ target.is_active|yesno:'Activo,Inactivo' }}</span>
+</dd>
+</div>
+</dl>{% if perms.accounts.activate_user %}<div class="admin-divider">
+</div>
+<button class="admin-button" data-open-dialog="state-dialog">{{ target.is_active|yesno:'Desactivar usuario,Activar usuario' }}</button>
+<p class="admin-help">El historial se conserva al desactivar.</p>{% endif %}</section>
+<section class="admin-panel admin-context">
+<h2>Credenciales</h2>
+<div class="admin-credential">
+<div>
+<strong>PIN operativo</strong>
+<p>{{ has_pin|yesno:'Configurado,Sin configurar' }} · acceso personal</p>
+</div>{% if perms.accounts.reset_user_pin %}<button class="admin-button" data-open-dialog="pin-dialog">Restablecer PIN</button>{% endif %}</div>
+<div class="admin-credential">
+<div>
+<strong>Contraseña</strong>
+<p>{{ has_password|yesno:'Configurada,Sin configurar' }} · acceso a Gerencia</p>
+</div>{% if perms.accounts.change_user_credentials %}<button class="admin-button" data-open-dialog="password-dialog">Cambiar contraseña</button>{% endif %}</div>
+<p class="admin-help">Las credenciales existentes nunca se muestran. Restablecer el PIN cierra las sesiones operativas de esta persona.</p>
+</section>
+</div>
+<section class="admin-panel admin-context">
+<div class="admin-section-title">
+<h2>Permisos</h2>{% if perms.accounts.manage_user_permissions %}<a href="{% url 'management:user-permissions' target.pk %}">Ver y editar ↗</a>{% endif %}</div>
+<p>Los permisos se asignan individualmente. El rol {{ target.get_role_display }} no concede acceso automáticamente.</p>
+</section>
+<section class="admin-panel admin-context">
+<h2>Actividad reciente de administración</h2>
+<div class="admin-timeline">{% for item in recent %}<div>
+<span class="status-dot">
+</span>
+<div>
+<strong>{{ item.action_label }}</strong>
+<p>{{ item.user.get_full_name|default:item.user.username|default:'Sistema' }} · {{ item.created_at|date:'d M Y · H:i' }}</p>
+</div>
+</div>{% empty %}<p>Aún no hay cambios administrativos registrados.</p>{% endfor %}</div>
+</section>
+{% if perms.accounts.reset_user_pin %}<dialog id="pin-dialog" class="admin-dialog" {% if open_dialog == 'pin-dialog' %}data-auto-open{% endif %}>
+<div class="admin-section-title">
+<span class="eyebrow">ACCESO OPERATIVO</span>
+<button type="button" class="admin-close" data-close="pin-dialog" aria-label="Cerrar">×</button>
+</div>
+<h2>Restablecer PIN</h2>
+<p>{{ target.get_full_name|default:target.username }} · {{ target.get_role_display }}</p>
+<form method="post" action="{% url 'management:user-pin' target.pk %}">{% csrf_token %}{% include 'operations/management/partials/admin_fields.html' with form=pin_form %}<p class="admin-help">Usa 4–6 dígitos. El nuevo PIN cerrará sus sesiones de tablet, caja y acceso.</p>
+<div class="admin-form-footer">
+<button type="button" class="admin-button" data-close="pin-dialog">Cancelar</button>
+<button class="admin-button admin-button--primary">Restablecer PIN</button>
+</div>
+</form>
+</dialog>{% endif %}
+{% if perms.accounts.change_user_credentials %}<dialog id="password-dialog" class="admin-dialog" {% if open_dialog == 'password-dialog' %}data-auto-open{% endif %}>
+<div class="admin-section-title">
+<span class="eyebrow">ACCESO GERENCIA</span>
+<button type="button" class="admin-close" data-close="password-dialog" aria-label="Cerrar">×</button>
+</div>
+<h2>Cambiar contraseña</h2>
+<p>{{ target.get_full_name|default:target.username }}</p>
+<form method="post" action="{% url 'management:user-password' target.pk %}">{% csrf_token %}{% include 'operations/management/partials/admin_fields.html' with form=password_form %}<p class="admin-help">Usa una contraseña única, de al menos 8 caracteres, que no sea común ni sólo numérica.</p>
+<div class="admin-form-footer">
+<button type="button" class="admin-button" data-close="password-dialog">Cancelar</button>
+<button class="admin-button admin-button--primary">Guardar contraseña</button>
+</div>
+</form>
+</dialog>{% endif %}
+<dialog id="state-dialog" class="admin-dialog">
+<h2>{{ target.is_active|yesno:'Desactivar usuario,Activar usuario' }}</h2>
+<p>{{ target.get_full_name|default:target.username }}. {% if target.is_active %}Dejará de poder ingresar a la operación. Su historial permanecerá intacto.{% else %}Podrá ingresar con sus credenciales y permisos actuales.{% endif %}</p>
+<form method="post" action="{% url 'management:user-state' target.pk %}">{% csrf_token %}<input type="hidden" name="confirmation" value="{{ state_confirmation }}">
+<input type="hidden" name="confirmed" value="yes">
+<div class="admin-form-footer">
+<button type="button" class="admin-button" data-close="state-dialog">Cancelar</button>
+<button class="admin-button admin-button--primary">Confirmar</button>
+</div>
+</form>
+</dialog>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading">
+<div>
+<span class="eyebrow">TRAZABILIDAD</span>
+<h1>Movimientos de inventario</h1>
+<p>Cada entrada, ajuste y salida en un mismo lugar.</p>
+</div>
+<a class="admin-button" href="{% url 'management:inventory' %}">← Inventario</a>
+</header>
+<section class="admin-panel">
+<form method="get" class="admin-filters">
+<select aria-label="Producto" name="product">
+<option value="">Todos los productos</option>{% for product in products %}<option value="{{ product.pk }}" {% if request.GET.product == product.pk|stringformat:'s' %}selected{% endif %}>{{ product.name }}</option>{% endfor %}</select>
+<select aria-label="Tipo" name="type">
+<option value="">Todos los movimientos</option>{% for code,label in types %}<option value="{{ code }}" {% if request.GET.type == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<input aria-label="Fecha" type="date" name="date" value="{{ request.GET.date }}">
+<button class="admin-button">Filtrar</button>
+</form>{% include 'operations/management/partials/movement_table.html' with movements=rows show_product=True %}{% include 'operations/management/partials/admin_pagination.html' %}</section>{% endblock %}

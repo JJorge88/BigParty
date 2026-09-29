@@ -1,0 +1,41 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading">
+<div>
+<span class="eyebrow">ACCESOS INDIVIDUALES</span>
+<h1>Permisos del usuario</h1>
+<p>{{ target.get_full_name|default:target.username }} · {{ target.get_role_display }}</p>
+</div>
+<a class="admin-button" href="{% url 'management:user' target.pk %}">← Volver al usuario</a>
+</header>
+<section class="admin-attention">
+<div>
+<h2>Una base para su rol</h2>
+<p>Las sugerencias agregan permisos. Puedes ajustarlos después.</p>
+</div>
+<button class="admin-button" data-open-dialog="preset-dialog">Aplicar permisos sugeridos</button>
+</section>
+<form method="post">{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">
+<div class="admin-permission-grid">{% for group in groups %}<fieldset class="admin-panel admin-context">
+<legend>{{ group.title }}</legend>{% for entry in group.entries %}<label class="admin-permission check-label">
+<input type="checkbox" name="permission" value="{{ entry.code }}" {% if entry.selected %}checked{% endif %} {% if entry.locked %}disabled{% endif %}>
+<span>{{ entry.label }}{% if entry.inherited %}<small>También heredado · se administra fuera de esta pantalla</small>{% endif %}{% if entry.locked %}<small>Requiere un permiso que no posees</small>{% endif %}</span>
+</label>{% if entry.locked and entry.selected %}<input type="hidden" name="permission" value="{{ entry.code }}">{% endif %}{% endfor %}</fieldset>{% endfor %}</div>
+<div class="admin-save-bar">
+<p>Sólo los permisos seleccionados se asignarán directamente.</p>
+<button class="admin-button admin-button--primary">Guardar permisos</button>
+</div>
+</form>
+<dialog id="preset-dialog" class="admin-dialog">
+<h2>Aplicar permisos sugeridos para {{ target.get_role_display }}</h2>
+<p>Se agregarán los siguientes permisos. Los ya asignados permanecerán.</p>
+<ul class="admin-preset-list">{% for label in preset_labels %}<li>{{ label }}</li>{% endfor %}</ul>
+<form method="post">{% csrf_token %}<input type="hidden" name="action" value="preset">
+<input type="hidden" name="revision" value="{{ revision }}">
+<input type="hidden" name="confirmation" value="{{ preset_confirmation }}">
+<input type="hidden" name="confirmed" value="yes">
+<div class="admin-form-footer">
+<button class="admin-button" type="button" data-close="preset-dialog">Cancelar</button>
+<button class="admin-button admin-button--primary">Aplicar permisos</button>
+</div>
+</form>
+</dialog>{% endblock %}

@@ -1,0 +1,30 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}
+<header class="admin-heading">
+<div>
+<span class="eyebrow">CATÁLOGO Y EXISTENCIAS</span>
+<h1>{{ title }}</h1>
+<p>{{ subtitle }}</p>
+</div>
+<a class="admin-button" href="{{ back }}">← Volver</a>
+</header>
+<div class="admin-form-layout">
+<section class="admin-panel admin-form-panel">
+<form method="post" enctype="multipart/form-data">{% csrf_token %}{% include 'operations/management/partials/admin_fields.html' %}{% if adjustment %}<p class="admin-help">Ejemplos de motivo: Conteo físico · Rotura · Pérdida · Corrección.</p>{% endif %}<div class="admin-form-footer">
+<a href="{{ back }}">Cancelar</a>
+<button class="admin-button admin-button--primary">{{ submit }}</button>
+</div>
+</form>
+</section>
+<aside class="admin-panel admin-context">
+<span class="eyebrow">{% if product %}PRODUCTO{% else %}CATÁLOGO BIG PARTY{% endif %}</span>
+<h2>{{ product.name|default:'Organiza tu operación' }}</h2>{% if product %}<p>{{ product.category.name }}</p>{% if stock_form %}<div class="admin-stock-number">
+<strong>{{ product.stock_quantity }}</strong>
+<span>unidades actuales</span>
+</div>
+<p>Stock mínimo: {{ product.minimum_stock }}</p>
+<div class="admin-divider">
+</div>
+<p>El movimiento queda registrado con tu usuario y su motivo.</p>{% else %}{% if product.image %}<img class="admin-product-image" src="{{ product.image.url }}" alt="{{ product.name }}">{% endif %}<p>Precio general · Q{{ product.base_price|floatformat:2 }}</p>{% endif %}{% else %}<p>Los productos nuevos comienzan sin existencias. Usa Registrar entrada después de crearlos.</p>{% endif %}</aside>
+</div>
+{% endblock %}

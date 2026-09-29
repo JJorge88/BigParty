@@ -9,7 +9,9 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.utils.crypto import salted_hmac
+from django.utils.crypto import salted_hmac, constant_time_compare
+from django.views.decorators.debug import sensitive_post_parameters
+from apps.operations.security import user_auth_hash
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
 from .models import GuardLoginAttempt
@@ -25,7 +27,8 @@ def required(view):
     @never_cache
     def wrapped(request, *args, **kwargs):
         last = request.session.get('guard_last_activity', 0)
-        if not eligible(request.user) or timezone.now().timestamp() - last >= settings.EVENT_GUARD_IDLE_SECONDS:
+        if (not eligible(request.user) or timezone.now().timestamp() - last >= settings.EVENT_GUARD_IDLE_SECONDS
+                or not constant_time_compare(request.session.get('guard_auth_hash', ''), user_auth_hash(request.user))):
             logout(request)
             if request.method == 'POST':
                 return JsonResponse({'error': 'Sesión terminada. Ingresa nuevamente.'}, status=401)
@@ -62,6 +65,7 @@ def pin_login(username, pin, ip):
 
 
 @never_cache
+@sensitive_post_parameters('pin')
 @require_http_methods(['GET', 'POST'])
 def sign_in(request):
     error = ''
@@ -70,6 +74,7 @@ def sign_in(request):
         if user:
             login(request, user, backend='django.contrib.auth.backends.ModelBackend')
             request.session['guard_last_activity'] = timezone.now().timestamp()
+            request.session['guard_auth_hash'] = user_auth_hash(user)
             request.session.set_expiry(settings.EVENT_GUARD_IDLE_SECONDS)
             return redirect('event-access:scanner')
         error = 'Acceso no disponible. Revisa usuario/PIN o espera 5 minutos si agotaste los intentos.'

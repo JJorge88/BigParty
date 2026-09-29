@@ -1,0 +1,24 @@
+<div class="admin-table-wrap">
+<table class="admin-table">
+<thead>
+<tr>
+<th>Fecha</th>{% if show_product %}<th>Producto</th>{% endif %}<th>Tipo</th>
+<th>Cantidad</th>
+<th>Antes → después</th>
+<th>Usuario / motivo</th>
+</tr>
+</thead>
+<tbody>{% for movement in movements %}<tr>
+<td>{{ movement.created_at|date:'d M Y' }}<small>{{ movement.created_at|date:'H:i' }}</small>
+</td>{% if show_product %}<td>
+<a href="{% url 'management:product' movement.product_id %}">{{ movement.product.name }}</a>
+</td>{% endif %}<td>{{ movement.get_movement_type_display }}</td>
+<td class="admin-number">{% if movement.quantity_delta > 0 %}+{% endif %}{{ movement.quantity_delta }}</td>
+<td>{{ movement.stock_before }} → {{ movement.stock_after }}</td>
+<td>{{ movement.user.get_full_name|default:movement.user.username|default:'Sistema' }}<small>{{ movement.reason|default:'—' }}</small>
+</td>
+</tr>{% empty %}<tr>
+<td colspan="6" class="admin-empty">Sin movimientos registrados.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>

@@ -109,3 +109,16 @@ def update_area_price(product, area, new_price, *, user):
         override.save()
         _price_change(current, area, old_price, price, user)
     return override
+
+
+@transaction.atomic
+def remove_area_price(product, area, *, user):
+    """Volver al precio general conserva el precio efectivo y la intención en auditoría."""
+    _require_price_permission(user)
+    current = Product.objects.select_for_update().get(pk=product.pk)
+    override = ProductAreaPrice.objects.filter(product=current, area=area).first()
+    if override:
+        _price_change(current, area, override.price, current.base_price, user)
+        override.delete()
+        AuditLog.objects.create(user=user, action='catalog.area_price_removed',
+            entity='catalog.product', entity_id=str(current.pk), data={'area_id': area.pk})

@@ -1,0 +1,58 @@
+[
+  {
+    "page": "crear-usuario",
+    "width": 1440,
+    "height": 900,
+    "pageWidth": 1440,
+    "viewport": 1440
+  },
+  {
+    "page": "crear-usuario",
+    "width": 1366,
+    "height": 768,
+    "pageWidth": 1366,
+    "viewport": 1366
+  },
+  {
+    "page": "crear-usuario",
+    "width": 1920,
+    "height": 1080,
+    "pageWidth": 1920,
+    "viewport": 1920
+  },
+  {
+    "page": "crear-usuario",
+    "width": 768,
+    "height": 1024,
+    "pageWidth": 768,
+    "viewport": 768
+  },
+  {
+    "page": "/gerencia/inventario/",
+    "width": 768,
+    "height": 1024,
+    "pageWidth": 768,
+    "viewport": 768
+  },
+  {
+    "page": "/gerencia/inventario/producto/1/",
+    "width": 768,
+    "height": 1024,
+    "pageWidth": 768,
+    "viewport": 768
+  },
+  {
+    "page": "/gerencia/usuarios/3/",
+    "width": 768,
+    "height": 1024,
+    "pageWidth": 768,
+    "viewport": 768
+  },
+  {
+    "page": "/gerencia/usuarios/3/permisos/",
+    "width": 768,
+    "height": 1024,
+    "pageWidth": 768,
+    "viewport": 768
+  }
+]

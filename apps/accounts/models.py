@@ -26,6 +26,13 @@ class User(AbstractUser):
     class Meta(AbstractUser.Meta):
         verbose_name = "usuario"
         verbose_name_plural = "usuarios"
+        permissions = [
+            ('reset_user_pin', 'Puede restablecer PIN de usuarios'),
+            ('change_user_credentials', 'Puede cambiar contraseñas de usuarios'),
+            ('change_user_role', 'Puede cambiar roles base'),
+            ('activate_user', 'Puede activar y desactivar usuarios'),
+            ('manage_user_permissions', 'Puede administrar permisos individuales'),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=models.Q(role__in=["MESERO", "CAJERO", "GERENTE", "PROPIETARIO", "GUARDIA"]),

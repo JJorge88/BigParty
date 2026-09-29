@@ -1,0 +1,38 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading">
+<div>
+<span class="eyebrow">CATÁLOGO</span>
+<h1>Categorías</h1>
+<p>Organiza los productos y su orden en el catálogo.</p>
+</div>{% if perms.catalog.add_category %}<a class="admin-button admin-button--primary" href="{% url 'management:category-create' %}">＋ Crear categoría</a>{% endif %}</header>
+<nav class="admin-tabs">
+<a href="{% url 'management:inventory' %}">Productos</a>
+<a aria-current="page" href="{% url 'management:categories' %}">Categorías</a>
+</nav>
+<section class="admin-panel">
+<div class="admin-table-wrap">
+<table class="admin-table">
+<thead>
+<tr>
+<th>Categoría</th>
+<th>Orden</th>
+<th>Estado</th>
+<th>
+</th>
+</tr>
+</thead>
+<tbody>{% for category in rows %}<tr>
+<td>
+<strong>{{ category.name }}</strong>
+<small>{{ category.slug }}</small>
+</td>
+<td>{{ category.sort_order }}</td>
+<td>
+<span class="admin-badge">{{ category.is_active|yesno:'Activa,Inactiva' }}</span>
+</td>
+<td>{% if perms.catalog.change_category %}<a href="{% url 'management:category-edit' category.pk %}">Editar ↗</a>{% endif %}</td>
+</tr>{% empty %}<tr>
+<td colspan="4" class="admin-empty">Aún no hay categorías.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>{% include 'operations/management/partials/admin_pagination.html' %}</section>{% endblock %}
