@@ -3,6 +3,7 @@
 Todos los escritores del aforo toman el mismo bloqueo PostgreSQL. No se usa
 un contador cacheado ni se confía en disponibilidad calculada por el cliente.
 """
+from apps.sync.services import sync_atomic, save_tracked
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 import re
@@ -30,7 +31,7 @@ def audit(action, obj, user=None, **data):
 
 def save(obj):
     obj.full_clean()
-    obj.save()
+    save_tracked(obj)
     return obj
 
 
@@ -89,6 +90,7 @@ def enforce_capacity(event):
         raise ValidationError('Entradas y mesas configuradas superan el aforo máximo.')
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def create_event(user, **data):
     require(user, 'create_event')
@@ -102,6 +104,7 @@ def create_event(user, **data):
     return event
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def edit_event(event, user, **data):
     require(user, 'change_event')
@@ -122,6 +125,7 @@ def edit_event(event, user, **data):
     return event
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def configure_settings(user, **data):
     require(user, 'change_event')
@@ -134,6 +138,7 @@ def configure_settings(user, **data):
     return settings
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def save_ticket_type(event, user, ticket_type=None, **data):
     require(user, 'manage_event_ticket_types')
@@ -156,6 +161,7 @@ def save_ticket_type(event, user, ticket_type=None, **data):
     return row
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def save_event_table(event, user, table, ticket_type, cover_per_person, enabled=True):
     require(user, 'manage_event_tables')
@@ -206,6 +212,7 @@ def validate_event_for_publication(event):
     return errors
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def publish_event(event, user):
     require(user, 'publish_event')
@@ -221,6 +228,7 @@ def publish_event(event, user):
     return event
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def duplicate_event(event, user):
     require(user, 'duplicate_event')
@@ -241,6 +249,7 @@ def duplicate_event(event, user):
     return copy
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def create_purchase(event, customer_name, customer_phone, quantities=None, table_configuration=None):
     event = locked(event)
@@ -300,6 +309,7 @@ def set_purchase_status(purchase, status):
         save(purchase_table)
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def submit_event_payment(purchase, amount, reference, proof_image):
     event, purchase = lock_purchase(purchase)
@@ -334,6 +344,7 @@ def _generate_tickets(purchase, user):
     return tickets
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def generate_purchase_tickets(purchase, user):
     require(user, 'verify_event_payment')
@@ -343,6 +354,7 @@ def generate_purchase_tickets(purchase, user):
     return _generate_tickets(purchase, user)
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def confirm_event_payment(payment, user):
     require(user, 'verify_event_payment')
@@ -364,6 +376,7 @@ def confirm_event_payment(payment, user):
     return tickets
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def reject_event_payment(payment, user, reason):
     require(user, 'reject_event_payment')
@@ -378,6 +391,7 @@ def reject_event_payment(payment, user, reason):
     return payment
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def issue_courtesy_tickets(event, ticket_type, quantity, created_by, reason=''):
     require(created_by, 'issue_courtesy_tickets')
@@ -395,6 +409,7 @@ def issue_courtesy_tickets(event, ticket_type, quantity, created_by, reason=''):
     return tickets
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def reschedule_event(event, user, starts_at, ends_at, reason):
     require(user, 'reschedule_event')
@@ -410,6 +425,7 @@ def reschedule_event(event, user, starts_at, ends_at, reason):
     return event
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def cancel_event(event, user, reason):
     require(user, 'cancel_event')
@@ -432,6 +448,7 @@ def cancel_event(event, user, reason):
     return event
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def finish_event(event, user):
     require(user, 'change_event')
@@ -446,6 +463,7 @@ def finish_event(event, user):
     return event
 
 
+@sync_atomic('cloud')
 def expire_event_purchases(now=None):
     now = now or timezone.now()
     count = 0
@@ -460,6 +478,7 @@ def expire_event_purchases(now=None):
     return count
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def validate_and_use_ticket(token, guard_user):
     require(guard_user, 'scan_event_ticket')

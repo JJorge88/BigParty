@@ -1,4 +1,5 @@
 """Administración de identidades y permisos, sin asignaciones implícitas por rol."""
+from apps.sync.services import sync_atomic, save_tracked
 import hashlib
 import re
 from django.contrib.auth.hashers import is_password_usable
@@ -68,6 +69,7 @@ def revoke_pin_sessions(target):
     # Guardia valida huella del PIN en cada request. La sesión Gerencia no depende del PIN.
 
 
+@sync_atomic('local')
 @sensitive_variables()
 @transaction.atomic
 def save_user(data, *, actor, pk=None, expected=None):
@@ -109,7 +111,7 @@ def save_user(data, *, actor, pk=None, expected=None):
     if User.objects.filter(username__iexact=target.username).exclude(pk=target.pk).exists():
         raise ValidationError('Ya existe un usuario con ese identificador.')
     target.full_clean(exclude=['password', 'pin_hash'])
-    target.save()
+    save_tracked(target)
     if not pk:
         audit(actor, target, 'user_created', role=target.role, active=target.is_active)
     else:
@@ -123,6 +125,7 @@ def save_user(data, *, actor, pk=None, expected=None):
     return target
 
 
+@sync_atomic('local')
 @sensitive_variables()
 @transaction.atomic
 def reset_credential(pk, value, *, actor, kind):
@@ -135,16 +138,17 @@ def reset_credential(pk, value, *, actor, kind):
     if kind == 'pin':
         validate_new_pin(value)
         target.set_pin(value)
-        target.save(update_fields=['pin_hash'])
+        save_tracked(target, update_fields=['pin_hash'])
         revoke_pin_sessions(target)
     else:
         validate_password(value, target)
         target.set_password(value)
-        target.save(update_fields=['password'])
+        save_tracked(target, update_fields=['password'])
     audit(actor, target, 'pin_reset' if kind == 'pin' else 'password_reset')
     return target
 
 
+@sync_atomic('local')
 @transaction.atomic
 def update_permissions(pk, selection, *, actor, expected, preset=False):
     lock_operation_gate()

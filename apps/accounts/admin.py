@@ -1,3 +1,4 @@
+from apps.sync.admin import SyncAdminMixin
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.decorators import method_decorator
@@ -8,7 +9,7 @@ from .models import User
 
 
 @admin.register(User)
-class BigPartyUserAdmin(UserAdmin):
+class BigPartyUserAdmin(SyncAdminMixin, UserAdmin):
     form = AdminUserChangeForm
     add_form = AdminUserCreationForm
     list_display = ("username", "first_name", "last_name", "role", "is_active", "is_staff")

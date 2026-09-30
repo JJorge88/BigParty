@@ -1,3 +1,5 @@
+from apps.sync.services import sync_atomic, track
+from apps.sync.admin import SyncAdminMixin
 from django.contrib import admin
 
 from apps.audit.models import AuditLog
@@ -6,7 +8,7 @@ from .models import CashRegister, CashSession, CashHandoff, CashMovement, Busine
 
 
 @admin.register(CashRegister)
-class CashRegisterAdmin(admin.ModelAdmin):
+class CashRegisterAdmin(SyncAdminMixin, admin.ModelAdmin):
     list_display = ("name", "code", "area", "is_active")
     list_filter = ("area", "is_active")
     readonly_fields = ("created_at", "updated_at")
@@ -14,7 +16,9 @@ class CashRegisterAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    @sync_atomic('local')
     def save_model(self, request, obj, form, change):
+        track(obj)
         super().save_model(request, obj, form, change)
         AuditLog.objects.create(user=request.user, action="cash.register_changed" if change else "cash.register_created",
                                 entity="cash.cashregister", entity_id=str(obj.pk), data={"fields": form.changed_data})

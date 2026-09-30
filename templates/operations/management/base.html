@@ -12,11 +12,12 @@
 </form>
 </div>{% endblock %}
 {% block content %}
-<main id="main" class="management-main {% block main_class %}{% endblock %}">{% if error %}
+<main {% if sync_readonly %}data-sync-readonly="{% if sync_cloud %}local{% else %}cloud{% endif %}"{% endif %} id="main" class="management-main {% block main_class %}{% endblock %}">{% if error %}
 <div class="notice notice--error" role="alert">{{ error }}
 </div>{% endif %}
+{% if sync_readonly %}<p class="notice">Administrado desde BIG PARTY {% if sync_cloud %}Local Node{% else %}Cloud{% endif %}. Información de lectura.</p>{% endif %}
 {% block management_content %}{% endblock %}
 <footer class="management-footer"><span>BIG PARTY · Control de la operación</span><span>Sesión protegida · 30 min de inactividad</span>
 </footer>
 </main>{% endblock %}
-{% block scripts %}<script type="module" src="{% static 'js/operations/management.js' %}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/sync-authority.js' %}"></script><script type="module" src="{% static 'js/operations/management.js' %}"></script>{% endblock %}

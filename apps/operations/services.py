@@ -1,3 +1,4 @@
+from apps.sync.services import sync_atomic
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 
@@ -6,6 +7,7 @@ from apps.cash.guards import lock_open_day
 from apps.tables.models import VenueTable
 
 
+@sync_atomic('local')
 @transaction.atomic
 def open_operational_table(context, table_id, billing_mode):
     user = context["user"]

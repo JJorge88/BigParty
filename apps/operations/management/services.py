@@ -46,6 +46,11 @@ def review_payment(request, day_id, payment_id, action):
     if day.status != 'OPEN':
         raise ValidationError('La jornada está cerrada. Requiere reapertura autorizada antes de corregir pagos.')
     security.verify_confirmation(request,action,payment.pk,payment_revision(payment,day))
+    from django.conf import settings
+    if settings.SYNC_ENABLED and settings.DEPLOYMENT_MODE=='cloud':
+        from apps.sync.commands import request_payment_command
+        request_payment_command(payment,request.user,action,request.POST.get('reason',''))
+        return payment
     if action == 'confirm':
         return payments.confirm_pending_payment(payment,request.user)
     return payments.reject_pending_payment(payment,request.user,request.POST.get('reason',''))

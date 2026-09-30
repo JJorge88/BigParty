@@ -1,4 +1,5 @@
 """Único punto soportado para entradas y ajustes del inventario global."""
+from apps.sync.services import sync_atomic, track, save_tracked
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 
@@ -23,21 +24,22 @@ def _record_movement(product, delta, user, reason, movement_type, *, metadata=No
     if after < 0:
         raise ValidationError("El ajuste dejaría existencias negativas.")
     current.stock_quantity = after
-    current.save(update_fields=["stock_quantity", "updated_at"])
+    save_tracked(current, update_fields=["stock_quantity", "updated_at"])
     movement = InventoryMovement(
         product=current, movement_type=movement_type, quantity_delta=delta,
         stock_before=before, stock_after=after, reason=reason, user=user, metadata=metadata or {},
     )
     movement.full_clean()
-    movement.save()
-    AuditLog.objects.create(
+    save_tracked(movement)
+    track(AuditLog.objects.create(
         user=user, action=f"inventory.{movement_type.lower()}", entity="catalog.product", entity_id=str(current.pk),
         data={"movement_id": movement.pk, "quantity_delta": delta,
               "stock_before": before, "stock_after": after, "reason": reason},
-    )
+    ))
     return movement
 
 
+@sync_atomic('local')
 @transaction.atomic
 def receive_stock(product, quantity, *, user, reason=""):
     _require_permission(user, "receive_inventory")
@@ -48,6 +50,7 @@ def receive_stock(product, quantity, *, user, reason=""):
     return _record_movement(product, quantity, user, reason.strip(), InventoryMovement.MovementType.RECEIPT)
 
 
+@sync_atomic('local')
 @transaction.atomic
 def adjust_stock(product, quantity_delta, *, user, reason):
     _require_permission(user, "adjust_inventory")

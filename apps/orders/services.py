@@ -1,4 +1,5 @@
 """Operaciones soportadas: permiso, bloqueo, validación, escritura e historial."""
+from apps.sync.services import sync_atomic, track, save_tracked
 from collections import Counter
 from decimal import Decimal
 
@@ -42,7 +43,7 @@ def _text(value, label="La nota"):
 
 def _save(obj):
     obj.full_clean()
-    obj.save()
+    save_tracked(obj)
     return obj
 
 
@@ -103,10 +104,11 @@ def _link(order, table):
     link, _ = OrderTableLink.objects.get_or_create(order=order, table=table)
     if link.released_at is not None:
         link.released_at = None
-        link.save(update_fields=["released_at"])
+        save_tracked(link, update_fields=["released_at"])
     return link
 
 
+@sync_atomic('local')
 @transaction.atomic
 def open_table_order(table, user, *, responsible_waiter=None, billing_mode="SINGLE", general_note=""):
     _require(user, "open_table_order")
@@ -133,6 +135,7 @@ def _create_table_order(table, user, *, day, responsible, billing_mode="SINGLE",
     return order
 
 
+@sync_atomic('local')
 @transaction.atomic
 def create_subaccount(order, name, user):
     _require(user, "manage_subaccounts")
@@ -144,6 +147,7 @@ def create_subaccount(order, name, user):
     return account
 
 
+@sync_atomic('local')
 @transaction.atomic
 def change_billing_mode(order, billing_mode, user):
     _require(user, "manage_subaccounts")
@@ -193,6 +197,7 @@ def get_order_product_quote(product, area, quantity=1, *, modifier_option_ids=No
             "total": unit_price * quantity, "options": options}
 
 
+@sync_atomic('local')
 @transaction.atomic
 def add_product_to_order(order, product, quantity, user, *, subaccount=None, modifier_option_ids=None, notes="", draft_origin=""):
     _require(user, "add_order_line")
@@ -224,15 +229,16 @@ def add_product_to_order(order, product, quantity, user, *, subaccount=None, mod
                                is_combo_snapshot=product.is_combo, quantity=quantity, base_unit_price=base_price,
                                unit_price=price, notes=notes, created_by=user, draft_origin=draft_origin))
         for option in options:
-            OrderLineModifier.objects.create(order_line=line, modifier_option=option,
-                option_name_snapshot=option.name, price_delta_snapshot=option.price_delta)
+            track(OrderLineModifier.objects.create(order_line=line, modifier_option=option,
+                option_name_snapshot=option.name, price_delta_snapshot=option.price_delta))
         for product_id, units, name, route in specs:
-            OrderLineComponent.objects.create(order_line=line, product_id=product_id,
-                quantity_per_unit=units, name_snapshot=name, route_snapshot=route)
+            track(OrderLineComponent.objects.create(order_line=line, product_id=product_id,
+                quantity_per_unit=units, name_snapshot=name, route_snapshot=route))
     _log(current, user, "PRODUCT_ADDED", f"Agregó {quantity} × {line.product_name_snapshot}", line_id=line.pk, quantity=quantity)
     return line
 
 
+@sync_atomic('local')
 @transaction.atomic
 def increase_draft_line(line, user, quantity=1):
     _require(user, "add_order_line")
@@ -244,6 +250,7 @@ def increase_draft_line(line, user, quantity=1):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def decrease_draft_line(line, user, quantity=1):
     _require(user, "add_order_line")
@@ -259,6 +266,7 @@ def decrease_draft_line(line, user, quantity=1):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def remove_draft_line(line, user):
     _require(user, "add_order_line")
@@ -270,6 +278,7 @@ def remove_draft_line(line, user):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def update_draft_line_note(line, notes, user):
     _require(user, "add_order_line")
@@ -280,6 +289,7 @@ def update_draft_line_note(line, notes, user):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def update_order_note(order, note, user):
     _require(user, "add_order_line")
@@ -330,6 +340,7 @@ def _locked_products(lines):
     return {product.pk: product for product in Product.objects.filter(pk__in=ids).order_by("pk").select_for_update()}
 
 
+@sync_atomic('local')
 @transaction.atomic
 def send_order(order, user, *, subaccount=None, draft_origin="", fulfillment_mode="NORMAL_TABLE_SEND", defer_ticket=False):
     _require(user, "send_order")
@@ -375,7 +386,7 @@ def send_order(order, user, *, subaccount=None, draft_origin="", fulfillment_mod
                     "Consumo enviado a preparación", InventoryMovement.MovementType.SALE,
                     metadata={"order_id": current.pk, "line_id": line.pk, "table": current.primary_table_id})
                 item.stock_deducted = True
-                item.save(update_fields=["stock_deducted"])
+                save_tracked(item, update_fields=["stock_deducted"])
         line.status = "SENT"
         line.fulfillment_mode = fulfillment_mode
         _save(line)
@@ -387,6 +398,7 @@ def send_order(order, user, *, subaccount=None, draft_origin="", fulfillment_mod
     return ticket
 
 
+@sync_atomic('local')
 @transaction.atomic
 def cancel_sent_line(line, user, reason):
     _require(user, "cancel_sent_order_line")
@@ -410,6 +422,7 @@ def cancel_sent_line(line, user, reason):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def update_sent_line_note(line, notes, user):
     _require(user, "add_order_line")
@@ -442,15 +455,16 @@ def _clone_line(line, quantity, destination, user):
         status=line.status, created_by=user, source_line=line.source_line or line,
         draft_origin=line.draft_origin, fulfillment_mode=line.fulfillment_mode))
     for item in line.modifiers.all():
-        OrderLineModifier.objects.create(order_line=clone, modifier_option_id=item.modifier_option_id,
-            option_name_snapshot=item.option_name_snapshot, price_delta_snapshot=item.price_delta_snapshot)
+        track(OrderLineModifier.objects.create(order_line=clone, modifier_option_id=item.modifier_option_id,
+            option_name_snapshot=item.option_name_snapshot, price_delta_snapshot=item.price_delta_snapshot))
     for item in line.components.all():
-        OrderLineComponent.objects.create(order_line=clone, product_id=item.product_id,
+        track(OrderLineComponent.objects.create(order_line=clone, product_id=item.product_id,
             quantity_per_unit=item.quantity_per_unit, name_snapshot=item.name_snapshot,
-            route_snapshot=item.route_snapshot, stock_deducted=item.stock_deducted)
+            route_snapshot=item.route_snapshot, stock_deducted=item.stock_deducted))
     return clone
 
 
+@sync_atomic('local')
 @transaction.atomic
 def move_line_to_subaccount(line, destination, user, *, quantity=None):
     _require(user, "manage_subaccounts")
@@ -480,6 +494,7 @@ def move_line_to_subaccount(line, destination, user, *, quantity=None):
     return result
 
 
+@sync_atomic('local')
 @transaction.atomic
 def move_order_to_table(order, destination_table, user):
     _require(user, "move_order_table")
@@ -507,6 +522,7 @@ def move_order_to_table(order, destination_table, user):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def join_table_to_order(order, table, user):
     _require(user, "merge_orders")
@@ -524,6 +540,7 @@ def join_table_to_order(order, table, user):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def merge_orders(primary_order, secondary_order, user):
     _require(user, "merge_orders")
@@ -557,7 +574,7 @@ def merge_orders(primary_order, secondary_order, user):
     secondary.activities.update(order=primary)
     for link in links:
         link.released_at = timezone.now()
-        link.save(update_fields=["released_at"])
+        save_tracked(link, update_fields=["released_at"])
         _link(primary, link.table)
     secondary.status = "MERGED"
     secondary.merged_into = primary
@@ -567,6 +584,7 @@ def merge_orders(primary_order, secondary_order, user):
     return primary
 
 
+@sync_atomic('local')
 @transaction.atomic
 def release_quick_sale_stock(order, user, reason):
     """Liberación interna autorizada por rechazo o cancelación; conserva el historial financiero."""
@@ -584,13 +602,14 @@ def release_quick_sale_stock(order, user, reason):
                 _record_movement(products[item.product_id], line.quantity * item.quantity_per_unit, user, reason,
                     InventoryMovement.MovementType.CANCELLATION_RETURN, metadata={'order_id':current.pk,'line_id':line.pk,'reservation_release':True})
                 item.stock_deducted = False
-                item.save(update_fields=['stock_deducted'])
+                save_tracked(item, update_fields=['stock_deducted'])
     current.reservation_released_at = timezone.now()
-    current.save(update_fields=['reservation_released_at','updated_at'])
+    save_tracked(current, update_fields=['reservation_released_at','updated_at'])
     _log(current, user, 'NOTE_UPDATED', 'Reserva liberada: ' + reason, reservation_released=True)
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def reserve_quick_sale_stock(order, user):
     current = _locked_order(order)
@@ -621,12 +640,13 @@ def reserve_quick_sale_stock(order, user):
                     'Reserva renovada al continuar venta rápida', InventoryMovement.MovementType.SALE,
                     metadata={'order_id':current.pk,'line_id':line.pk,'reservation_renewed':True})
                 item.stock_deducted = True
-                item.save(update_fields=['stock_deducted'])
+                save_tracked(item, update_fields=['stock_deducted'])
     current.reservation_released_at = None
-    current.save(update_fields=['reservation_released_at','updated_at'])
+    save_tracked(current, update_fields=['reservation_released_at','updated_at'])
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def cancel_quick_sale(order, user, reason):
     _require(user, 'cancel_quick_sale')
@@ -638,6 +658,6 @@ def cancel_quick_sale(order, user, reason):
         return current
     current.lines.exclude(status='CANCELLED').update(status='CANCELLED')
     current.status, current.closed_at = 'CANCELLED', timezone.now()
-    current.save(update_fields=['status','closed_at','updated_at'])
+    save_tracked(current, update_fields=['status','closed_at','updated_at'])
     _log(current, user, 'LINE_CANCELLED', 'Venta rápida anulada: ' + reason, sale_cancelled=True)
     return current

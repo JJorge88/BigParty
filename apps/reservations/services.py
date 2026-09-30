@@ -3,6 +3,7 @@
 El gate compartido con caja evita carreras llegada/apertura/cierre de jornada.
 Las reservas futuras no crean ni requieren una jornada.
 """
+from apps.sync.services import sync_atomic, track, save_tracked
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 import re
@@ -32,7 +33,7 @@ def log(reservation, action, user=None, **data):
 
 def save(obj):
     obj.full_clean()
-    obj.save()
+    save_tracked(obj)
     return obj
 
 
@@ -104,6 +105,7 @@ def _new(table, customer_name, customer_phone, date, time, party_size, config, d
                        duration_minutes=duration, party_size=party_size)
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def create_public_reservation_request(table, customer_name, customer_phone, date, time, party_size):
     lock_operation_gate()
@@ -115,6 +117,7 @@ def create_public_reservation_request(table, customer_name, customer_phone, date
     return row
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def create_manual_reservation(table, customer_name, customer_phone, date, time, party_size, user, *, duration=None, **terms):
     require(user, 'create_reservation')
@@ -138,6 +141,7 @@ def _approve(row, user, config):
         percentage_base=str(row.payment_base_amount))
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def approve_reservation(reservation, user, **terms):
     require(user, 'approve_reservation')
@@ -152,6 +156,7 @@ def approve_reservation(reservation, user, **terms):
     return row
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def reject_reservation(reservation, user, reason):
     require(user, 'reject_reservation')
@@ -183,6 +188,7 @@ def validate_proof(file):
         raise ValidationError('Sube una imagen JPEG, PNG o WebP válida.')
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def submit_reservation_payment(reservation, amount, reference, proof_image=None):
     row = locked(reservation)
@@ -202,7 +208,7 @@ def submit_reservation_payment(reservation, amount, reference, proof_image=None)
     # Validar antes de escribir el archivo; retirar archivo si falla la escritura SQL.
     payment.full_clean()
     try:
-        payment.save()
+        save_tracked(payment)
         row.status = 'PAYMENT_REVIEW'
         save(row)
         log(row, 'payment_submitted', amount=str(amount))
@@ -213,6 +219,7 @@ def submit_reservation_payment(reservation, amount, reference, proof_image=None)
     return payment
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def confirm_reservation_payment(payment, user):
     require(user, 'verify_reservation_payment')
@@ -229,6 +236,7 @@ def confirm_reservation_payment(payment, user):
     return row
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def reject_reservation_payment(payment, user, reason):
     require(user, 'reject_reservation_payment')
@@ -249,6 +257,7 @@ def reject_reservation_payment(payment, user, reason):
     return row
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def cancel_reservation(reservation, user, reason=''):
     require(user, 'cancel_reservation')
@@ -265,6 +274,7 @@ def cancel_reservation(reservation, user, reason=''):
     return row
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def mark_reservation_no_show(reservation, user, reason=''):
     require(user, 'mark_reservation_no_show')
@@ -281,6 +291,7 @@ def mark_reservation_no_show(reservation, user, reason=''):
     return row
 
 
+@sync_atomic('cloud', action='arrival')
 @transaction.atomic
 def confirm_reservation_arrival(reservation, user, responsible_waiter):
     require(user, 'confirm_reservation_arrival')
@@ -306,12 +317,15 @@ def confirm_reservation_arrival(reservation, user, responsible_waiter):
         if not payment or payment.amount != row.payment_amount:
             raise ValidationError('Falta el anticipo confirmado de esta reserva.')
         if row.payment_application == 'CREDIT':
-            credit = ReservationCredit.objects.create(order=order, payment=payment, amount=payment.amount, created_by=user)
+            credit = track(ReservationCredit.objects.create(order=order, payment=payment, amount=payment.amount, created_by=user))
             log(row, 'credit_created', user, credit_id=credit.pk, order_id=order.pk, amount=str(credit.amount))
     log(row, 'arrived', user, order_id=order.pk, responsible_waiter_id=responsible_waiter.pk)
+    from apps.sync.services import capture_arrival
+    capture_arrival(row)
     return row
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def expire_reservations(status):
     if status not in ('PENDING_REVIEW', 'AWAITING_PAYMENT'):
@@ -327,6 +341,7 @@ def expire_reservations(status):
     return count
 
 
+@sync_atomic('cloud')
 @transaction.atomic
 def configure_reservations(user, **values):
     require(user, 'configure_reservations')

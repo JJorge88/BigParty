@@ -1,4 +1,5 @@
 """Lectura del mapa físico y cambios explícitos de configuración, sin lógica comercial."""
+from apps.sync.services import sync_atomic, track, save_tracked
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
@@ -46,6 +47,7 @@ def get_area_table_map(area):
     }
 
 
+@sync_atomic('local')
 @transaction.atomic
 def update_table_configuration(table, *, actor, **changes):
     """Guarda y audita en una sola transacción. El llamador debe comprobar permisos.
@@ -68,7 +70,7 @@ def update_table_configuration(table, *, actor, **changes):
             changed = True
     if not changed:
         return current
-    current.save()
+    save_tracked(current)
     for field, old_value in before.items():
         new_value = getattr(current, field)
         if new_value == old_value:
@@ -81,9 +83,9 @@ def update_table_configuration(table, *, actor, **changes):
             )
         else:
             action = f"table.{field}_changed"
-        AuditLog.objects.create(
+        track(AuditLog.objects.create(
             user=actor, action=action, entity=VenueTable._meta.label_lower,
             entity_id=str(current.pk),
             data={"field": field, "before": old_value, "after": new_value},
-        )
+        ))
     return current

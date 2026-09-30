@@ -1,3 +1,4 @@
+from apps.sync.services import sync_atomic, save_tracked
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -43,7 +44,7 @@ def _audit(entity, user, action, **data):
 
 def _save(obj):
     obj.full_clean()
-    obj.save()
+    save_tracked(obj)
     return obj
 
 
@@ -63,6 +64,7 @@ def _session(session, *, receiving=False):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def open_business_day(user, business_date=None):
     _require(user, "open_business_day")
@@ -79,6 +81,7 @@ def open_business_day(user, business_date=None):
     return day
 
 
+@sync_atomic('local')
 @transaction.atomic
 def open_cash_session(register, cashier, opening_float, user):
     _require(user, "open_cash_session")
@@ -94,6 +97,7 @@ def open_cash_session(register, cashier, opening_float, user):
     return session
 
 
+@sync_atomic('local')
 @transaction.atomic
 def create_pending_handoff(payment):
     lock_order_day(payment.order_id)
@@ -108,6 +112,7 @@ def create_pending_handoff(payment):
     return handoff
 
 
+@sync_atomic('local')
 @transaction.atomic
 def record_direct_cash_payment(payment, cash_session, user):
     # Se llama en la misma transacción que crea Payment. Reintentar el mismo pago no duplica el ingreso.
@@ -130,6 +135,7 @@ def record_direct_cash_payment(payment, cash_session, user):
     return movement
 
 
+@sync_atomic('local')
 @transaction.atomic
 def confirm_cash_handoff(payment, cash_session, user):
     _require(user, "receive_waiter_cash")
@@ -150,7 +156,7 @@ def confirm_cash_handoff(payment, cash_session, user):
     handoff.metadata = {"order_id": current.order_id, "table_id": current.order.primary_table_id}
     _save(handoff)
     current.cash_handoff_status = "DELIVERED"
-    current.save(update_fields=["cash_handoff_status"])
+    save_tracked(current, update_fields=["cash_handoff_status"])
     movement = _save(CashMovement(cash_session=session, movement_type="WAITER_HANDOFF", amount=handoff.amount,
                                   payment=current, handoff=handoff, created_by=user))
     _audit(handoff, user, "handoff_received", payment_id=current.pk, waiter_id=handoff.waiter_id,
@@ -158,6 +164,7 @@ def confirm_cash_handoff(payment, cash_session, user):
     return handoff
 
 
+@sync_atomic('local')
 @transaction.atomic
 def create_cash_withdrawal(cash_session, amount, reason, requested_by, approved_by):
     # approved_by es el actor autenticado que ejecuta/aprueba; requested_by solo identifica al solicitante.
@@ -175,6 +182,7 @@ def create_cash_withdrawal(cash_session, amount, reason, requested_by, approved_
     return movement
 
 
+@sync_atomic('local')
 @transaction.atomic
 def record_cash_refund(refund, cash_session, user):
     _require(user, "record_cash_refund")
@@ -196,6 +204,7 @@ def record_cash_refund(refund, cash_session, user):
     return movement
 
 
+@sync_atomic('local')
 @transaction.atomic
 def submit_blind_cash_count(session, counted_cash, user):
     _require(user, "close_cash_session")
@@ -226,6 +235,7 @@ def get_blind_close_result(session, user):
     return {"counted_cash": current.counted_cash, "expected_cash": current.expected_cash_at_close, "difference": current.difference}
 
 
+@sync_atomic('local')
 @transaction.atomic
 def close_cash_session(session, user, reason=""):
     _require(user, "close_cash_session")
@@ -248,6 +258,7 @@ def close_cash_session(session, user, reason=""):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def close_business_day(day, user):
     _require(user, "close_business_day")
@@ -261,6 +272,7 @@ def close_business_day(day, user):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def reopen_business_day(day, user, reason):
     _require(user, "reopen_business_day")
@@ -278,6 +290,7 @@ def reopen_business_day(day, user, reason):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def assign_legacy_order_to_day(order, day, user, reason):
     """Regularización explícita; nunca infiere una jornada por fecha histórica."""
@@ -288,7 +301,7 @@ def assign_legacy_order_to_day(order, day, user, reason):
     if current.business_day_id is not None:
         raise ValidationError("La cuenta ya tiene jornada; no puede reasignarse.")
     current.business_day = current_day
-    current.save(update_fields=["business_day", "updated_at"])
+    save_tracked(current, update_fields=["business_day", "updated_at"])
     for payment in current.payments.filter(method="CASH", status="CONFIRMED", cash_handoff_status="PENDING"):
         create_pending_handoff(payment)
     _audit(current, user, "legacy_order_assigned", day_id=current_day.pk, reason=reason)

@@ -1,5 +1,5 @@
 {% extends 'operations/management/base.html' %}
-{% block management_content %}<a class="back-link" href="{% url 'management:pending-payments' %}">← Volver a pagos pendientes</a>
+{% block management_content %}{% if sync_enabled and sync_cloud %}<p class="notice">La aprobación o el rechazo se solicitará al nodo local. El pago seguirá pendiente hasta recibir su resultado. <a href="{% url 'sync-status' %}">Ver solicitudes</a></p>{% endif %}<a class="back-link" href="{% url 'management:pending-payments' %}">← Volver a pagos pendientes</a>
 <div class="page-heading">
 <div><span class="eyebrow">Pago #{{ payment.pk }} · {{ payment.get_method_display }}</span>
 <h1>{% if payment.status == 'CONFIRMED' %}Pago confirmado{% elif payment.status == 'REJECTED' %}Pago rechazado{% else %}Revisar pago{% endif %}

@@ -1,3 +1,5 @@
+from apps.sync.services import sync_atomic, track
+from apps.sync.admin import SyncAdminMixin
 from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 from django.db import transaction
@@ -6,7 +8,7 @@ from .models import Category, ComboComponent, ModifierGroup, ModifierOption, Pro
 from .services import update_area_price, update_base_price
 
 
-class NoDeleteAdmin(admin.ModelAdmin):
+class NoDeleteAdmin(SyncAdminMixin, admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
@@ -20,7 +22,13 @@ class CategoryAdmin(NoDeleteAdmin):
     readonly_fields = ("created_at", "updated_at")
 
 
-class ComboComponentInline(admin.TabularInline):
+class SyncInline(admin.TabularInline):
+    def has_delete_permission(self, request, obj=None):
+        from apps.sync.services import enabled
+        return not enabled() and super().has_delete_permission(request, obj)
+
+
+class ComboComponentInline(SyncInline):
     model = ComboComponent
     fk_name = "combo"
     extra = 0
@@ -54,7 +62,9 @@ class ProductAdmin(NoDeleteAdmin):
         return [ComboComponentInline] if obj and obj.is_combo else []
 
     @transaction.atomic
+    @sync_atomic('local')
     def save_model(self, request, obj, form, change):
+        track(obj)
         if not change:
             initial_price = obj.base_price
             if initial_price and not request.user.has_perm("catalog.change_product_price"):
@@ -95,7 +105,9 @@ class ProductAreaPriceAdmin(NoDeleteAdmin):
     def has_change_permission(self, request, obj=None):
         return super().has_change_permission(request, obj) and request.user.has_perm("catalog.change_product_price")
 
+    @sync_atomic('local')
     def save_model(self, request, obj, form, change):
+        track(obj)
         saved = update_area_price(obj.product, obj.area, obj.price, user=request.user)
         obj.pk = saved.pk
         obj.refresh_from_db()
@@ -116,7 +128,7 @@ class ProductPriceHistoryAdmin(NoDeleteAdmin):
         return False
 
 
-class ModifierOptionInline(admin.TabularInline):
+class ModifierOptionInline(SyncInline):
     model = ModifierOption
     extra = 0
 

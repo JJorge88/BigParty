@@ -1,0 +1,15 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}
+<a href="{% url 'management:configuration' %}" class="back-link">← Configuración</a>
+<section class="panel"><p class="eyebrow">BIG PARTY</p><h1>Sincronización</h1>
+<p>{% if enabled %}Habilitada{% else %}Deshabilitada{% endif %} · Conexión {% if configured %}configurada{% else %}no configurada{% endif %}</p>
+<p>Último contacto: {{ runtime.last_seen_at|date:'d/m/Y H:i:s'|default:'Sin contacto registrado' }}</p>
+<p>Último ciclo completado: {{ runtime.last_successful_sync_at|date:'d/m/Y H:i:s'|default:'Pendiente' }}</p>
+<p>{{ pending }} pendientes · {{ failed }} fallidos · {{ deferred }} esperando dependencias</p>
+{% if runtime.last_error %}<p role="alert">Se requiere revisión: {{ runtime.last_error }}. La operación local continúa.</p>{% endif %}
+{% if not is_local %}<p>Pendientes reportados por el nodo: {{ runtime.reported_pending|default:0 }}. Los datos reflejan el último contacto.</p>{% endif %}
+<form method="post">{% csrf_token %}{% if is_local and enabled %}<button class="button button--primary" name="action" value="sync">Sincronizar ahora</button>{% endif %}<button class="button" name="action" value="retry">Reintentar fallidos</button></form>
+<p>La solicitud la atiende el proceso de sincronización. No interrumpe el POS.</p></section>
+<section class="panel"><h2>Conflictos</h2>{% for item in conflicts %}<article><h3>{{ item.payload_summary.reference|default:'Operación pendiente de revisión' }}</h3><p>{{ item.payload_summary.message }}</p><p>{{ item.created_at|date:'d/m/Y H:i' }} · {{ item.status }}</p>{% if item.status == 'OPEN' %}<form method="post">{% csrf_token %}<input type="hidden" name="conflict" value="{{ item.conflict_uuid }}"><button class="button" name="action" value="review">Marcar revisado</button></form>{% endif %}</article>{% empty %}<p>Sin conflictos registrados.</p>{% endfor %}</section>
+<section class="panel"><h2>Solicitudes de pagos</h2>{% for command in commands %}<p>{% if is_local %}{{ command.received_at|date:'d/m/Y H:i' }}{% else %}{{ command.created_at|date:'d/m/Y H:i' }}{% endif %} · {{ command.command_type }} · {{ command.status }} {% if command.result_code %}· {{ command.result_code }}{% endif %}</p>{% empty %}<p>Sin solicitudes.</p>{% endfor %}</section>
+{% endblock %}

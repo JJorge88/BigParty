@@ -37,10 +37,16 @@ def require_method(method):
 
 @transaction.atomic
 def save_configuration(user, kind, values):
+    from apps.sync.services import enabled, own_authority
+    if enabled() and ((kind == "bank") != (own_authority() == "cloud")):
+        raise PermissionDenied("Configuración administrada desde su entorno de origen.")
     permissions = {'business': 'change_business_configuration', 'methods': 'change_payment_method_configuration',
                    'bank': 'change_bank_transfer_configuration'}
     if not user.is_active or not user.has_perm('core.' + permissions[kind]):
         raise PermissionDenied
+    if enabled():
+        from apps.sync.services import source_gate
+        source_gate()
     lock_operation_gate()
     changes = {}
     if kind == 'methods':
@@ -62,4 +68,6 @@ def save_configuration(user, kind, values):
         obj.full_clean()
         obj.save()
         entity = model.__name__
+    from apps.sync.services import capture_objects
+    if enabled() and kind=='bank':capture_objects([obj])
     AuditLog.objects.create(user=user, action='CONFIGURATION_UPDATED', entity=entity, entity_id='1', data={'changes': changes})

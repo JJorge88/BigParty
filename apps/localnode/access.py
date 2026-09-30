@@ -1,3 +1,4 @@
+from apps.sync.services import sync_atomic, track, save_tracked
 import hashlib
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
@@ -7,6 +8,7 @@ from .models import LocalNodeIdentity, LocalAccessTicket, LocalAccessScan
 from .snapshots import require_local
 
 
+@sync_atomic('local')
 @transaction.atomic
 def validate_and_use_local_ticket(token, guard_user):
     require_local()
@@ -28,10 +30,12 @@ def validate_and_use_local_ticket(token, guard_user):
             if ticket.used_at: data['used_at'] = ticket.used_at.isoformat()
         elif ticket.snapshot.event_status in ('PUBLISHED','RESCHEDULED'):
             ticket.status, ticket.used_at = 'USED', timezone.now()
-            ticket.save(update_fields=['status','used_at','updated_at'])
+            save_tracked(ticket, update_fields=['status','used_at','updated_at'])
             result, label = 'VALID', 'Válida'
             data['used_at'] = ticket.used_at.isoformat()
-    LocalAccessScan.objects.create(node=node, token_digest=digest, result=result, scanned_by=guard_user,
+    scan = track(LocalAccessScan.objects.create(node=node, token_digest=digest, result=result, scanned_by=guard_user,
         event_identifier=f'{ticket.snapshot.source}:{ticket.snapshot.event_public_identifier}' if ticket else '',
-        snapshot_version=ticket.snapshot.version if ticket else '')
+        snapshot_version=ticket.snapshot.version if ticket else ''))
+    from apps.sync.services import capture_scan
+    capture_scan(scan)
     return {**data, 'result':result, 'label':label}

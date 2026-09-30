@@ -1,4 +1,5 @@
 """Escrituras de catálogo usadas por Gerencia; stock y precios conservan sus servicios."""
+from apps.sync.services import sync_atomic, save_tracked, delete_tracked
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from apps.audit.models import AuditLog
@@ -25,6 +26,7 @@ def audit(user, obj, action):
                             entity_id=str(obj.pk))
 
 
+@sync_atomic('local')
 @transaction.atomic
 def save_product(data, *, user, pk=None):
     require(user, 'catalog.change_product' if pk else 'catalog.add_product')
@@ -35,12 +37,13 @@ def save_product(data, *, user, pk=None):
     for field in PRODUCT_FIELDS:
         if field in data:
             setattr(obj, field, '' if field == 'image' and data[field] is False else data[field])
-    obj.save()
+    save_tracked(obj)
     obj = update_base_price(obj, price, user=user) if price != obj.base_price else obj
     audit(user, obj, 'product_updated' if pk else 'product_created')
     return obj
 
 
+@sync_atomic('local')
 @transaction.atomic
 def save_catalog(model, data, *, user, pk=None, parent=None):
     if model not in FIELDS:
@@ -58,15 +61,16 @@ def save_catalog(model, data, *, user, pk=None, parent=None):
     for field in FIELDS[model]:
         if field in data:
             setattr(obj, field, '' if field == 'image' and data[field] is False else data[field])
-    obj.save()
+    save_tracked(obj)
     audit(user, obj, model._meta.model_name + ('_updated' if pk else '_created'))
     return obj
 
 
+@sync_atomic('local')
 @transaction.atomic
 def remove_component(pk, *, combo, user):
     require(user, 'catalog.delete_combocomponent')
     Product.objects.select_for_update().get(pk=combo.pk)
     obj = ComboComponent.objects.select_for_update().get(pk=pk, combo=combo)
     audit(user, obj, 'combocomponent_removed')
-    obj.delete()
+    delete_tracked(obj)

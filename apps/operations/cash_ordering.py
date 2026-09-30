@@ -1,4 +1,5 @@
 """Orquestación de ventas y adiciones: los servicios originales conservan la contabilidad."""
+from apps.sync.services import sync_atomic
 import hashlib
 import json
 
@@ -47,6 +48,7 @@ def resolve_order(context, order_id, *, closed=False):
     return order
 
 
+@sync_atomic('local')
 @transaction.atomic
 def create_quick_sale(context):
     session = operating(context, "orders.create_quick_sale")
@@ -102,6 +104,7 @@ def checkout_state(context, order):
     return state
 
 
+@sync_atomic('local')
 @transaction.atomic
 def pay_quick_sale(context, order, token, method, data):
     order = resolve_order(context, order.pk)

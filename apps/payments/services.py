@@ -1,4 +1,5 @@
 """Toda escritura financiera bloquea primero la orden; importes y cobertura se calculan aquí."""
+from apps.sync.services import sync_atomic, track, save_tracked
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -168,7 +169,7 @@ def _refresh(order, user=None, *, close_empty=False):
         relevant = close_empty or account.lines.exists()
         if relevant and not account.lines.filter(status="DRAFT").exists() and summary["outstanding_balance"] == ZERO and summary["pending_verification"] == ZERO:
             account.status, account.closed_at = "CLOSED", timezone.now()
-            account.save(update_fields=["status", "closed_at"])
+            save_tracked(account, update_fields=["status", "closed_at"])
             if user:
                 _log(order, user, "CLOSED", f"Subcuenta cerrada: {account.name}", subaccount_id=account.pk)
     summary = get_financial_summary(order)
@@ -176,10 +177,11 @@ def _refresh(order, user=None, *, close_empty=False):
     status = "PAYMENT_PENDING" if summary["pending_verification"] else (
         "PARTIALLY_PAID" if summary["confirmed_paid"] or order.payments.filter(status__in=["CONFIRMED", "REFUNDED"]).exists() else "OPEN")
     order.status = status
-    order.save(update_fields=["status", "updated_at"])
+    save_tracked(order, update_fields=["status", "updated_at"])
     return order
 
 
+@sync_atomic('local')
 @transaction.atomic
 def refresh_order_payment_status(order, user=None):
     lock_order_day(order.pk)
@@ -227,9 +229,9 @@ def _create(order, account, allocations, method, user, *, reference="", notes=""
         reference=reference, notes=notes.strip(), metadata=metadata,
         cash_handoff_status="PENDING" if method == "CASH" and cash_session is None else "NOT_REQUIRED")
     payment.full_clean()
-    payment.save()
+    save_tracked(payment)
     for unit, applied, quantity in allocations:
-        PaymentAllocation.objects.create(payment=payment, order_line=unit["line"], unit_number=unit["unit_number"], quantity=quantity, amount=applied)
+        track(PaymentAllocation.objects.create(payment=payment, order_line=unit["line"], unit_number=unit["unit_number"], quantity=quantity, amount=applied))
     if method == "CASH":
         from apps.cash.services import record_direct_cash_payment, create_pending_handoff
         if cash_session is not None:
@@ -241,6 +243,7 @@ def _create(order, account, allocations, method, user, *, reference="", notes=""
     return payment
 
 
+@sync_atomic('local')
 @transaction.atomic
 def create_selected_payment(target, selection, method, user, **options):
     _require(user, "record_payment")
@@ -248,6 +251,7 @@ def create_selected_payment(target, selection, method, user, **options):
     return _create(order, account, _select(_available_units(order, account), selection), method, user, **options)
 
 
+@sync_atomic('local')
 @transaction.atomic
 def create_amount_payment(target, amount, method, user, *, unit_keys=None, **options):
     _require(user, "record_payment")
@@ -256,6 +260,7 @@ def create_amount_payment(target, amount, method, user, *, unit_keys=None, **opt
     return _create(order, account, _distribute(_available_units(order, account, unit_keys=unit_keys), amount), method, user, **options)
 
 
+@sync_atomic('local')
 @transaction.atomic
 def pay_full_balance(target, method, user, **options):
     _require(user, "record_payment")
@@ -279,6 +284,7 @@ def _locked_payment(payment, *, active=True):
     return current, order
 
 
+@sync_atomic('local')
 @transaction.atomic
 def confirm_pending_payment(payment, user):
     _require(user, "verify_transfer_payment")
@@ -289,12 +295,13 @@ def confirm_pending_payment(payment, user):
         from apps.orders.services import reserve_quick_sale_stock
         reserve_quick_sale_stock(order, user)
     current.status, current.confirmed_by, current.confirmed_at = "CONFIRMED", user, timezone.now()
-    current.save(update_fields=["status", "confirmed_by", "confirmed_at"])
+    save_tracked(current, update_fields=["status", "confirmed_by", "confirmed_at"])
     _log(order, user, "PAYMENT_CONFIRMED", f"Pago #{current.pk} verificado", payment_id=current.pk)
     _refresh(order, user)
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def reject_pending_payment(payment, user, reason):
     _require(user, "reject_transfer_payment")
@@ -304,7 +311,7 @@ def reject_pending_payment(payment, user, reason):
         raise ValidationError("Este pago no está pendiente de verificación.")
     current.status = "REJECTED"
     current.metadata = {**current.metadata, "rejection_reason": reason, "rejected_by": user.pk, "rejected_at": timezone.now().isoformat()}
-    current.save(update_fields=["status", "metadata"])
+    save_tracked(current, update_fields=["status", "metadata"])
     if order.order_type == "QUICK_SALE":
         from apps.orders.services import release_quick_sale_stock
         release_quick_sale_stock(order, user, "Pago rechazado: " + reason)
@@ -313,6 +320,7 @@ def reject_pending_payment(payment, user, reason):
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def apply_order_adjustment(target, user, *, adjustment_type="DISCOUNT", amount=None, selection=None, reason):
     _require(user, "apply_order_adjustment")
@@ -325,9 +333,9 @@ def apply_order_adjustment(target, user, *, adjustment_type="DISCOUNT", amount=N
     adjustment = OrderAdjustment(order=order, subaccount=account, adjustment_type=adjustment_type,
         amount=_money(sum((a for _, a, _ in allocations), ZERO)), reason=reason, authorized_by=user)
     adjustment.full_clean()
-    adjustment.save()
+    save_tracked(adjustment)
     for unit, applied, quantity in allocations:
-        AdjustmentAllocation.objects.create(adjustment=adjustment, order_line=unit["line"], unit_number=unit["unit_number"], amount=applied, quantity=quantity)
+        track(AdjustmentAllocation.objects.create(adjustment=adjustment, order_line=unit["line"], unit_number=unit["unit_number"], amount=applied, quantity=quantity))
     _log(order, user, "ADJUSTMENT_APPLIED", f"{adjustment.get_adjustment_type_display()}: Q{adjustment.amount}", adjustment_id=adjustment.pk, reason=reason)
     _refresh(order, user)
     return adjustment
@@ -346,6 +354,7 @@ def can_close_order(order):
     return summary["outstanding_balance"] == ZERO and summary["pending_verification"] == ZERO
 
 
+@sync_atomic('local')
 @transaction.atomic
 def close_order(order, user):
     _require(user, "close_order")
@@ -361,14 +370,15 @@ def close_order(order, user):
             raise ValidationError("Agrega productos antes de completar la venta.")
         _ticket(current, lines, "NEW", user)
         current.fulfilled_at = timezone.now()
-        current.save(update_fields=["fulfilled_at"])
+        save_tracked(current, update_fields=["fulfilled_at"])
     current.status, current.closed_at = "CLOSED", timezone.now()
-    current.save(update_fields=["status", "closed_at", "updated_at"])
+    save_tracked(current, update_fields=["status", "closed_at", "updated_at"])
     current.table_links.filter(released_at__isnull=True).update(released_at=current.closed_at)
     _log(current, user, "CLOSED", "Cuenta liquidada y mesas liberadas")
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def refund_payment(payment, user, *, reason, amount=None, allocation_ids=None, return_to_inventory=False):
     _require(user, "refund_payment")
@@ -416,10 +426,10 @@ def refund_payment(payment, user, *, reason, amount=None, allocation_ids=None, r
                 break
         if remaining:
             raise ValidationError("El reembolso supera el monto neto disponible del pago.")
-    refund = PaymentRefund.objects.create(payment=current, amount=_money(amount), reason=reason,
-        created_by=user, return_to_inventory=return_to_inventory)
+    refund = track(PaymentRefund.objects.create(payment=current, amount=_money(amount), reason=reason,
+        created_by=user, return_to_inventory=return_to_inventory))
     for allocation, applied, quantity in entries:
-        RefundAllocation.objects.create(refund=refund, payment_allocation=allocation, amount=applied, quantity=quantity)
+        track(RefundAllocation.objects.create(refund=refund, payment_allocation=allocation, amount=applied, quantity=quantity))
     if return_to_inventory:
         product_ids = {c.product_id for a, _, _ in entries for c in a.order_line.components.all() if c.stock_deducted}
         products = {p.pk: p for p in Product.objects.filter(pk__in=product_ids).order_by("pk").select_for_update()}
@@ -433,7 +443,7 @@ def refund_payment(payment, user, *, reason, amount=None, allocation_ids=None, r
     refunded = sum((r.amount for r in current.refunds.all()), ZERO)
     if refunded == current.amount:
         current.status = "REFUNDED"
-        current.save(update_fields=["status"])
+        save_tracked(current, update_fields=["status"])
     _log(order, user, "REFUND", f"Reembolso Q{refund.amount}: {reason}", payment_id=current.pk,
          refund_id=refund.pk, amount=str(refund.amount), return_to_inventory=return_to_inventory)
     _refresh(order, user)

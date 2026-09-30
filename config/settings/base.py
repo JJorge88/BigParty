@@ -170,3 +170,26 @@ PUBLIC_RESERVATION_IMAGE = os.environ.get('PUBLIC_RESERVATION_IMAGE', '')
 PUBLIC_EVENT_FALLBACK_IMAGE = os.environ.get('PUBLIC_EVENT_FALLBACK_IMAGE', '')
 
 INSTALLED_APPS += ['apps.localnode.apps.LocalnodeConfig']
+
+# Explicit application sync. Disabled installations retain 4B behavior.
+INSTALLED_APPS += ['apps.sync.apps.SyncConfig']
+SYNC_ENABLED = env_bool('SYNC_ENABLED', False)
+SYNC_CLOUD_URL = os.environ.get('SYNC_CLOUD_URL', '').rstrip('/')
+SYNC_SHARED_SECRET = os.environ.get('SYNC_SHARED_SECRET', '')
+SYNC_NODE_UUID = os.environ.get('SYNC_NODE_UUID', '')
+SYNC_PROTOCOL_VERSION = int(os.environ.get('SYNC_PROTOCOL_VERSION', '1'))
+SYNC_BATCH_SIZE = int(os.environ.get('SYNC_BATCH_SIZE', '100'))
+SYNC_INTERVAL_SECONDS = int(os.environ.get('SYNC_INTERVAL_SECONDS', '15'))
+SYNC_MAX_BACKOFF_SECONDS = int(os.environ.get('SYNC_MAX_BACKOFF_SECONDS', '300'))
+SYNC_CONNECT_TIMEOUT = float(os.environ.get('SYNC_CONNECT_TIMEOUT', '3'))
+SYNC_READ_TIMEOUT = float(os.environ.get('SYNC_READ_TIMEOUT', '8'))
+SYNC_MAX_BODY_BYTES = int(os.environ.get('SYNC_MAX_BODY_BYTES', str(20 * 1024 * 1024)))
+SYNC_ALLOW_HTTP_DEVELOPMENT = env_bool('SYNC_ALLOW_HTTP_DEVELOPMENT', False)
+SYNC_COMPATIBLE_APP_VERSIONS = [v for v in (os.environ.get('SYNC_COMPATIBLE_APP_VERSIONS') or APP_VERSION).split(',') if v]
+if not (1 <= SYNC_BATCH_SIZE <= 1000 and 1 <= SYNC_INTERVAL_SECONDS <= SYNC_MAX_BACKOFF_SECONDS <= 3600
+        and 0 < SYNC_CONNECT_TIMEOUT <= 10 and 0 < SYNC_READ_TIMEOUT <= 30
+        and 1024 <= SYNC_MAX_BODY_BYTES <= 20 * 1024 * 1024 and SYNC_PROTOCOL_VERSION == 1):
+    raise ImproperlyConfigured('Configuración de límites/protocolo sync inválida.')
+
+MIDDLEWARE.insert(2, 'apps.sync.middleware.SyncAuthorityMiddleware')
+TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.sync.context_processors.sync_authority')

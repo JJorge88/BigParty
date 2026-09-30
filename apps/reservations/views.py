@@ -141,6 +141,10 @@ def detail(request, code):
     expired = row.status == 'EXPIRED' or bool(row.deadline and row.deadline <= timezone.now())
     actions = {action.replace('-', '_') + '_token': security.confirmation(request, action, code, row.updated_at.isoformat()) for action in ACTIONS}
     allowed = {'can_' + action.replace('-', '_'): request.user.has_perm('reservations.' + permission) for action, permission in ACTIONS.items()}
+    from django.conf import settings
+    if settings.SYNC_ENABLED:
+        if settings.DEPLOYMENT_MODE=='local_node':allowed={key:value if key=='can_arrive' else False for key,value in allowed.items()}
+        elif settings.DEPLOYMENT_MODE=='cloud':allowed['can_arrive']=False
     return page(request, 'detail.html', {'bank_details': transfer_bank(), 'reservation': row, 'form': form, 'error': error, 'expired': expired,
         'waiters': get_user_model().objects.filter(is_active=True, role='MESERO').order_by('first_name', 'username'),
         'whatsapp': whatsapp_url(row), 'client_url': client_url(row), 'credit': credit_summary(row.order) if row.order_id else None,

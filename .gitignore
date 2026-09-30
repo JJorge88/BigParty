@@ -49,3 +49,5 @@ access-snapshot*.json
 *.sql
 *.sql.gz
 *.dump.gz
+
+!.env.cloud.example

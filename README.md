@@ -3105,3 +3105,21 @@ exportación/importación manual firmada. No incluye sincronización automática
 - [Arquitectura, snapshots y límites](docs/architecture/LOCAL-NODE.md)
 - [Instalación Windows, HTTPS LAN y diagnóstico](docs/deployment/LOCAL-NODE-WINDOWS.md)
 - Entorno: `.env.local-node.example`; scripts: `deploy/windows/`.
+
+### Fase 4C — sincronización Local ↔ Cloud
+
+Sincronización explícita de aplicación para un nodo: outbox/inbox transaccionales,
+UUID globales, feed Cloud con cursor, HMAC/HTTPS y worker independiente del POS.
+Local conserva la autoridad de operación, catálogo, inventario y usuarios; Cloud
+conserva reservas/eventos. Cloud puede solicitar verificar/rechazar pagos pendientes
+mediante comandos validados localmente. Sincronización apagada por defecto.
+
+Configuración: `.env.local-node.example` y `.env.cloud.example`. Antes de activarla,
+revisar identidades existentes y ejecutar `bootstrap_sync --confirm` según el
+[runbook](docs/deployment/SYNC-RUNBOOK.md). Después, `sync_worker`; diagnóstico con
+`check_sync --probe`. Estado en Gerencia → Configuración → Sincronización.
+
+[Arquitectura y límites](docs/architecture/SYNC.md). Prueba reproducible con dos bases
+y dos servidores temporales: `.venv/bin/python scripts/validate_sync_two_instances.py`
+(requiere PostgreSQL local con permiso CREATE DATABASE; elimina sus recursos al salir).
+Backups, media sync y failover quedan fuera de 4C.

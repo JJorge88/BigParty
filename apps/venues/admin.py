@@ -1,10 +1,11 @@
+from apps.sync.admin import SyncAdminMixin
 from django.contrib import admin
 
 from .models import Area, Zone
 
 
 @admin.register(Area)
-class AreaAdmin(admin.ModelAdmin):
+class AreaAdmin(SyncAdminMixin, admin.ModelAdmin):
     list_display = ("name", "slug", "is_active", "sort_order")
     list_filter = ("is_active",)
     search_fields = ("name", "slug")
@@ -16,7 +17,7 @@ class AreaAdmin(admin.ModelAdmin):
 
 
 @admin.register(Zone)
-class ZoneAdmin(admin.ModelAdmin):
+class ZoneAdmin(SyncAdminMixin, admin.ModelAdmin):
     list_display = ("name", "area", "is_active", "sort_order")
     list_filter = ("area", "is_active")
     search_fields = ("name", "area__name")

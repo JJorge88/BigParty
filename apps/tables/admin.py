@@ -1,3 +1,5 @@
+from apps.sync.services import sync_atomic, track
+from apps.sync.admin import SyncAdminMixin
 from django.contrib import admin
 
 from .models import VenueTable
@@ -5,7 +7,7 @@ from .services import CONFIGURATION_FIELDS, update_table_configuration
 
 
 @admin.register(VenueTable)
-class VenueTableAdmin(admin.ModelAdmin):
+class VenueTableAdmin(SyncAdminMixin, admin.ModelAdmin):
     list_display = ("name", "area", "zone", "capacity", "operational_status", "reservable_web", "is_active")
     list_filter = ("area", "zone", "operational_status", "reservable_web", "is_active")
     search_fields = ("name", "area__name", "zone__name")
@@ -26,7 +28,9 @@ class VenueTableAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+    @sync_atomic('local')
     def save_model(self, request, obj, form, change):
+        track(obj)
         if change:
             changes = {
                 field: form.cleaned_data[field]

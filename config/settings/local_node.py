@@ -67,3 +67,9 @@ LOGGING = {
                'apps.printing':{'handlers':['printing'],'level':'INFO','propagate':False},
                'waitress':{'handlers':['application'],'level':'WARNING','propagate':False}}
 }
+
+if SYNC_ENABLED:
+    LOGGING['filters']['sync_safe'] = {'()':'apps.sync.logging.SyncSafeFilter'}
+    LOGGING['handlers']['sync'] = {'class':'logging.handlers.RotatingFileHandler','filename':str(LOCAL_LOG_ROOT/'sync.log'),
+        'maxBytes':5*1024*1024,'backupCount':5,'encoding':'utf-8','filters':['sync_safe'],'formatter':'local'}
+    LOGGING['loggers']['apps.sync'] = {'handlers':['sync'],'level':'INFO','propagate':False}

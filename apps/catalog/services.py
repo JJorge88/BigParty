@@ -1,4 +1,5 @@
 """Consultas de catálogo y escrituras explícitas de precios con historial."""
+from apps.sync.services import sync_atomic, save_tracked, delete_tracked
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Prefetch
@@ -82,6 +83,7 @@ def _price_change(product, area, old_price, new_price, user):
     )
 
 
+@sync_atomic('local')
 @transaction.atomic
 def update_base_price(product, new_price, *, user):
     _require_price_permission(user)
@@ -90,11 +92,12 @@ def update_base_price(product, new_price, *, user):
     old_price = current.base_price
     if old_price != price:
         current.base_price = price
-        current.save(update_fields=["base_price", "updated_at"])
+        save_tracked(current, update_fields=["base_price", "updated_at"])
         _price_change(current, None, old_price, price, user)
     return current
 
 
+@sync_atomic('local')
 @transaction.atomic
 def update_area_price(product, area, new_price, *, user):
     _require_price_permission(user)
@@ -106,11 +109,12 @@ def update_area_price(product, area, new_price, *, user):
     price = ProductAreaPrice._meta.get_field("price").clean(new_price, override)
     if old_price != price:
         override.price = price
-        override.save()
+        save_tracked(override)
         _price_change(current, area, old_price, price, user)
     return override
 
 
+@sync_atomic('local')
 @transaction.atomic
 def remove_area_price(product, area, *, user):
     """Volver al precio general conserva el precio efectivo y la intención en auditoría."""
@@ -119,6 +123,6 @@ def remove_area_price(product, area, *, user):
     override = ProductAreaPrice.objects.filter(product=current, area=area).first()
     if override:
         _price_change(current, area, override.price, current.base_price, user)
-        override.delete()
+        delete_tracked(override)
         AuditLog.objects.create(user=user, action='catalog.area_price_removed',
             entity='catalog.product', entity_id=str(current.pk), data={'area_id': area.pk})
