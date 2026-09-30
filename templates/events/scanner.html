@@ -1,4 +1,4 @@
-{% extends 'events/public_base.html' %}{% load static %}{% block topbar %}<form method="post" action="{% url 'event-access:logout' %}" class="guard-exit">{% csrf_token %}<button class="button button--ghost">Salir</button>
+{% extends 'localnode/access_base.html' %}{% load static %}{% block topbar %}<form method="post" action="{% url 'event-access:logout' %}" class="guard-exit">{% csrf_token %}<button class="button button--ghost">Salir</button>
 </form>{% endblock %}{% block public_content %}<section class="scanner" data-scan-url="{% url 'event-access:scan' %}">
 <p class="eyebrow">CONTROL DE ACCESO</p>
 <h1>Escanear entrada</h1>

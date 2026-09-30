@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 from django.conf import settings
 from django.contrib.auth import get_user_model, login, logout
 from django.db import transaction
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -102,6 +103,12 @@ def scan(request):
         parsed, base = urlparse(raw), urlparse(settings.PUBLIC_BASE_URL)
         match = re.fullmatch(r'/entrada/([A-Za-z0-9_-]{43})/', parsed.path)
         raw = match[1] if match and parsed.netloc == base.netloc and parsed.scheme == base.scheme and not parsed.query and not parsed.fragment else ''
+    if settings.DEPLOYMENT_MODE == 'local_node':
+        from apps.localnode.access import validate_and_use_local_ticket
+        try:
+            return JsonResponse(validate_and_use_local_ticket(raw, request.user))
+        except ValidationError:
+            return JsonResponse({'error':'Nodo no preparado para validar accesos.'}, status=503)
     return JsonResponse(validate_and_use_ticket(raw, request.user))
 
 

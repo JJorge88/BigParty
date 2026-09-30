@@ -3095,3 +3095,13 @@ controla el foco y libera la página al cerrarse. El movimiento reducido evita l
 entradas animadas y el desplazamiento suave.
 
 [Verificación y capturas 4A.1](docs/public-site/VERIFICACION-4A1.md).
+
+## Local Node · Fase 4B
+
+Perfil `config.settings.local_node` para operar en LAN con PostgreSQL, Waitress,
+WhiteNoise e impresión local. Web comercial deshabilitada; QR offline mediante
+exportación/importación manual firmada. No incluye sincronización automática.
+
+- [Arquitectura, snapshots y límites](docs/architecture/LOCAL-NODE.md)
+- [Instalación Windows, HTTPS LAN y diagnóstico](docs/deployment/LOCAL-NODE-WINDOWS.md)
+- Entorno: `.env.local-node.example`; scripts: `deploy/windows/`.

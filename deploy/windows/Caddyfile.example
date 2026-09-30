@@ -1,0 +1,21 @@
+# Set these environment variables in the Caddy task/account:
+# LOCAL_NODE_HOSTNAME=pos.bigparty.lan
+# LOCAL_NODE_PORT=8000
+# LOCAL_MEDIA_ROOT=C:/BigPartyData/media
+# Caddy does NOT read Django's .env.local-node automatically.
+{
+    auto_https disable_redirects
+}
+https://{$LOCAL_NODE_HOSTNAME} {
+    tls internal
+    # Public product/event images only. NEVER use LOCAL_PRIVATE_ROOT here.
+    handle_path /media/* {
+        root * "{$LOCAL_MEDIA_ROOT}"
+        file_server
+        header X-Content-Type-Options nosniff
+    }
+    handle {
+        reverse_proxy 127.0.0.1:{$LOCAL_NODE_PORT}
+    }
+    # No access log: QR URLs/session material must not enter proxy logs.
+}

@@ -1,0 +1,4 @@
+{% extends 'operations/base.html' %}{% load static %}{% block title %}BIG PARTY · Acceso{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/events/events.css' %}">{% endblock %}
+{% block topbar %}<span>CONTROL DE ACCESO</span>{% endblock %}
+{% block content %}<main id="main" class="events-main">{% if error %}<p role="alert">{{ error }}</p>{% endif %}{% block public_content %}{% endblock %}</main>{% endblock %}

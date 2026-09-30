@@ -1,2 +1,4 @@
 -r base.txt
-# El servidor de aplicación se decidirá en la fase de despliegue.
+# WSGI portable Windows/macOS y assets locales con DEBUG=False.
+waitress==3.0.2
+whitenoise==6.12.0

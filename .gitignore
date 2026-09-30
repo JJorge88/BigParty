@@ -30,3 +30,22 @@ var/print-jobs/
 
 # Comprobantes privados de reservas
 private/
+
+# Nodo local: solo ejemplos, nunca secretos ni datos persistentes.
+!.env.local-node.example
+var/log/
+*.dump
+*.backup
+*.key
+*.pem
+deploy/windows/Caddyfile
+
+*.crt
+*.pfx
+*.p12
+var/caddy/
+access-snapshot*.json
+
+*.sql
+*.sql.gz
+*.dump.gz

@@ -1,0 +1,10 @@
+{% extends 'operations/management/base.html' %}{% block management_content %}
+<header class="page-heading"><p class="eyebrow">CONFIGURACIÓN · NODO LOCAL</p><h1>Nodo local</h1></header>
+<section class="panel"><h2>{{ node.name|default:'Pendiente de inicialización' }}</h2><p>UUID: {{ node.node_uuid|stringformat:'s'|slice:':8' }}</p>
+<p>Modo: Nodo local · Base de datos: {% if database_available %}Disponible{% else %}No disponible{% endif %}</p>
+<p>Impresión: {{ backend }} · Impresoras: {{ printers }} registradas / {{ active_printers }} activas</p>
+{% if app_version or app_commit %}<p>Versión: {{ app_version }} {% if app_commit %}· {{ app_commit }}{% endif %}</p>{% endif %}</section>
+<section class="panel"><h2>Snapshots QR importados</h2><p>Importación manual. No existe sincronización automática en esta fase.</p>
+{% for snapshot in snapshots %}<article><h3>{{ snapshot.event_name }}</h3><p>Versión: {{ snapshot.version|slice:':12' }} · Importado: {{ snapshot.imported_at|date:'d/m/Y H:i' }}</p>
+<p>{{ snapshot.loaded }} entradas cargadas · {{ snapshot.locally_used }} usadas localmente · Checksum y firma verificados</p></article>{% empty %}<p>Aún no se ha importado ningún snapshot.</p>{% endfor %}</section>
+{% endblock %}

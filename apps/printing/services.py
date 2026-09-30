@@ -2,6 +2,7 @@
 from datetime import timedelta
 from functools import partial
 import uuid
+import logging
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -127,6 +128,7 @@ def print_job(job):
                 finished.last_error, finished.delivery_uncertain, finished.output_path = error, uncertain, output
                 finished.printed_at = None if error else timezone.now()
                 finished.save()
+                logging.getLogger("apps.printing").info("print_job_failed" if error else "print_job_printed")
                 audit(finished, finished.created_by, 'failed' if error else 'printed', attempt=finished.attempt_count, uncertain=uncertain, backend=finished.backend_used)
             return finished
     finally:

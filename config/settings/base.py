@@ -6,7 +6,7 @@ from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(os.environ.get("BIGPARTY_ENV_FILE", BASE_DIR / ".env"))
 
 
 def required_env(name):
@@ -23,11 +23,19 @@ def env_bool(name, default=False):
     return value in {"true", "1"}
 
 
+DEPLOYMENT_MODE = os.environ.get('DEPLOYMENT_MODE', 'development')
+if DEPLOYMENT_MODE not in {'development', 'cloud', 'local_node'}:
+    raise ImproperlyConfigured('DEPLOYMENT_MODE debe ser development, cloud o local_node.')
+APP_VERSION = os.environ.get('APP_VERSION', '')
+APP_COMMIT = os.environ.get('APP_COMMIT', '')
+ACCESS_SNAPSHOT_SIGNING_KEY = os.environ.get('ACCESS_SNAPSHOT_SIGNING_KEY', '')
+ACCESS_SNAPSHOT_SOURCE = os.environ.get('ACCESS_SNAPSHOT_SOURCE', 'bigparty-cloud')
+CSRF_TRUSTED_ORIGINS = [v.strip() for v in os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if v.strip()]
 SECRET_KEY = required_env("DJANGO_SECRET_KEY")
 DEBUG = env_bool("DJANGO_DEBUG")
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+    for host in os.environ.get("ALLOWED_HOSTS", os.environ.get("DJANGO_ALLOWED_HOSTS", "")).split(",")
     if host.strip()
 ]
 
@@ -54,6 +62,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "apps.localnode.middleware.LocalNodeBoundaryMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "apps.operations.management.middleware.ManagementSessionMiddleware",
     "apps.events.middleware.GuardSessionMiddleware",
@@ -159,3 +168,5 @@ PUBLIC_LEVEL_IMAGES = {
 }
 PUBLIC_RESERVATION_IMAGE = os.environ.get('PUBLIC_RESERVATION_IMAGE', '')
 PUBLIC_EVENT_FALLBACK_IMAGE = os.environ.get('PUBLIC_EVENT_FALLBACK_IMAGE', '')
+
+INSTALLED_APPS += ['apps.localnode.apps.LocalnodeConfig']

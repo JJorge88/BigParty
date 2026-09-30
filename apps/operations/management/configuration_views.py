@@ -64,6 +64,8 @@ def hub(request):
             cards[6]['url'] = reverse('admin:tables_venuetable_changelist')
         if request.user.has_perm('operations.view_operationaldevice'):
             cards[8]['url'] = reverse('admin:operations_operationaldevice_changelist')
+    if settings.DEPLOYMENT_MODE == 'local_node':
+        card('Nodo local', 'Identidad, diagnóstico y snapshots de acceso.', 'core.view_configuration', 'localnode:status')
     system = [('URL pública', settings.PUBLIC_BASE_URL), ('Zona horaria', settings.TIME_ZONE),
               ('Modo de desarrollo', 'Activo' if settings.DEBUG else 'Inactivo'), ('Impresión', settings.PRINTER_BACKEND),
               ('Sesión operativa', f'{settings.OPERATIONAL_IDLE_TIMEOUT_SECONDS // 60} min'),
