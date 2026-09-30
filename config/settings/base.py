@@ -169,6 +169,10 @@ PUBLIC_LEVEL_IMAGES = {
 PUBLIC_RESERVATION_IMAGE = os.environ.get('PUBLIC_RESERVATION_IMAGE', 'images/public/reservation-concept.webp')
 PUBLIC_EVENT_FALLBACK_IMAGE = os.environ.get('PUBLIC_EVENT_FALLBACK_IMAGE', 'images/public/event-fallback-concept.webp')
 
+# Invitación temporal; independiente de reservas, ventas y entradas.
+PUBLIC_INVITATION_ENABLED = env_bool('PUBLIC_INVITATION_ENABLED', True)
+PUBLIC_INVITATION_STARTS_AT = os.environ.get('PUBLIC_INVITATION_STARTS_AT', '2026-10-22T14:00:00-06:00')
+
 INSTALLED_APPS += ['apps.localnode.apps.LocalnodeConfig']
 
 # Explicit application sync. Disabled installations retain 4B behavior.
