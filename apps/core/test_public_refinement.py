@@ -61,6 +61,7 @@ class PublicLayoutTests(ReservationCase):
 
 
 class PublicComponentTests(EventCase):
+    @override_settings(PUBLIC_LEVEL_IMAGES={}, PUBLIC_RESERVATION_IMAGE='', PUBLIC_EVENT_FALLBACK_IMAGE='')
     def test_independent_assets_and_single_event_composition(self):
         self.event.image='';self.event.save(update_fields=['image'])
         home=self.client.get('/')

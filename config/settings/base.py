@@ -162,12 +162,12 @@ EVENT_GUARD_IDLE_SECONDS = 30 * 60
 # Imágenes editoriales públicas: rutas relativas a static, reemplazables sin CMS.
 PUBLIC_HERO_IMAGE = os.environ.get('PUBLIC_HERO_IMAGE', 'images/public/nightlife-hero.webp')
 PUBLIC_LEVEL_IMAGES = {
-    'sport_bar': os.environ.get('PUBLIC_SPORT_BAR_IMAGE', ''),
-    'discoteca': os.environ.get('PUBLIC_DISCOTECA_IMAGE', ''),
-    'premium': os.environ.get('PUBLIC_PREMIUM_IMAGE', ''),
+    'sport_bar': os.environ.get('PUBLIC_SPORT_BAR_IMAGE', 'images/public/sport-bar-concept.webp'),
+    'discoteca': os.environ.get('PUBLIC_DISCOTECA_IMAGE', 'images/public/discoteca-concept.webp'),
+    'premium': os.environ.get('PUBLIC_PREMIUM_IMAGE', 'images/public/premium-concept.webp'),
 }
-PUBLIC_RESERVATION_IMAGE = os.environ.get('PUBLIC_RESERVATION_IMAGE', '')
-PUBLIC_EVENT_FALLBACK_IMAGE = os.environ.get('PUBLIC_EVENT_FALLBACK_IMAGE', '')
+PUBLIC_RESERVATION_IMAGE = os.environ.get('PUBLIC_RESERVATION_IMAGE', 'images/public/reservation-concept.webp')
+PUBLIC_EVENT_FALLBACK_IMAGE = os.environ.get('PUBLIC_EVENT_FALLBACK_IMAGE', 'images/public/event-fallback-concept.webp')
 
 INSTALLED_APPS += ['apps.localnode.apps.LocalnodeConfig']
 
