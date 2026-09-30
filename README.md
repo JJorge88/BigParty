@@ -3149,3 +3149,12 @@ No sustituye el ensayo sobre hardware real ni la copia externa diaria obligatori
 Validación 4D: **1031 pruebas Django y 13 JavaScript**; check, migration check,
 perfiles deploy Local/Cloud y simulacro destructivo sobre bases temporales aprobados.
 Las excepciones HSTS de cada perfil se explican en HARDENING.md.
+
+### Prueba piloto local en Mac + Android
+
+Guía: [LOCAL-PILOT.md](docs/testing/LOCAL-PILOT.md). Base exclusiva `bigparty_pilot`,
+DEBUG=True, settings dev, sync apagado e impresión debug. `seed_pilot_demo` prepara
+19 mesas, 12 productos, cinco usuarios y una tablet, sin abrir jornada ni órdenes.
+PIN y contraseña se proporcionan explícitamente; no hay credenciales predeterminadas
+ni comando reset. `DEV_LAN_HOST` admite la IP exacta del Mac sin comodines.
+Esta preparación no inicia Fase 4E ni despliega a Cloud/Local Node de producción.

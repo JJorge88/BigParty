@@ -57,3 +57,4 @@ var/operations/
 backups/
 *.partial
 .env.recovery
+var/pilot/
