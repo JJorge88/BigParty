@@ -182,8 +182,13 @@ def validate_proof(file):
             image = Image.open(file)
             if image.format not in ('JPEG', 'PNG', 'WEBP'):
                 raise ValueError
+            extension={'JPEG':'.jpg','PNG':'.png','WEBP':'.webp'}[image.format]
             image.verify()
+            file.seek(0)
+            decoded = Image.open(file)
+            decoded.load()
         file.seek(0)
+        file.name='proof'+extension
     except Exception:
         raise ValidationError('Sube una imagen JPEG, PNG o WebP válida.')
 

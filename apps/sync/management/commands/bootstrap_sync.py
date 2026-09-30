@@ -16,6 +16,8 @@ class Command(BaseCommand):
         parser.add_argument('--confirm',action='store_true')
         parser.add_argument('--identity-map',help='JSON revisado: model_label, object_pk local, entity_uuid compartido. Solo registros aún sin identidad.')
     def handle(self,*args,**options):
+        from apps.core.ops.recovery import status
+        if status()["active"]:raise CommandError("RECOVERY_MODE")
         if not options['confirm']:raise CommandError('Revisa authority/datos y vuelve a ejecutar con --confirm.')
         if not settings.SYNC_ENABLED:raise CommandError('SYNC_DISABLED')
         try:self.bootstrap(options)

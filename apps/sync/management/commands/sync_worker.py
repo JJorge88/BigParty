@@ -9,6 +9,8 @@ from apps.sync.models import SyncRuntimeState
 class Command(BaseCommand):
     help='Proceso independiente del POS; lotes con timeout y backoff limitado.'
     def handle(self,*args,**options):
+        from apps.core.ops.recovery import status
+        if status()['active']:raise CommandError('RECOVERY_MODE: worker suspendido.')
         if not settings.SYNC_ENABLED:
             self.stdout.write('Sync deshabilitado.');return
         if settings.DEPLOYMENT_MODE!='local_node':raise CommandError('LOCAL_WORKER_ONLY')

@@ -89,8 +89,8 @@ class RuntimeTests(SimpleTestCase):
                  'DJANGO_SECRET_KEY':'test-only-key-'+'a'*50,'DB_NAME':'test','DB_USER':'test','DB_PASSWORD':'test',
                  'DB_HOST':'127.0.0.1','DEPLOYMENT_MODE':'local_node','LOCAL_NODE_HOSTNAME':'pos.example.lan',
                  'ALLOWED_HOSTS':'pos.example.lan,localhost','CSRF_TRUSTED_ORIGINS':'https://pos.example.lan',
-                 'LOCAL_MEDIA_ROOT':directory+'/media','LOCAL_PRIVATE_ROOT':directory+'/private','LOCAL_LOG_ROOT':directory+'/logs',
-                 'ACCESS_SNAPSHOT_SIGNING_KEY':'test-only-'+'b'*32,'PRINTER_BACKEND':'network',**extra}
+                 'LOCAL_MEDIA_ROOT':directory+'/media','LOCAL_PRIVATE_ROOT':directory+'/private','LOCAL_LOG_ROOT':directory+'/logs','OPERATIONS_STATE_ROOT':directory+'/state',
+                 'ACCESS_SNAPSHOT_SIGNING_KEY':'test-only-'+'b'*32,'SYNC_SHARED_SECRET':'test-only-sync-'+'c'*32,'PRINTER_BACKEND':'network',**extra}
             return subprocess.run([sys.executable,'-c',"import django; django.setup(); from django.conf import settings as s; import json; print(json.dumps({'mode':s.DEPLOYMENT_MODE,'debug':s.DEBUG,'secure':s.SESSION_COOKIE_SECURE,'domain':s.SESSION_COOKIE_DOMAIN,'proxy':s.SECURE_PROXY_SSL_HEADER}))"],env=env,capture_output=True,text=True,timeout=15)
 
     def test_profiles_and_debug_independent(self):
@@ -100,6 +100,16 @@ class RuntimeTests(SimpleTestCase):
             data=json.loads(result.stdout);self.assertEqual(data['mode'],mode)
             self.assertEqual(data['debug'],mode=='development')
             if mode=='local_node':self.assertTrue(data['secure']);self.assertIsNone(data['domain']);self.assertIsNone(data['proxy'])
+
+    def test_production_requires_all_keys_and_private_state(self):
+        for module in ('prod','local_node'):
+            for extra in ({'DJANGO_SECRET_KEY':'short'}, {'ACCESS_SNAPSHOT_SIGNING_KEY':''},
+                          {'SYNC_SHARED_SECRET':''}, {'OPERATIONS_STATE_ROOT':''},
+                          {'OPERATIONS_STATE_ROOT':str(settings.BASE_DIR/'media/state')},
+                          {'LOCAL_MEDIA_ROOT':'/private/tmp/hardening-public','PUBLIC_MEDIA_ROOT':'/private/tmp/hardening-public','OPERATIONS_STATE_ROOT':'/private/tmp/hardening-public/state'},
+                          {'SYNC_SHARED_SECRET_PREVIOUS':'previous-key-'*4,'SYNC_SECRET_PREVIOUS_UNTIL':'2000-01-01T00:00:00+00:00'}):
+                with self.subTest(module=module,extra=list(extra)):
+                    self.assertNotEqual(self.profile('config.settings.'+module,**extra).returncode,0)
 
     def test_unsafe_local_configuration_rejected(self):
         for extra in [dict(ALLOWED_HOSTS='*'),dict(CSRF_TRUSTED_ORIGINS='https://*.example.lan'),dict(DB_HOST='db.example.com'),dict(ACCESS_SNAPSHOT_SIGNING_KEY='short'),dict(PRINTER_BACKEND='debug'),dict(LOCAL_NODE_BIND_HOST='0.0.0.0'),dict(DEPLOYMENT_MODE='invalid')]:

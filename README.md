@@ -3123,3 +3123,29 @@ revisar identidades existentes y ejecutar `bootstrap_sync --confirm` según el
 y dos servidores temporales: `.venv/bin/python scripts/validate_sync_two_instances.py`
 (requiere PostgreSQL local con permiso CREATE DATABASE; elimina sus recursos al salir).
 Backups, media sync y failover quedan fuera de 4C.
+
+### Fase 4D — backups, hardening y recuperación
+
+Backups oficiales PostgreSQL custom + ZIP privado, manifests/checksums externos,
+retención configurable, copia secundaria/adaptador offsite, restauración a DB nueva
+y modo recuperación persistente. Gerencia → Configuración → Backups es solo lectura.
+Se añaden rate limits, headers/CSP, validación de imágenes, mantenimiento e integridad
+sin nuevas funciones comerciales ni modelos/migraciones.
+
+Producción ahora exige tres claves independientes y `OPERATIONS_STATE_ROOT` privado
+absoluto; actualizar entorno desde los ejemplos antes de arrancar. El rol de tests
+con CREATEDB no es el rol de aplicación de producción.
+
+- [Backups, frecuencia, retención y medición](docs/deployment/BACKUPS.md)
+- [Recuperación Local/Cloud y sync](docs/deployment/DISASTER-RECOVERY.md)
+- [Hardening, permisos y rotación](docs/security/HARDENING.md)
+- [Checklist de producción pendiente](docs/deployment/PRODUCTION-CHECKLIST.md)
+
+Validación reproducible: `python scripts/validate_recovery.py` con PostgreSQL de
+**desarrollo**; crea/destruye/restaura bases temporales y limpia al terminar.
+No sustituye el ensayo sobre hardware real ni la copia externa diaria obligatoria.
+**4E no iniciada: sin despliegue Windows/Ubuntu, DNS ni failover de segundo nodo.**
+
+Validación 4D: **1031 pruebas Django y 13 JavaScript**; check, migration check,
+perfiles deploy Local/Cloud y simulacro destructivo sobre bases temporales aprobados.
+Las excepciones HSTS de cada perfil se explican en HARDENING.md.

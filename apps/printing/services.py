@@ -93,6 +93,8 @@ def _unlock(job_id):
 
 
 def print_job(job):
+    from apps.core.ops.recovery import require_operational
+    require_operational()
     """Un intento; no reintenta FAILED ni PRINTING. El socket nunca vive en una transacción."""
     if connection.in_atomic_block:
         raise RuntimeError('La impresión debe ejecutarse después del commit.')

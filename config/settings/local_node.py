@@ -53,6 +53,10 @@ if not MEDIA_ROOT.is_absolute() or not LOCAL_PRIVATE_ROOT.is_absolute() or MEDIA
     raise ImproperlyConfigured('Media y comprobantes requieren carpetas persistentes absolutas y separadas.')
 RESERVATION_PROOF_ROOT = LOCAL_PRIVATE_ROOT / 'reservation-proofs'
 EVENT_PROOF_ROOT = LOCAL_PRIVATE_ROOT / 'event-proofs'
+for private in (RESERVATION_PROOF_ROOT, EVENT_PROOF_ROOT):
+    if private.resolve().is_relative_to(MEDIA_ROOT.resolve()):
+        raise ImproperlyConfigured('Comprobantes privados deben estar fuera de media pública.')
+validate_operations_state(BASE_DIR, MEDIA_ROOT, STATIC_ROOT, RESERVATION_PROOF_ROOT, EVENT_PROOF_ROOT)
 LOCAL_LOG_ROOT = Path(os.environ.get('LOCAL_LOG_ROOT', str(BASE_DIR / 'var' / 'log')))
 LOCAL_LOG_ROOT.mkdir(parents=True, exist_ok=True)
 LOGGING = {
@@ -73,3 +77,13 @@ if SYNC_ENABLED:
     LOGGING['handlers']['sync'] = {'class':'logging.handlers.RotatingFileHandler','filename':str(LOCAL_LOG_ROOT/'sync.log'),
         'maxBytes':5*1024*1024,'backupCount':5,'encoding':'utf-8','filters':['sync_safe'],'formatter':'local'}
     LOGGING['loggers']['apps.sync'] = {'handlers':['sync'],'level':'INFO','propagate':False}
+
+# Deliberate LAN exception: internal CA rollout precedes HSTS; do not preload LAN names.
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_PRELOAD = False
+# W004 is intentionally inapplicable for the LAN profile, documented in HARDENING.md.
+SILENCED_SYSTEM_CHECKS = ['security.W004']
+LOGGING['filters']['support_safe'] = {'()':'apps.core.ops.logging.SafeSupportFilter'}
+LOGGING['handlers']['support'] = {'class':'logging.handlers.RotatingFileHandler','filename':str(LOCAL_LOG_ROOT/'support.log'),'maxBytes':5242880,'backupCount':5,'encoding':'utf-8','filters':['support_safe']}
+LOGGING['loggers']['apps.hardening'] = {'handlers':['support'],'level':'WARNING','propagate':False}
+LOGGING['loggers']['django.request'] = {'handlers':['support'],'level':'ERROR','propagate':False}

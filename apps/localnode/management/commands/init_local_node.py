@@ -7,6 +7,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--name', default=None)
     def handle(self, *args, **options):
+        from apps.core.ops.recovery import status
+        if status()["active"]:raise CommandError("RECOVERY_MODE")
         if settings.DEPLOYMENT_MODE != 'local_node':
             raise CommandError('Requiere modo local_node.')
         name = options['name'] or getattr(settings, 'LOCAL_NODE_NAME', 'BIG PARTY Principal')

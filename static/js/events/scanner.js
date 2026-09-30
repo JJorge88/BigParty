@@ -30,6 +30,11 @@ async function scan(token) {
 }
 async function camera() {
   busy = false; result.hidden = true; next.hidden = true; frame.hidden = false; error.textContent = '';
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+    error.textContent = 'La cámara requiere HTTPS con un certificado confiable (o localhost en desarrollo).';
+    start.hidden = false;
+    return;
+  }
   try { await scanner.start(); start.hidden = true; }
   catch (_) { error.textContent = 'No se pudo abrir la cámara. Permite su uso y abre esta página mediante HTTPS (o localhost en desarrollo).'; start.hidden = false; }
 }

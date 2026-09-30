@@ -7,10 +7,10 @@ from django.conf import settings
 from .exceptions import SyncError
 
 
-def signature(method,path,timestamp,body,node):
+def signature(method,path,timestamp,body,node,key=None):
     if len(settings.SYNC_SHARED_SECRET.encode())<32:raise SyncError('SYNC_NOT_CONFIGURED')
     text='\n'.join([method.upper(),path,str(timestamp),hashlib.sha256(body).hexdigest(),str(node)])
-    return hmac.new(settings.SYNC_SHARED_SECRET.encode(),text.encode(),hashlib.sha256).hexdigest()
+    return hmac.new((key or settings.SYNC_SHARED_SECRET).encode(),text.encode(),hashlib.sha256).hexdigest()
 
 
 def authenticate(request,body):
@@ -22,13 +22,17 @@ def authenticate(request,body):
         if str(uuid.UUID(node))!=str(uuid.UUID(settings.SYNC_NODE_UUID)):raise ValueError
         if abs(time.time()-int(stamp))>300:raise ValueError
     except (ValueError,TypeError,AttributeError):raise SyncError('AUTHENTICATION_FAILED')
-    expected=signature(request.method,request.get_full_path(),stamp,body,node)
-    if not provided or not hmac.compare_digest(expected,provided):raise SyncError('AUTHENTICATION_FAILED')
+    matched=None
+    for key in accepted_keys():
+        expected=signature(request.method,request.get_full_path(),stamp,body,node,key)
+        if provided and hmac.compare_digest(expected,provided):matched=key
+    if not matched:raise SyncError('AUTHENTICATION_FAILED')
+    request.sync_signing_key=matched
     return node
 
 
-def response_signature(request_signature,body):
-    return hmac.new(settings.SYNC_SHARED_SECRET.encode(),(request_signature+'\n'+hashlib.sha256(body).hexdigest()).encode(),hashlib.sha256).hexdigest()
+def response_signature(request_signature,body,key=None):
+    return hmac.new((key or settings.SYNC_SHARED_SECRET).encode(),(request_signature+'\n'+hashlib.sha256(body).hexdigest()).encode(),hashlib.sha256).hexdigest()
 
 
 def compatible(data):
@@ -41,3 +45,15 @@ def cloud_url():
         raise SyncError('INVALID_CLOUD_URL')
     if parsed.scheme!='https' and not (parsed.scheme=='http' and settings.SYNC_ALLOW_HTTP_DEVELOPMENT and parsed.hostname in ('localhost','127.0.0.1','::1')):raise SyncError('HTTPS_REQUIRED')
     return parsed
+
+
+def accepted_keys():
+    from datetime import datetime, timezone
+    keys=[settings.SYNC_SHARED_SECRET]
+    if settings.SYNC_SHARED_SECRET_PREVIOUS:
+        try:
+            deadline=datetime.fromisoformat(settings.SYNC_SECRET_PREVIOUS_UNTIL)
+            if 0 < (deadline-datetime.now(timezone.utc)).total_seconds() <= 86400:
+                keys.append(settings.SYNC_SHARED_SECRET_PREVIOUS)
+        except (ValueError,TypeError):pass
+    return keys

@@ -93,6 +93,8 @@ def ack_once(client):
 
 
 def sync_once(client=None):
+    from apps.core.ops.recovery import status
+    if status()['active']:raise SyncError('RECOVERY_MODE')
     if not settings.SYNC_ENABLED:return {'disabled':True}
     if settings.DEPLOYMENT_MODE!='local_node':raise SyncError('LOCAL_WORKER_ONLY')
     with worker_lock():

@@ -17,6 +17,8 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('file')
     def handle(self, *args, **options):
+        from apps.core.ops.recovery import status
+        if status()["active"]:raise CommandError("RECOVERY_MODE")
         try:
             with Path(options['file']).open('rb') as stream:
                 raw = stream.read(MAX_SNAPSHOT_BYTES+1)

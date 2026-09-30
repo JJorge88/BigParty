@@ -88,6 +88,8 @@ def sync_atomic(authority_name,*,action=''):
     def decorate(function):
         @wraps(function)
         def wrapped(*args,**kwargs):
+            from apps.core.ops.recovery import require_operational
+            require_operational()
             if not enabled() or _applying.get():return function(*args,**kwargs)
             allowed=(own_authority()=='local') if action=='arrival' else authority_name==own_authority()
             if not allowed:raise PermissionDenied('Administrado desde BIG PARTY '+('Local Node' if authority_name=='local' else 'Cloud')+'.')

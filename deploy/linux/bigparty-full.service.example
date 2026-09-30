@@ -1,0 +1,13 @@
+[Unit]
+Description=BIG PARTY full
+After=postgresql.service network-online.target
+[Service]
+Type=oneshot
+User=bigparty
+Group=bigparty
+WorkingDirectory=/opt/bigparty
+EnvironmentFile=/etc/bigparty/cloud.env
+ExecStart=/opt/bigparty/deploy/linux/backup-full.sh --secondary
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true

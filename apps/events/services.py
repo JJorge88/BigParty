@@ -66,6 +66,9 @@ def validate_image(upload):
                 raise ValueError
             extension = {'JPEG': '.jpg', 'PNG': '.png', 'WEBP': '.webp'}[picture.format]
             picture.verify()
+            upload.seek(0)
+            decoded = Image.open(upload)
+            decoded.load()
         upload.seek(0)
         upload.name = 'image' + extension
     except (OSError, ValueError, SyntaxError, Image.DecompressionBombError, Image.DecompressionBombWarning):

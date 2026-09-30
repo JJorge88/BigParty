@@ -51,3 +51,9 @@ access-snapshot*.json
 *.dump.gz
 
 !.env.cloud.example
+
+# Operational state is not source code or a backup catalog to publish.
+var/operations/
+backups/
+*.partial
+.env.recovery

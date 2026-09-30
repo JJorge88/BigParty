@@ -47,7 +47,7 @@ def private_api(method):
                 value={'code':'SYNC_UNAVAILABLE','message':'Sincronización temporalmente no disponible.'};status=503
             raw=canonical(value);response=HttpResponse(raw,status=status,content_type='application/json')
             response['Cache-Control']='no-store'
-            if authenticated:response['X-BP-Response-Signature']=response_signature(request.headers['X-BP-Signature'],raw)
+            if authenticated:response['X-BP-Response-Signature']=response_signature(request.headers['X-BP-Signature'],raw,request.sync_signing_key)
             return response
         return wrapped
     return decorate

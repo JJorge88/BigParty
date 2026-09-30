@@ -193,3 +193,34 @@ if not (1 <= SYNC_BATCH_SIZE <= 1000 and 1 <= SYNC_INTERVAL_SECONDS <= SYNC_MAX_
 
 MIDDLEWARE.insert(2, 'apps.sync.middleware.SyncAuthorityMiddleware')
 TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.sync.context_processors.sync_authority')
+
+# 4D operations. Persistent directories must be outside public roots/the checkout.
+BACKUP_ROOT = os.environ.get('BACKUP_ROOT', '')
+BACKUP_SECONDARY_ROOT = os.environ.get('BACKUP_SECONDARY_ROOT', '')
+BACKUP_OFFSITE_COMMAND = os.environ.get('BACKUP_OFFSITE_COMMAND', '')  # JSON argv; never a shell expression
+BACKUP_KEEP_HOURLY = int(os.environ.get('BACKUP_KEEP_HOURLY', '4'))
+BACKUP_KEEP_DAILY = int(os.environ.get('BACKUP_KEEP_DAILY', '14'))
+BACKUP_KEEP_WEEKLY = int(os.environ.get('BACKUP_KEEP_WEEKLY', '8'))
+BACKUP_KEEP_MONTHLY = int(os.environ.get('BACKUP_KEEP_MONTHLY', '6'))
+BACKUP_TIMEOUT_SECONDS = int(os.environ.get('BACKUP_TIMEOUT_SECONDS', '1800'))
+BACKUP_MAX_AGE_HOURS = int(os.environ.get('BACKUP_MAX_AGE_HOURS', '8'))
+MIN_FREE_DISK_GB = float(os.environ.get('MIN_FREE_DISK_GB', '2'))
+PG_BIN_DIR = os.environ.get('PG_BIN_DIR', '')
+RECOVERY_MODE = env_bool('RECOVERY_MODE', False)
+OPERATIONS_STATE_ROOT = Path(os.environ.get('OPERATIONS_STATE_ROOT', str(BASE_DIR / 'var' / 'operations')))
+RATE_LIMIT_ENABLED = env_bool('RATE_LIMIT_ENABLED', DEPLOYMENT_MODE != 'development')
+RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get('RATE_LIMIT_WINDOW_SECONDS', '300'))
+RATE_LIMIT_LOGIN = int(os.environ.get('RATE_LIMIT_LOGIN', '20'))
+RATE_LIMIT_PUBLIC = int(os.environ.get('RATE_LIMIT_PUBLIC', '12'))
+RATE_LIMIT_UPLOAD = int(os.environ.get('RATE_LIMIT_UPLOAD', '10'))
+RATE_LIMIT_SYNC = int(os.environ.get('RATE_LIMIT_SYNC', '120'))
+SYNC_SHARED_SECRET_PREVIOUS = os.environ.get('SYNC_SHARED_SECRET_PREVIOUS', '')
+SYNC_SECRET_PREVIOUS_UNTIL = os.environ.get('SYNC_SECRET_PREVIOUS_UNTIL', '')
+SECURITY_HEADERS_ENABLED = env_bool('SECURITY_HEADERS_ENABLED', DEPLOYMENT_MODE != 'development')
+if min(BACKUP_KEEP_HOURLY, BACKUP_KEEP_DAILY, BACKUP_KEEP_WEEKLY, BACKUP_KEEP_MONTHLY) < 0 or max(BACKUP_KEEP_HOURLY, BACKUP_KEEP_DAILY, BACKUP_KEEP_WEEKLY, BACKUP_KEEP_MONTHLY) == 0:
+    raise ImproperlyConfigured('Configura una retención de backups positiva.')
+if MIN_FREE_DISK_GB < 0 or not 30 <= BACKUP_TIMEOUT_SECONDS <= 86400 or min(RATE_LIMIT_WINDOW_SECONDS, RATE_LIMIT_LOGIN, RATE_LIMIT_PUBLIC, RATE_LIMIT_UPLOAD, RATE_LIMIT_SYNC) < 1:
+    raise ImproperlyConfigured('Límites operativos inválidos.')
+
+MIDDLEWARE.insert(1, 'apps.core.ops.middleware.OperationsSecurityMiddleware')
+TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.core.ops.middleware.context')

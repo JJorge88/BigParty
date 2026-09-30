@@ -37,11 +37,11 @@ def main():
                     'DJANGO_SECRET_KEY':secrets.token_urlsafe(48),'DJANGO_DEBUG':'False','DB_NAME':name,'DB_HOST':'127.0.0.1',
                     'ALLOWED_HOSTS':'127.0.0.1,localhost,testserver','CSRF_TRUSTED_ORIGINS':f'http://127.0.0.1:{ports[mode]}',
                     'SYNC_ENABLED':'true','SYNC_CLOUD_URL':f'http://127.0.0.1:{ports["cloud"]}','SYNC_SHARED_SECRET':shared,'SYNC_NODE_UUID':node,
-                    'SYNC_ALLOW_HTTP_DEVELOPMENT':'true','SYNC_BATCH_SIZE':'100','SYNC_CONNECT_TIMEOUT':'1','SYNC_READ_TIMEOUT':'3',
+                    'SECURE_SSL_REDIRECT':'false','RATE_LIMIT_ENABLED':'false','SYNC_ALLOW_HTTP_DEVELOPMENT':'true','SYNC_BATCH_SIZE':'100','SYNC_CONNECT_TIMEOUT':'1','SYNC_READ_TIMEOUT':'3',
                     'APP_VERSION':'4C-validation','SYNC_COMPATIBLE_APP_VERSIONS':'4C-validation','ACCESS_SNAPSHOT_SIGNING_KEY':shared+'-snapshot',
                     'LOCAL_NODE_HOSTNAME':'127.0.0.1','LOCAL_NODE_PORT':str(ports[mode]),'LOCAL_NODE_BIND_HOST':'127.0.0.1','LOCAL_NODE_HTTPS':'False',
                     'PRINTER_BACKEND':'debug','LOCAL_NODE_ALLOW_DEBUG_PRINTER':'True','LOCAL_MEDIA_ROOT':str(work/'media'),'LOCAL_PRIVATE_ROOT':str(work/'private'),
-                    'LOCAL_LOG_ROOT':str(work/'logs'),'SYNC_LOG_ROOT':str(work/'logs'),'LOCAL_STATIC_ROOT':str(work/'static'),'PRINTER_DEBUG_DIR':str(work/'prints'),
+                    'OPERATIONS_STATE_ROOT':str(work/'state'),'SUPPORT_LOG_ROOT':str(work/'logs'),'LOCAL_LOG_ROOT':str(work/'logs'),'SYNC_LOG_ROOT':str(work/'logs'),'LOCAL_STATIC_ROOT':str(work/'static'),'PRINTER_DEBUG_DIR':str(work/'prints'),
                     'SIM_DATA_DIR':str(work),'SIM_SHARED_DIR':str(root),'SIM_NODE':node}
                 execute(mode,['manage.py','migrate','--noinput'],envs)
             def phase(mode,label,code):

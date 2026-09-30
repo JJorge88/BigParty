@@ -36,7 +36,11 @@ def inspect_node():
               ('Clave de snapshots configurada', len(settings.ACCESS_SNAPSHOT_SIGNING_KEY.encode()) >= 32),
               ('Static recolectado', collected_static_ready()),
               ('Impresión de red', settings.PRINTER_BACKEND == 'network')]
+    from apps.core.ops.files import disk_free
+    free=disk_free(settings.MEDIA_ROOT)/(1024**3)
+    checks.append(('Espacio libre suficiente',free>=settings.MIN_FREE_DISK_GB))
     warnings = []
+    if free<settings.MIN_FREE_DISK_GB:warnings.append('Espacio libre por debajo del umbral configurado.')
     if checks[2][1]:
         try:
             checks.append(('Identidad inicializada', LocalNodeIdentity.objects.filter(pk=1).exists()))

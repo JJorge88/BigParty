@@ -45,7 +45,7 @@ def main():
         application = get_wsgi_application()
         logger.info('node_ready')
         serve(application, host=settings.LOCAL_NODE_BIND_HOST, port=settings.LOCAL_NODE_PORT, threads=8,
-              trusted_proxy=settings.LOCAL_NODE_BIND_HOST, trusted_proxy_headers={'x-forwarded-proto'},
+              trusted_proxy=settings.LOCAL_NODE_BIND_HOST, trusted_proxy_headers={'x-forwarded-proto','x-forwarded-for'},
               clear_untrusted_proxy_headers=True, expose_tracebacks=False)
         return 0
     except KeyboardInterrupt:

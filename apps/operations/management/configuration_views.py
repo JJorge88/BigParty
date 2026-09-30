@@ -68,6 +68,7 @@ def hub(request):
         card('Nodo local', 'Identidad, diagnóstico y snapshots de acceso.', 'core.view_configuration', 'localnode:status')
     if settings.DEPLOYMENT_MODE in ('local_node','cloud'):
         card('Sincronización', 'Último contacto, pendientes y conflictos.', 'core.view_configuration', 'sync-status')
+    card('Backups y recuperación', 'Últimas copias, verificaciones y estado de recuperación.', 'core.view_configuration', 'backup-status')
     system = [('URL pública', settings.PUBLIC_BASE_URL), ('Zona horaria', settings.TIME_ZONE),
               ('Modo de desarrollo', 'Activo' if settings.DEBUG else 'Inactivo'), ('Impresión', settings.PRINTER_BACKEND),
               ('Sesión operativa', f'{settings.OPERATIONAL_IDLE_TIMEOUT_SECONDS // 60} min'),

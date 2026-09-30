@@ -49,7 +49,14 @@ def report(request, kind, pdf=False):
                 data.update(queries.build(kind, period), period=period)
                 if pdf:
                     from .report_pdf import generate
-                    content = generate(data, period, request.user)
+                    try:
+                        content = generate(data, period, request.user)
+                    except ValidationError:
+                        raise
+                    except Exception:
+                        import logging
+                        logging.getLogger('apps.hardening').error('pdf_failed',extra={'support_reference':getattr(request,'support_reference','')})
+                        raise ValidationError('No se pudo generar el PDF. Intenta nuevamente o reduce el periodo.') from None
                     dates = str(period.start) if period.start == period.end else f'{period.start}-a-{period.end}'
                     filename = slugify(f'big-party-{kind}-{dates}') + '.pdf'
                     response = HttpResponse(content, content_type='application/pdf')

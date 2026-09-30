@@ -16,6 +16,7 @@
 <div class="notice notice--error" role="alert">{{ error }}
 </div>{% endif %}
 {% if sync_readonly %}<p class="notice">Administrado desde BIG PARTY {% if sync_cloud %}Local Node{% else %}Cloud{% endif %}. Información de lectura.</p>{% endif %}
+{% if recovery_active %}<p class="notice notice--error" role="alert">Modo recuperación · operación suspendida hasta completar la revisión.</p>{% endif %}
 {% block management_content %}{% endblock %}
 <footer class="management-footer"><span>BIG PARTY · Control de la operación</span><span>Sesión protegida · 30 min de inactividad</span>
 </footer>

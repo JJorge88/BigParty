@@ -175,3 +175,13 @@ Abrir `https://hostname/operacion/`, configurar OperationalDevice con sesión t�
 Con datos de prueba: abrir jornada/caja/mesa, agregar y enviar pedido, comprobar stock/comanda, registrar efectivo y tarjeta manual, recibir handoff, retirar con autorización y cerrar cuenta/caja. Registrar transferencia/depósito PENDING sin autoconfirmar. Desconectar solo Internet, **mantener LAN**, repetir accesos y recursos locales; validar QR importado. `/reservas/` y compras públicas deben seguir deshabilitadas por LAN. Reconectar sin esperar sincronización: todavía no existe. No iniciar operación real hasta aprobar la validación física 4F.
 
 Referencias técnicas: [Waitress detrás de proxy](https://docs.pylonsproject.org/projects/waitress/en/latest/reverse-proxy.html), [WhiteNoise/Django](https://whitenoise.readthedocs.io/en/stable/django.html), [Caddy TLS interno](https://caddyserver.com/docs/caddyfile/directives/tls). Windows, confianza de CA y hardware quedan pendientes de ejecución física; esta guía no declara un despliegue realizado.
+
+## Complemento Fase 4D
+
+Antes de instalar, incorporar las variables nuevas del ejemplo de entorno: tres
+claves independientes obligatorias, OPERATIONS_STATE_ROOT privado persistente,
+BACKUP_ROOT/BACKUP_SECONDARY_ROOT y PG_BIN_DIR. Preparar las tareas agrupadas y ACL
+según [BACKUPS](BACKUPS.md), [HARDENING](../security/HARDENING.md) y
+[PRODUCTION-CHECKLIST](PRODUCTION-CHECKLIST.md). No se instalaron tareas ni servicios
+Windows en la validación Mac. Ante pérdida del nodo seguir
+[DISASTER-RECOVERY](DISASTER-RECOVERY.md), conservando UUID y deteniendo sync.

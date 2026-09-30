@@ -37,6 +37,8 @@ def require_method(method):
 
 @transaction.atomic
 def save_configuration(user, kind, values):
+    from apps.core.ops.recovery import require_operational
+    require_operational()
     from apps.sync.services import enabled, own_authority
     if enabled() and ((kind == "bank") != (own_authority() == "cloud")):
         raise PermissionDenied("Configuración administrada desde su entorno de origen.")
