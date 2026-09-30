@@ -55,5 +55,6 @@ urlpatterns += [
     path('auditoria/', audit.listing, name='audit'),
     path('auditoria/<int:pk>/', audit.detail, name='audit-detail'),
     path('configuracion/', configuration.hub, name='configuration'),
+    path('configuracion/negocio/', configuration.business_hub, name='configuration-business'),
     path('configuracion/<slug:kind>/', configuration.edit, name='configuration-edit'),
 ]

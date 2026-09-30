@@ -408,3 +408,45 @@ html:not(.js) .site-header{margin-bottom:390px}
 .reveal-ready{opacity:1;transform:none}
 .story-media:hover img,.experience:hover img{transform:none}
 }
+
+/* Venue information follows the public editorial rhythm. */
+.night-plan,.venue-location,.venue-faq{scroll-margin-top:32px}
+.plan-editorial{display:grid;grid-template-columns:1fr 1fr;gap:0 9%}
+.plan-editorial article{position:relative;padding:36px 0 40px 45px;border-top:1px solid var(--line)}
+.plan-number{position:absolute;left:0;top:40px;font-size:11px;letter-spacing:.12em;color:var(--gold)}
+.plan-editorial h3{font-size:clamp(1.6rem,2.3vw,2.3rem);margin-bottom:20px}
+.plan-editorial p{max-width:48ch;font-size:14px}
+.plan-editorial .entry-age{color:var(--ink);font-size:16px}
+.venue-location-layout{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(260px,1fr);gap:6%;align-items:center}
+.venue-map{position:relative;aspect-ratio:4/3;background:var(--panel);border:1px solid var(--line)}
+.venue-map iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;color-scheme:normal}
+.venue-address h3{font-size:2rem;margin-bottom:14px}
+.venue-address>p{max-width:36ch;overflow-wrap:anywhere}
+.venue-hours{margin:28px 0}
+.venue-hours dl{margin:0 0 10px}
+.venue-hours dl>div{display:flex;justify-content:space-between;gap:20px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+.venue-hours dd{margin:0;text-align:right;white-space:nowrap}
+.venue-hours small{display:block;color:var(--muted);font-size:10px;margin-top:6px}
+.hours-timezone{font-size:11px}
+.venue-contact{display:flex;flex-wrap:wrap;gap:20px;margin-top:26px}
+.venue-faq{display:grid;grid-template-columns:1fr 1.5fr;gap:8%;align-items:start}
+.faq-list{border-top:1px solid var(--line)}
+.faq-list details{border-bottom:1px solid var(--line)}
+.faq-list summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:72px;padding:22px 0;font-size:15px;line-height:1.5}
+.faq-list summary::-webkit-details-marker{display:none}
+.faq-list summary:focus-visible{outline:2px solid var(--gold);outline-offset:5px}
+.faq-symbol{flex:0 0 14px;width:14px;height:14px;position:relative;color:var(--gold)}
+.faq-symbol:before,.faq-symbol:after{content:'';position:absolute;top:6px;left:0;width:14px;height:1px;background:currentColor}
+.faq-symbol:after{transform:rotate(90deg)}
+.faq-list details[open] .faq-symbol:after{transform:rotate(0)}
+.faq-answer{padding:0 35px 24px 0;max-width:65ch}
+.faq-answer p{font-size:14px;margin-bottom:12px}
+@media(max-width:760px){
+  .plan-editorial{grid-template-columns:1fr}
+  .plan-editorial article{padding:28px 0 30px 36px}
+  .plan-number{top:32px}
+  .venue-location-layout,.venue-faq{grid-template-columns:1fr;gap:32px}
+  .venue-map{aspect-ratio:4/3}
+  .venue-address{padding-top:8px}
+  .faq-list summary{font-size:14px;min-height:68px}
+}

@@ -853,3 +853,9 @@
 .report-filters{display:flex;flex-wrap:wrap;align-items:end;gap:16px;margin:20px 0}.report-filters>div{display:flex;flex-direction:column;gap:8px;min-width:130px;flex:1}.report-filters label{font-size:12px;color:#b8b9b7}.report-filters input,.report-filters select{background:#141516;border:1px solid #393a38;border-radius:8px;color:#f4f4ef;padding:11px;max-width:100%;color-scheme:dark}.report-filters .errorlist{color:#f6a393}.report-form{max-width:780px}.report-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:22px 0}.report-kpis strong{display:block;font-size:24px;margin-top:10px}.report-section{margin:20px 0}.report-section td{max-width:330px;overflow-wrap:anywhere}.report-section th{white-space:normal}.administration .admin-table-wrap{overflow-x:auto}
 @media(max-width:1000px){.report-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.report-kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.report-cards{grid-template-columns:1fr}.report-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.report-filters{align-items:stretch}.report-filters>div{flex-basis:100%}.report-kpis strong{font-size:20px}.report-section .admin-table{min-width:700px}}
+
+/* Seven compact day rows; narrow screens keep readable paired controls. */
+.opening-hours-form{max-width:1120px}
+.opening-hours-form .admin-fields{grid-template-columns:repeat(4,minmax(0,1fr))}
+.opening-hours-form .admin-form-section{padding-bottom:20px;margin-bottom:20px}
+@media(max-width:760px){.opening-hours-form .admin-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}

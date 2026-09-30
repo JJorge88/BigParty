@@ -20,8 +20,10 @@ class HomeView(TemplateView):
     template_name = 'public/home.html'
 
     def get_context_data(self, **kwargs):
+        from .venue_information import venue_context
         upcoming = list(site.public_events().filter(status='PUBLISHED')[:4])
-        return {**super().get_context_data(**kwargs), **site.context(self.request),
+        public = site.context(self.request)
+        return {**super().get_context_data(**kwargs), **public, **venue_context(public['brand']),
                 'featured': upcoming[0] if upcoming else None, 'upcoming': upcoming[1:]}
 
 

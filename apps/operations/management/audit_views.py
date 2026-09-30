@@ -45,6 +45,10 @@ NUMBERS = {'amount':'Importe', 'old_price':'Precio anterior', 'new_price':'Preci
 IDS = {'order_id':'Pedido', 'line_id':'Producto del pedido', 'payment_id':'Pago', 'refund_id':'Reembolso', 'session_id':'Sesión de caja',
        'area_id':'Área', 'waiter_id':'Mesero', 'movement_id':'Movimiento', 'day_id':'Jornada'}
 CONFIG_FIELDS = {'business_name':'Nombre del negocio', 'enabled':'Habilitado', 'display_order':'Orden', 'bank_name':'Banco', 'account_name':'Titular', 'account_number':'Cuenta', 'instructions':'Instrucciones'}
+CONFIG_FIELDS.update(latitude='Latitud', longitude='Longitud', address_text='Dirección pública', public_phone='Teléfono público',
+    minimum_entry_age='Edad mínima', identification_text='Identificación', dress_code='Vestimenta',
+    dress_code_description='Detalle de vestimenta', security_text='Seguridad', admission_policy='Política de ingreso')
+ENTITIES['businessopeninghours'] = 'Horarios'
 SECRET = re.compile(r'password|passwd|\bpin\b|hash|secret|(?:qr|secure)[_-]?token|session[_ -]?(?:key|id)|token', re.I)
 
 
@@ -92,6 +96,18 @@ def visible_data(data):
             visible.append(('Permiso', labels[permission]))
     changes = data.get('changes', {})
     if isinstance(changes, dict):
+        from apps.core.models import BusinessOpeningHours
+        for _, day in BusinessOpeningHours.Weekday.choices:
+            row = changes.get(day)
+            if not isinstance(row, dict):
+                continue
+            for field, label in [('is_open', 'Abierto'), ('opens_at', 'Apertura'), ('closes_at', 'Cierre'), ('sort_order', 'Orden')]:
+                change = row.get(field)
+                if isinstance(change, dict):
+                    before = text_value(change.get('before') if change.get('before') is not None else 'Sin horario')
+                    after = text_value(change.get('after') if change.get('after') is not None else 'Sin horario')
+                    if before is not None and after is not None:
+                        visible.append((f'{day} · {label}', f'{before} → {after}'))
         for field, label in CONFIG_FIELDS.items():
             change = changes.get(field)
             if isinstance(change, dict):

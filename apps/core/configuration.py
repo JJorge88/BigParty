@@ -3,7 +3,20 @@ from django.db import transaction
 from apps.audit.models import AuditLog
 from apps.cash.guards import lock_operation_gate
 from apps.payments.models import Payment
-from .models import BusinessSettings, PaymentMethodSettings, BankTransferSettings
+from .models import BusinessSettings, BusinessOpeningHours, PaymentMethodSettings, BankTransferSettings
+
+
+BUSINESS_FIELDS = {
+    'business': ('business_name',),
+    'location': ('latitude', 'longitude', 'address_text', 'public_phone'),
+    'entry': ('minimum_entry_age', 'identification_text', 'dress_code', 'dress_code_description', 'security_text', 'admission_policy'),
+}
+
+
+def audit_value(value):
+    from datetime import time
+    from decimal import Decimal
+    return str(value) if isinstance(value, (Decimal, time)) else value
 
 
 def business():
@@ -42,7 +55,7 @@ def save_configuration(user, kind, values):
     from apps.sync.services import enabled, own_authority
     if enabled() and ((kind == "bank") != (own_authority() == "cloud")):
         raise PermissionDenied("Configuración administrada desde su entorno de origen.")
-    permissions = {'business': 'change_business_configuration', 'methods': 'change_payment_method_configuration',
+    permissions = {**dict.fromkeys((*BUSINESS_FIELDS, 'hours'), 'change_business_configuration'), 'methods': 'change_payment_method_configuration',
                    'bank': 'change_bank_transfer_configuration'}
     if not user.is_active or not user.has_perm('core.' + permissions[kind]):
         raise PermissionDenied
@@ -51,7 +64,20 @@ def save_configuration(user, kind, values):
         source_gate()
     lock_operation_gate()
     changes = {}
-    if kind == 'methods':
+    if kind == 'hours':
+        if len(values) != 7 or {row['weekday'] for row in values} != set(range(7)):
+            raise ValidationError('Configura los siete días de la semana.')
+        for row in values:
+            obj, _ = BusinessOpeningHours.objects.get_or_create(weekday=row['weekday'])
+            change = {}
+            for field in ('is_open', 'opens_at', 'closes_at', 'sort_order'):
+                change[field] = {'before': audit_value(getattr(obj, field)), 'after': audit_value(row[field])}
+                setattr(obj, field, row[field])
+            obj.full_clean()
+            obj.save()
+            changes[obj.get_weekday_display()] = change
+        entity = 'BusinessOpeningHours'
+    elif kind == 'methods':
         for index, code in enumerate(Payment.Method.values):
             obj, _ = PaymentMethodSettings.objects.get_or_create(method=code, defaults={'display_order': index})
             before = {'enabled': obj.enabled, 'display_order': obj.display_order}
@@ -61,11 +87,11 @@ def save_configuration(user, kind, values):
             changes[code] = {'before': before, 'after': {'enabled': obj.enabled, 'display_order': obj.display_order}}
         entity = 'PaymentMethodSettings'
     else:
-        model = BusinessSettings if kind == 'business' else BankTransferSettings
-        allowed = ('business_name',) if kind == 'business' else ('enabled', 'bank_name', 'account_name', 'account_number', 'instructions')
+        model = BusinessSettings if kind in BUSINESS_FIELDS else BankTransferSettings
+        allowed = BUSINESS_FIELDS[kind] if kind in BUSINESS_FIELDS else ('enabled', 'bank_name', 'account_name', 'account_number', 'instructions')
         obj, _ = model.objects.get_or_create(pk=1)
         for field in allowed:
-            changes[field] = {'before': getattr(obj, field), 'after': values[field]}
+            changes[field] = {'before': audit_value(getattr(obj, field)), 'after': audit_value(values[field])}
             setattr(obj, field, values[field])
         obj.full_clean()
         obj.save()

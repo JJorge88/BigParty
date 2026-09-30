@@ -35,6 +35,8 @@ class OperationsSecurityMiddleware:
         if settings.SECURITY_HEADERS_ENABLED:
             # Existing templates use dynamic style attributes for maps; scripts remain strictly self-hosted.
             response['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+            if request.path_info == '/':
+                response['Content-Security-Policy'] += '; frame-src https://www.openstreetmap.org'
             response['Permissions-Policy']='camera=(self), microphone=(), geolocation=()'
             response['Referrer-Policy']='same-origin'
             response['X-Content-Type-Options']='nosniff'

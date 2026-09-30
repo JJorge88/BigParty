@@ -3158,3 +3158,10 @@ DEBUG=True, settings dev, sync apagado e impresión debug. `seed_pilot_demo` pre
 PIN y contraseña se proporcionan explícitamente; no hay credenciales predeterminadas
 ni comando reset. `DEV_LAN_HOST` admite la IP exacta del Mac sin comodines.
 Esta preparación no inicia Fase 4E ni despliega a Cloud/Local Node de producción.
+
+### Fase 4A.2 — información pública del establecimiento
+
+Gerencia → Configuración → Negocio permite editar ubicación, horarios e ingreso en
+páginas separadas. Home integra mapa con coordenadas oficiales, ruta en Google Maps,
+información práctica, FAQ y JSON-LD; teléfono y horarios se publican solo al configurarlos.
+[Reporte, validación y capturas](docs/phase-4a2/README.md). Nueva migración core 0003.

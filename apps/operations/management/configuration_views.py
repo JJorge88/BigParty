@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods
 from apps.core import configuration as config
-from apps.core.models import BusinessSettings, BankTransferSettings
+from apps.core.models import BusinessSettings, BusinessOpeningHours, BankTransferSettings
 from apps.cash.models import CashRegister
 from apps.operations.models import OperationalDevice
 from apps.printing.models import Printer, PrintJob
@@ -23,6 +23,43 @@ class BusinessForm(forms.ModelForm):
     class Meta:
         model = BusinessSettings
         fields = ('business_name',)
+
+
+class LocationForm(forms.ModelForm):
+    class Meta:
+        model = BusinessSettings
+        fields = config.BUSINESS_FIELDS['location']
+
+
+class EntryForm(forms.ModelForm):
+    class Meta:
+        model = BusinessSettings
+        fields = config.BUSINESS_FIELDS['entry']
+        widgets = {field: forms.Textarea(attrs={'rows': 3}) for field in fields if field != 'minimum_entry_age'}
+
+
+class OpeningHoursForm(forms.Form):
+    weekday = forms.TypedChoiceField(label='Día', choices=BusinessOpeningHours.Weekday.choices, coerce=int, disabled=True)
+    is_open = forms.TypedChoiceField(label='Estado', choices=((False, 'Cerrado'), (True, 'Abierto')), coerce=lambda v: v == 'True')
+    opens_at = forms.TimeField(label='Hora de apertura', required=False, widget=forms.TimeInput(format='%H:%M', attrs={'type': 'time'}))
+    closes_at = forms.TimeField(label='Hora de cierre', required=False, widget=forms.TimeInput(format='%H:%M', attrs={'type': 'time'}))
+    sort_order = forms.IntegerField(label='Orden', min_value=0, max_value=32767)
+
+    @property
+    def day_label(self):
+        return dict(BusinessOpeningHours.Weekday.choices)[self.initial['weekday']]
+
+    def clean(self):
+        data = super().clean()
+        if data.get('is_open'):
+            if not data.get('opens_at') or not data.get('closes_at') or data['opens_at'] == data['closes_at']:
+                raise ValidationError('Para un día abierto, indica una apertura y un cierre diferentes.')
+        else:
+            data['opens_at'] = data['closes_at'] = None
+        return data
+
+
+HoursFormSet = forms.formset_factory(OpeningHoursForm, extra=0, min_num=7, max_num=7, absolute_max=7, validate_min=True, validate_max=True)
 
 
 class BankForm(forms.ModelForm):
@@ -49,7 +86,7 @@ def hub(request):
     def card(title, description, permission=None, route=None, args=None):
         cards.append(dict(title=title, description=description,
                           url=reverse(route, args=args) if route and request.user.has_perm(permission) else ''))
-    card('Negocio', f'{config.business().business_name} · GTQ · America/Guatemala', 'core.change_business_configuration', 'management:configuration-edit', ['business'])
+    card('Negocio', f'{config.business().business_name} · Información, ubicación, horarios e ingreso.', 'core.change_business_configuration', 'management:configuration-business')
     card('Operación', 'La jornada se abre y cierra manualmente. Las ventas conservan su jornada después de medianoche.', 'cash.view_cash_session_financials', 'management:closures')
     card('Métodos de pago', 'Efectivo, tarjeta, transferencia y depósito. Los cambios afectan únicamente nuevos cobros.', 'core.change_payment_method_configuration', 'management:configuration-edit', ['methods'])
     card('Datos de transferencia', 'Datos públicos para recibir pagos en reservas y eventos. ' + ('Configurados.' if config.bank() else 'Pendiente de configuración.'), 'core.change_bank_transfer_configuration', 'management:configuration-edit', ['bank'])
@@ -79,10 +116,25 @@ def hub(request):
     return page(request, 'configuration', dict(cards=cards, system=system), section='configuracion')
 
 
+@require_GET
+@security.required
+def business_hub(request):
+    security.require(request.user, 'core.view_configuration')
+    security.require(request.user, 'core.change_business_configuration')
+    sections = [('business', 'Información', 'Nombre del negocio.'),
+                ('location', 'Ubicación', 'Mapa, dirección pública y contacto opcional.'),
+                ('hours', 'Horarios', 'Días abiertos y horarios publicados. El cierre puede ser al día siguiente.'),
+                ('entry', 'Ingreso', 'Edad mínima, identificación, vestimenta y reglas públicas.')]
+    return page(request, 'business_configuration', {'sections': sections}, section='configuracion')
+
+
 @require_http_methods(['GET', 'POST'])
 @security.required
 def edit(request, kind):
     specs = {'business': (BusinessForm, 'Negocio', 'change_business_configuration'),
+             'location': (LocationForm, 'Ubicación', 'change_business_configuration'),
+             'entry': (EntryForm, 'Ingreso', 'change_business_configuration'),
+             'hours': (HoursFormSet, 'Horarios', 'change_business_configuration'),
              'methods': (MethodsForm, 'Métodos de pago', 'change_payment_method_configuration'),
              'bank': (BankForm, 'Datos de transferencia', 'change_bank_transfer_configuration')}
     if kind not in specs:
@@ -91,8 +143,13 @@ def edit(request, kind):
     cls, title, permission = specs[kind]
     security.require(request.user, 'core.' + permission)
     kwargs = {}
-    if kind == 'business':
+    if kind in config.BUSINESS_FIELDS:
         kwargs['instance'] = config.business()
+    elif kind == 'hours':
+        saved = {row.weekday: row for row in BusinessOpeningHours.objects.all()}
+        kwargs['initial'] = [dict(weekday=day, is_open=saved[day].is_open if day in saved else False,
+            opens_at=saved[day].opens_at if day in saved else None, closes_at=saved[day].closes_at if day in saved else None,
+            sort_order=saved[day].sort_order if day in saved else day) for day in range(7)]
     elif kind == 'bank':
         kwargs['instance'] = BankTransferSettings.objects.first() or BankTransferSettings()
     form = cls(request.POST if request.method == 'POST' else None, **kwargs)
@@ -102,5 +159,8 @@ def edit(request, kind):
             messages.success(request, 'Configuración guardada. El cambio quedó registrado en auditoría.')
             return redirect('management:configuration-edit', kind=kind)
         except ValidationError as exc:
-            form.add_error(None, ' '.join(exc.messages))
+            if kind == 'hours':
+                form._non_form_errors = form.error_class(exc.messages)
+            else:
+                form.add_error(None, ' '.join(exc.messages))
     return page(request, 'configuration_form', dict(form=form, title=title, kind=kind), section='configuracion')

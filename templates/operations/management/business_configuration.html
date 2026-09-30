@@ -1,0 +1,4 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading"><div><span class="eyebrow">CONFIGURACIÓN</span><h1>Negocio</h1><p>La información que tus visitantes necesitan antes de llegar.</p></div></header>
+<div class="report-cards">{% for kind,title,description in sections %}<section class="admin-panel admin-context"><h2>{{ title }}</h2><p>{{ description }}</p><a class="text-link" href="{% url 'management:configuration-edit' kind %}">Configurar →</a></section>{% endfor %}</div>
+<a class="admin-button" href="{% url 'management:configuration' %}">Volver a configuración</a>{% endblock %}
