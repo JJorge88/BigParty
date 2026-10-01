@@ -92,13 +92,11 @@ def hub(request):
     card('Datos de transferencia', 'Datos públicos para recibir pagos en reservas y eventos. ' + ('Configurados.' if config.bank() else 'Pendiente de configuración.'), 'core.change_bank_transfer_configuration', 'management:configuration-edit', ['bank'])
     card('Reservas', f'{"Habilitadas" if reserve.reservations_enabled else "Deshabilitadas"} · duración {reserve.default_duration_minutes} min · retención {reserve.public_hold_minutes} min · anticipo {"activo" if reserve.advance_payment_enabled else "inactivo"}', 'reservations.configure_reservations', 'reservations:configure')
     card('Eventos', f'Retención {event.purchase_hold_minutes} min · ventana de pago {event.payment_window_minutes} min', 'events.change_event', 'events:settings')
-    card('Mesas', 'La distribución se administra en la configuración técnica existente.')
+    card('Mesas', 'Crea mesas y organiza su ubicación, forma y capacidad por área.', 'tables.view_venuetable', 'management:tables')
     card('Impresoras', f'{Printer.objects.count()} registradas · {Printer.objects.exclude(host="").count()} configuradas en red · {PrintJob.objects.filter(status="FAILED", printer__isnull=False, created_at__gte=timezone.now()-timedelta(days=7)).values("printer_id").distinct().count()} con fallos recientes (7 días)', 'printing.manage_printers', 'printing:printers')
     card('Dispositivos', f'{OperationalDevice.objects.count()} dispositivos operativos · {CashRegister.objects.count()} cajas registradas. La vinculación de navegadores conserva sus controles actuales.')
     card('Seguridad y accesos', 'Usuarios, credenciales y permisos individuales.', 'accounts.view_user', 'management:users')
     if request.user.is_staff:
-        if request.user.has_perm('tables.view_venuetable'):
-            cards[6]['url'] = reverse('admin:tables_venuetable_changelist')
         if request.user.has_perm('operations.view_operationaldevice'):
             cards[8]['url'] = reverse('admin:operations_operationaldevice_changelist')
     if settings.DEPLOYMENT_MODE == 'local_node':

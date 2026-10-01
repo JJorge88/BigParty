@@ -8,6 +8,7 @@ MODULES = {
     'Operación': ('orders.TableOrder', 'payments.Payment'),
     'Caja': ('cash.CashSession', 'operations.CashAccessSession'),
     'Inventario': ('inventory.InventoryMovement', 'catalog.Product'),
+    'Mesas': ('tables.VenueTable',),
     'Reservas': ('reservations.Reservation',),
     'Eventos': ('events.Event',),
     'Gerencia': ('cash.BusinessDay', 'core.BusinessSettings', 'audit.AuditLog'),
@@ -15,6 +16,7 @@ MODULES = {
     'Usuarios': ('accounts.User',),
 }
 EXTRA = {
+    'Mesas': ['tables.view_venuetable', 'tables.add_venuetable', 'tables.change_venuetable'],
     'Operación': ['tables.view_venuetable', 'orders.view_tableorder', 'payments.view_payment'],
     'Caja': ['cash.view_cashmovement'],
     'Inventario': ['catalog.' + action + '_' + model for model in
@@ -24,6 +26,7 @@ EXTRA = {
     'Usuarios': ['accounts.view_user', 'accounts.add_user', 'accounts.change_user'],
 }
 LABELS = {
+    'tables.add_venuetable': 'Crear mesas', 'tables.change_venuetable': 'Editar mesas y distribución',
     'accounts.view_user': 'Ver usuarios', 'accounts.add_user': 'Crear usuarios', 'accounts.change_user': 'Editar identidad de usuarios',
     'tables.view_venuetable': 'Consultar mesas', 'orders.view_tableorder': 'Consultar cuentas',
     'payments.view_payment': 'Consultar pagos', 'cash.view_cashmovement': 'Consultar movimientos de caja',

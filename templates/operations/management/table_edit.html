@@ -1,0 +1,9 @@
+{% extends 'operations/management/tables.html' %}{% load static %}
+{% block admin_content %}
+<header class="admin-heading"><div><span class="eyebrow">{{ area.name }}</span><h1>{{ title }}</h1><p>Arrastra la mesa en el plano o ajusta su posición con los campos. Guarda para aplicar los cambios.</p></div><a class="admin-button" href="{% url 'management:tables' %}?area={{ area.pk }}">← Volver al mapa</a></header>
+<div class="floor-editor">
+<section class="admin-panel floor-preview"><h2>Ubicación en {{ area.name }}</h2>{% include 'operations/management/partials/floor_plan.html' with editing=True %}<p class="admin-help">La mesa dorada es la que estás editando. También puedes moverla con las flechas del teclado.</p><p role="status" id="floor-status"></p></section>
+<section class="admin-panel admin-form-panel"><form method="post" id="table-form">{% csrf_token %}{{ form.non_field_errors }}{{ form.revision }}{% for field in form.visible_fields %}<div class="admin-field">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>{% endfor %}<div class="admin-form-footer"><a href="{% url 'management:tables' %}?area={{ area.pk }}">Cancelar</a>{% if not sync_readonly %}<button class="admin-button admin-button--primary">Guardar mesa</button>{% endif %}</div></form></section>
+</div>
+{% endblock %}
+{% block scripts %}{{ block.super }}<script type="module" src="{% static 'js/operations/table-editor.js' %}"></script>{% endblock %}

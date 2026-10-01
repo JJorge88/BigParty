@@ -13,7 +13,7 @@ class SyncAuthorityMiddleware:
             return self.get_response(request)
         path=request.path_info
         cloud=settings.DEPLOYMENT_MODE=='cloud'
-        local_prefixes=('/operacion/','/caja/','/impresoras/','/dispositivo/','/gerencia/inventario/','/gerencia/catalogo/','/gerencia/usuarios/','/gerencia/jornada/')
+        local_prefixes=('/operacion/','/caja/','/impresoras/','/dispositivo/','/gerencia/inventario/','/gerencia/mesas/','/gerencia/catalogo/','/gerencia/usuarios/','/gerencia/jornada/')
         cloud_prefixes=('/gerencia/eventos/','/gerencia/reservas/')
         safe_actions=('/acceso/','/salir/','/actividad/')
         forbidden=False

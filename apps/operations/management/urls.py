@@ -1,7 +1,10 @@
 from django.urls import path
-from . import views, catalog_views as catalog, user_views as users
+from . import views, catalog_views as catalog, user_views as users, table_views as tables
 app_name = 'management'
 urlpatterns = [
+    path('mesas/', tables.listing, name='tables'),
+    path('mesas/area/<int:area_id>/crear/', tables.edit, name='table-create'),
+    path('mesas/<int:pk>/editar/', tables.edit, name='table-edit'),
     path('',views.home,name='home'),
     path('acceso/',views.login,name='login'),
     path('salir/',views.logout,name='logout'),

@@ -1056,6 +1056,7 @@
     gap:0 18px;
   }
   .management-nav a {
+    height:auto;
     min-height:43px;
   }
   .management .brand {

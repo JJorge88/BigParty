@@ -1,0 +1,63 @@
+"""Editor del plano físico de mesas para Gerencia."""
+from django import forms
+from django.contrib import messages
+from django.core.exceptions import ValidationError
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
+from django.views.decorators.http import require_GET, require_http_methods
+from apps.tables.models import VenueTable
+from apps.tables.management_services import save_table
+from apps.venues.models import Area, Zone
+from . import security
+from .views import page
+
+
+class TableForm(forms.ModelForm):
+    revision = forms.CharField(widget=forms.HiddenInput, required=False)
+
+    class Meta:
+        model = VenueTable
+        fields = ('name', 'capacity', 'zone', 'layout_shape', 'layout_x', 'layout_y',
+                  'layout_width', 'layout_height', 'reservable_web', 'is_active', 'operational_status')
+        labels = {'is_active': 'Mostrar mesa en la operación', 'reservable_web': 'Permitir reservas en la web'}
+
+    def __init__(self, *args, area, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance.area = area
+        self.fields['zone'].queryset = Zone.objects.filter(area=area)
+        self.fields['revision'].initial = self.instance.updated_at.isoformat() if self.instance.pk else ''
+        for key in ('layout_x', 'layout_y', 'layout_width', 'layout_height'):
+            self.fields[key].localize = False
+            self.fields[key].widget = forms.NumberInput(attrs={'step': '.01', 'min': '0.01' if key in ('layout_width', 'layout_height') else '0', 'max': '100'})
+
+
+def map_data(area, selected=None):
+    return {'areas': Area.objects.all(), 'area': area,
+            'tables': area.tables.all() if area else [], 'selected_table': selected}
+
+
+@require_GET
+@security.required
+def listing(request):
+    security.require(request.user, 'tables.view_venuetable')
+    area = get_object_or_404(Area, pk=request.GET['area']) if request.GET.get('area', '').isdecimal() else Area.objects.first()
+    return page(request, 'tables', map_data(area), section='mesas')
+
+
+@require_http_methods(['GET', 'POST'])
+@security.required
+def edit(request, pk=None, area_id=None):
+    security.require(request.user, 'tables.view_venuetable')
+    security.require(request.user, 'tables.change_venuetable' if pk else 'tables.add_venuetable')
+    table = get_object_or_404(VenueTable, pk=pk) if pk else None
+    area = table.area if table else get_object_or_404(Area, pk=area_id)
+    form = TableForm(request.POST if request.method == 'POST' else None, instance=table, area=area)
+    if request.method == 'POST' and form.is_valid():
+        try:
+            save_table(area, form.cleaned_data, actor=request.user, pk=pk)
+            messages.success(request, 'Mesa guardada. El plano de la operación ya está actualizado.')
+            return redirect(reverse('management:tables') + f'?area={area.pk}')
+        except ValidationError as exc:
+            form.add_error(None, ' '.join(exc.messages))
+    return page(request, 'table_edit', {**map_data(area, table), 'form': form,
+        'title': 'Editar mesa' if pk else 'Crear mesa'}, section='mesas', status=400 if form.errors else 200)
