@@ -1050,9 +1050,13 @@
     order:3;
     width:100%;
     margin:0;
-    height:43px;
+    height:auto;
+    flex-wrap:wrap;
     justify-content:center;
-    gap:36px;
+    gap:0 18px;
+  }
+  .management-nav a {
+    min-height:43px;
   }
   .management .brand {
     order:0;
