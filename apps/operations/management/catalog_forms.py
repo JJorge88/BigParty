@@ -1,9 +1,29 @@
 from django import forms
+from django.utils.text import slugify
 from apps.catalog.models import Category, Product, ModifierGroup, ModifierOption, ComboComponent
 from apps.venues.models import Area
 
 
-class ProductForm(forms.ModelForm):
+class AutomaticSlugForm(forms.ModelForm):
+    def clean_slug(self):
+        value = self.cleaned_data.get('slug')
+        if value:
+            return value
+        if self.instance.pk:
+            return self.instance.slug
+        maximum = self._meta.model._meta.get_field('slug').max_length
+        base = slugify(self.cleaned_data.get('name', ''))[:maximum - 12] or 'producto'
+        value, count = base, 2
+        while self._meta.model.objects.filter(slug=value).exists():
+            value = f'{base}-{count}'
+            count += 1
+        return value
+
+
+class ProductForm(AutomaticSlugForm):
+    initial_stock = forms.IntegerField(label='Cantidad inicial disponible', min_value=0, required=False, initial=0,
+        help_text='Opcional. Activa el control de inventario para registrar estas unidades al guardar.')
+
     class Meta:
         model = Product
         fields = ('name', 'slug', 'category', 'base_price', 'is_active', 'visible_in_pos', 'track_inventory',
@@ -13,8 +33,22 @@ class ProductForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if not user.has_perm('catalog.change_product_price'):
             self.fields['base_price'].disabled = True
+        self.fields['slug'].required = False
+        self.fields['slug'].help_text = 'Se genera automáticamente si lo dejas vacío.'
+        self.fields['name'].widget.attrs['placeholder'] = 'Ej. Mojito clásico'
+        self.fields['track_inventory'].help_text = 'Descuenta unidades con las ventas. Déjalo desactivado si no llevas conteo de este producto.'
+        self.fields['preparation_route'].help_text = 'Indica dónde se prepara: barra, cocina o entrega directa.'
+        self.fields['minimum_stock'].label = 'Avisar cuando queden estas unidades'
+        if self.instance.pk or not user.has_perm('inventory.receive_inventory'):
+            del self.fields['initial_stock']
         self.fields['visible_in_pos'].label = 'Visible en punto de venta'
         self.fields['image'].help_text = 'JPEG, PNG o WebP. Máximo 5 MB.'
+
+    def clean(self):
+        data = super().clean()
+        if data.get('initial_stock') and (not data.get('track_inventory') or data.get('is_combo')):
+            self.add_error('initial_stock', 'Las existencias iniciales requieren control de inventario y un producto que no sea combo.')
+        return data
 
     def clean_image(self):
         image = self.cleaned_data.get('image')
@@ -25,11 +59,17 @@ class ProductForm(forms.ModelForm):
         return image
 
 
-class CategoryForm(forms.ModelForm):
+class CategoryForm(AutomaticSlugForm):
     class Meta:
         model = Category
         fields = ('name', 'slug', 'description', 'sort_order', 'is_active')
         widgets = {'description': forms.Textarea(attrs={'rows': 2})}
+
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['slug'].required = False
+        self.fields['slug'].help_text = 'Se genera automáticamente a partir del nombre.'
 
 
 class GroupForm(forms.ModelForm):
@@ -75,3 +115,8 @@ class PriceForm(forms.Form):
         elif data.get('price') is None:
             self.add_error('price', 'Indica el precio.')
         return data
+
+
+class StockEntryForm(StockForm):
+    product = forms.ModelChoiceField(label='Producto recibido', queryset=Product.objects.filter(is_active=True, track_inventory=True, is_combo=False).order_by('name'))
+    field_order = ('product', 'quantity', 'reason')

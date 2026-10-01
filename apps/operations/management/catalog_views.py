@@ -89,17 +89,21 @@ def product_edit(request, pk=None):
     if request.method == 'POST' and form.is_valid():
         try:
             obj = writes.save_product(form.cleaned_data, user=request.user, pk=pk)
-            messages.success(request, 'Producto actualizado' if pk else 'Producto creado. Registra una entrada para agregar existencias.')
+            messages.success(request, 'Producto actualizado.' if pk else ('Producto creado con sus existencias iniciales.' if form.cleaned_data.get('initial_stock') else 'Producto creado. Ya puedes revisar sus datos y registrar entradas.'))
+            if not pk and request.POST.get('after_save') == 'another':
+                return redirect('management:product-create')
             return redirect(product_url(obj))
         except ValidationError as exc:
             error_on(form, exc)
     return page(request, 'catalog_form', {'form': form, 'title': 'Editar producto' if pk else 'Crear producto',
-        'subtitle': 'Información, precio y preparación. Las existencias se registran mediante entradas y ajustes.',
+        'subtitle': 'Nombre, precio, preparación y existencias iniciales en un solo formulario.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
-        'fieldsets': [(title, [form[key] for key in keys]) for title, keys in (
-            ('Información', ('name', 'slug', 'category', 'is_active', 'visible_in_pos', 'image')),
-            ('Precio', ('base_price',)), ('Inventario', ('track_inventory', 'minimum_stock', 'is_combo')),
-            ('Preparación', ('preparation_route',)))]}, section='inventario', status=400 if form.errors else 200)
+        'can_add_another': pk is None,
+        'fieldsets': [(title, [form[key] for key in keys if key in form.fields]) for title, keys in (
+            ('1. Datos del producto', ('name', 'category', 'base_price', 'preparation_route', 'image')),
+            ('2. Existencias', ('track_inventory', 'initial_stock', 'minimum_stock')))],
+        'advanced_fields': [form[key] for key in ('slug', 'is_active', 'visible_in_pos', 'is_combo')],
+        'is_product_form': True}, section='inventario', status=400 if form.errors else 200)
 
 
 @require_http_methods(['GET', 'POST'])
@@ -196,11 +200,13 @@ def catalog_edit(request, kind, pk=None, product_id=None, group_id=None):
         try:
             writes.save_catalog(model, form.cleaned_data, user=request.user, pk=pk, parent=parent)
             messages.success(request, 'Cambios guardados')
+            if not pk and request.POST.get('after_save') == 'another':
+                return redirect(request.path)
             return redirect(back)
         except ValidationError as exc:
             error_on(form, exc)
     return page(request, 'catalog_form', {'form': form, 'title': ('Editar ' if pk else 'Crear ') + label,
-        'subtitle': 'Los cambios se aplican al catálogo operativo.', 'product': product, 'back': back, 'submit': 'Guardar cambios'}, section='inventario', status=400 if form.errors else 200)
+        'subtitle': 'Los cambios se aplican al catálogo operativo.', 'product': product, 'back': back, 'submit': 'Guardar cambios', 'can_add_another': pk is None}, section='inventario', status=400 if form.errors else 200)
 
 
 @require_POST
@@ -212,3 +218,23 @@ def component_remove(request, product_id, pk):
     writes.remove_component(row.pk, combo=product, user=request.user)
     messages.success(request, 'Componente retirado')
     return redirect(product_url(product))
+
+
+@require_http_methods(['GET', 'POST'])
+@security.required
+def stock_create(request):
+    security.require(request.user, 'inventory.view_inventory')
+    security.require(request.user, 'inventory.receive_inventory')
+    form = forms.StockEntryForm(request.POST if request.method == 'POST' else None)
+    if request.method == 'POST' and form.is_valid():
+        try:
+            data = form.cleaned_data
+            receive_stock(data['product'], data['quantity'], user=request.user, reason=data['reason'])
+            messages.success(request, f"Entrada registrada: {data['quantity']} unidades de {data['product'].name}.")
+            return redirect('management:stock-create') if request.POST.get('after_save') == 'another' else redirect(product_url(data['product']))
+        except ValidationError as exc:
+            error_on(form, exc)
+    return page(request, 'catalog_form', {'form': form, 'title': 'Registrar entrada',
+        'subtitle': 'Selecciona lo que recibiste e indica la cantidad. El inventario se actualiza al guardar.',
+        'back': reverse('management:inventory'), 'submit': 'Registrar entrada', 'can_add_another': True, 'is_stock_entry': True},
+        section='inventario', status=400 if form.errors else 200)

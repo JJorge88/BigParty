@@ -40,6 +40,10 @@ def save_product(data, *, user, pk=None):
     save_tracked(obj)
     obj = update_base_price(obj, price, user=user) if price != obj.base_price else obj
     audit(user, obj, 'product_updated' if pk else 'product_created')
+    if not pk and data.get('initial_stock'):
+        from apps.inventory.services import receive_stock
+        receive_stock(obj, data['initial_stock'], user=user, reason='Existencias iniciales al crear el producto')
+        obj.refresh_from_db()
     return obj
 
 

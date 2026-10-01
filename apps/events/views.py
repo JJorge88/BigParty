@@ -3,6 +3,7 @@ from apps.core import public_site as site
 from apps.core.public_forms import GuestForm
 from urllib.parse import urlencode
 from django.conf import settings
+from django.contrib import messages
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.core.paginator import Paginator
 from django.db.models import Q
@@ -80,9 +81,11 @@ def wizard(request, pk=None, step=1):
             if step == 1 and form.is_valid():
                 # ModelForm cambia instance antes de guardar: el servicio recarga y compara con DB.
                 event = services.edit_event(event, request.user, **form.cleaned_data) if pk else services.create_event(request.user, **form.cleaned_data)
+                messages.success(request, 'Información guardada. Continúa con los tipos de entrada.')
                 return redirect('events:wizard', pk=event.pk, step=2)
             if step == 2 and form.is_valid():
                 services.save_ticket_type(event, request.user, type_row, **form.cleaned_data)
+                messages.success(request, 'Tipo de entrada guardado. Puedes agregar otro o continuar a mesas y aforo.')
                 return redirect('events:wizard', pk=event.pk, step=2)
             if step == 3:
                 if request.POST.get('action') == 'capacity':
@@ -91,9 +94,11 @@ def wizard(request, pk=None, step=1):
                     except ValueError:
                         raise ValidationError('Aforo inválido.')
                     services.edit_event(event, request.user, maximum_capacity=capacity)
+                    messages.success(request, 'Aforo guardado. Continúa con la revisión del evento.')
                     return redirect('events:wizard', pk=event.pk, step=3)
                 if form.is_valid():
                     services.save_event_table(event, request.user, **form.cleaned_data)
+                    messages.success(request, 'Mesa del evento guardada.')
                     return redirect('events:wizard', pk=event.pk, step=3)
             if step == 4:
                 if request.POST.get('action') == 'publish':

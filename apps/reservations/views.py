@@ -1,6 +1,7 @@
 from apps.core.configuration import bank as transfer_bank
 from apps.core import public_site as site
 from django.contrib.auth import get_user_model
+from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
@@ -69,10 +70,12 @@ def create(request):
     if request.method == 'POST' and form.is_valid():
         try:
             row = services.create_manual_reservation(user=request.user, **form.cleaned_data)
+            messages.success(request, 'Reserva creada. Revisa sus datos y el siguiente paso de pago, si corresponde.')
             return redirect('reservations:detail', code=row.public_code)
         except ValidationError as exc:
             error = ' '.join(exc.messages)
-    return page(request, 'form.html', {'form': form, 'error': error, 'title': 'Crear reserva', 'subtitle': 'Reserva interna · confirmación directa', 'button': 'Crear reserva'})
+    return page(request, 'form.html', {'form': form, 'error': error, 'title': 'Crear reserva', 'subtitle': 'Reserva interna · confirmación directa', 'button': 'Crear reserva', 'manual': True,
+        'groups': [(title, [form[key] for key in keys]) for title,keys in (('1. Cliente', ('customer_name','customer_phone')),('2. Mesa y horario', ('table','date','time','duration','party_size')),('3. Anticipo', ('payment_required','payment_type','payment_value','payment_application','payment_base_amount')))]})
 
 
 @security.required

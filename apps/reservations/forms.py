@@ -15,8 +15,13 @@ class PaymentTermsForm(forms.Form):
         return self.cleaned_data.get('payment_base_amount') or 0
 
 
+class ReservationTableChoice(forms.ModelChoiceField):
+    def label_from_instance(self, table):
+        return f'{table.area.name} · {table.name} — {table.capacity} personas'
+
+
 class ManualReservationForm(PaymentTermsForm):
-    table = forms.ModelChoiceField(label='Mesa', queryset=VenueTable.objects.filter(is_active=True, operational_status='ACTIVE', area__is_active=True).select_related('area'))
+    table = ReservationTableChoice(label='Mesa', queryset=VenueTable.objects.filter(is_active=True, operational_status='ACTIVE', area__is_active=True).select_related('area').order_by('area__sort_order', 'area__name', 'sort_order', 'name'))
     customer_name = forms.CharField(label='Nombre del cliente', max_length=120)
     customer_phone = forms.CharField(label='Teléfono internacional', max_length=20, widget=forms.TextInput(attrs={'placeholder': '+502 5555 5555'}))
     date = forms.DateField(label='Fecha', widget=forms.DateInput(attrs={'type': 'date'}))
@@ -25,6 +30,13 @@ class ManualReservationForm(PaymentTermsForm):
     party_size = forms.IntegerField(label='Personas', min_value=1)
     field_order = ['customer_name', 'customer_phone', 'table', 'date', 'time', 'duration', 'party_size',
                    'payment_required', 'payment_type', 'payment_value', 'payment_application', 'payment_base_amount']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['table'].help_text = 'El nombre incluye el área. La disponibilidad se comprueba al guardar.'
+        self.fields['duration'].help_text = 'Ejemplo: 120 minutos equivalen a 2 horas.'
+        self.fields['payment_required'].help_text = 'Revisa esta opción con el cliente antes de confirmar.'
+        self.fields['party_size'].help_text = 'Debe caber en la mesa seleccionada.'
 
 
 class SettingsForm(forms.ModelForm):

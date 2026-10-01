@@ -1,10 +1,18 @@
 {% extends 'operations/base.html' %}{% load static %}
 {% block title %}BIG PARTY · Gerencia{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}?v=mesas-2">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}?v=mesas-2"><link rel="stylesheet" href="{% static 'css/operations/workflows.css' %}?v=2">{% endblock %}
 {% block body_attributes %}class="management" data-idle-timeout="{{ idle_timeout }}" data-activity-url="{% url 'management:activity' %}" data-logout-url="{% url 'management:logout' %}" data-login-url="{% url 'management:login' %}"{% endblock %}
 {% block topbar %}<span class="management-label">GERENCIA</span>
 <nav class="management-nav" aria-label="Navegación principal"><a href="{% url 'management:home' %}" {% if section == 'inicio' %}aria-current="page"{% endif %}>Inicio</a>{% if perms.inventory.view_inventory %}<a href="{% url 'management:inventory' %}" {% if section == 'inventario' %}aria-current="page"{% endif %}>Inventario</a>{% endif %}<a href="{% url 'management:closures' %}" {% if section == 'cierres' %}aria-current="page"{% endif %}>Cierres</a><a href="{% url 'reservations:list' %}" {% if section == 'reservas' %}aria-current="page"{% endif %}>Reservas</a><a href="{% url 'events:list' %}" {% if section == 'eventos' %}aria-current="page"{% endif %}>Eventos</a>
 {% if perms.tables.view_venuetable %}<a href="{% url 'management:tables' %}" {% if section == 'mesas' %}aria-current="page"{% endif %}>Mesas</a>{% endif %}
+<details class="flow-more"><summary>Más módulos</summary><div>
+{% if perms.accounts.view_user %}<a href="{% url 'management:users' %}" {% if section == 'usuarios' %}aria-current="page"{% endif %}>Usuarios y permisos</a>{% endif %}
+{% if perms.core.view_configuration %}<a href="{% url 'management:configuration' %}" {% if section == 'configuracion' %}aria-current="page"{% endif %}>Configuración del negocio</a>{% endif %}
+{% if perms.core.view_reports %}<a href="{% url 'management:reports' %}" {% if section == 'reportes' %}aria-current="page"{% endif %}>Reportes</a>{% endif %}
+{% if perms.audit.view_audit_log %}<a href="{% url 'management:audit' %}" {% if section == 'auditoria' %}aria-current="page"{% endif %}>Auditoría</a>{% endif %}
+{% if perms.printing.view_printjob or perms.printing.manage_printers %}<a href="{% url 'management:print-jobs' %}">Impresiones</a>{% endif %}
+<a href="{% url 'management:home' %}">Inicio de Gerencia</a>
+</div></details>{% if can_add %}<a class="flow-add" href="{% url 'management:add' %}" {% if section == 'agregar' %}aria-current="page"{% endif %}>＋ Agregar</a>{% endif %}
 </nav>
 <div class="management-user">
 <div><strong>{{ operator_name }}</strong><small>{{ operator_role }}</small>
@@ -18,8 +26,9 @@
 </div>{% endif %}
 {% if sync_readonly %}<p class="notice">Administrado desde BIG PARTY {% if sync_cloud %}Local Node{% else %}Cloud{% endif %}. Información de lectura.</p>{% endif %}
 {% if recovery_active %}<p class="notice notice--error" role="alert">Modo recuperación · operación suspendida hasta completar la revisión.</p>{% endif %}
+{% for message in messages %}<div class="notice" role="status">{{ message }}</div>{% endfor %}
 {% block management_content %}{% endblock %}
 <footer class="management-footer"><span>BIG PARTY · Control de la operación</span><span>Sesión protegida · 30 min de inactividad</span>
 </footer>
 </main>{% endblock %}
-{% block scripts %}<script type="module" src="{% static 'js/operations/sync-authority.js' %}"></script><script type="module" src="{% static 'js/operations/management.js' %}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/sync-authority.js' %}"></script><script type="module" src="{% static 'js/operations/management.js' %}"></script><script type="module" src="{% static 'js/operations/workflows.js' %}"></script>{% endblock %}

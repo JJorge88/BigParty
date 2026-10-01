@@ -1,7 +1,10 @@
 from django.urls import path
-from . import views, catalog_views as catalog, user_views as users, table_views as tables
+from . import views, catalog_views as catalog, user_views as users, table_views as tables, workflows
 app_name = 'management'
 urlpatterns = [
+    path('agregar/', workflows.hub, name='add'),
+    path('mesas/nueva/', tables.start, name='table-start'),
+    path('inventario/entradas/nueva/', catalog.stock_create, name='stock-create'),
     path('mesas/', tables.listing, name='tables'),
     path('mesas/area/<int:area_id>/crear/', tables.edit, name='table-create'),
     path('mesas/<int:pk>/editar/', tables.edit, name='table-edit'),

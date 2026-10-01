@@ -56,8 +56,21 @@ def edit(request, pk=None, area_id=None):
         try:
             save_table(area, form.cleaned_data, actor=request.user, pk=pk)
             messages.success(request, 'Mesa guardada. El plano de la operación ya está actualizado.')
+            if not pk and request.POST.get('after_save') == 'another':
+                return redirect('management:table-create', area_id=area.pk)
             return redirect(reverse('management:tables') + f'?area={area.pk}')
         except ValidationError as exc:
             form.add_error(None, ' '.join(exc.messages))
     return page(request, 'table_edit', {**map_data(area, table), 'form': form,
+        'basic_fields': [form[key] for key in ('name', 'capacity', 'zone', 'layout_shape')],
+        'position_fields': [form[key] for key in ('layout_x', 'layout_y', 'layout_width', 'layout_height')],
+        'state_fields': [form[key] for key in ('reservable_web', 'is_active', 'operational_status')],
         'title': 'Editar mesa' if pk else 'Crear mesa'}, section='mesas', status=400 if form.errors else 200)
+
+
+@require_GET
+@security.required
+def start(request):
+    security.require(request.user, 'tables.view_venuetable')
+    security.require(request.user, 'tables.add_venuetable')
+    return page(request, 'table_start', {'areas': Area.objects.filter(is_active=True).prefetch_related('tables')}, section='mesas')

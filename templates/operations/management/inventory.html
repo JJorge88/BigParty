@@ -7,7 +7,7 @@
 <p>Control de existencias y productos.</p>
 </div>
 <div class="admin-actions">
-<a class="admin-button" href="{% url 'management:inventory-movements' %}">Movimientos ↗</a>{% if perms.catalog.add_product %}<a class="admin-button admin-button--primary" href="{% url 'management:product-create' %}">＋ Crear producto</a>{% endif %}</div>
+{% if perms.inventory.receive_inventory %}<a class="admin-button" href="{% url 'management:stock-create' %}">＋ Registrar entrada</a>{% endif %}<a class="admin-button" href="{% url 'management:inventory-movements' %}">Movimientos ↗</a>{% if perms.catalog.add_product %}<a class="admin-button admin-button--primary" href="{% url 'management:product-create' %}">＋ Crear producto</a>{% endif %}</div>
 </header>
 <nav class="admin-tabs">
 <a aria-current="page" href="{% url 'management:inventory' %}">Productos</a>

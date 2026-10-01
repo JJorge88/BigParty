@@ -1,0 +1,3 @@
+{% extends 'operations/management/admin_base.html' %}
+{% block admin_content %}<header class="admin-heading"><div><span class="eyebrow">NUEVA MESA · PASO 1 DE 2</span><h1>¿En qué área irá la mesa?</h1><p>Después podrás darle un nombre y ubicarla en el plano.</p></div><a class="admin-button" href="{% url 'management:tables' %}">Volver al mapa</a></header>
+<div class="flow-cards">{% for area in areas %}<a class="flow-card" href="{% url 'management:table-create' area.pk %}"><strong>{{ area.name }}</strong><p>{{ area.tables.count }} mesas configuradas</p><span class="flow-card-go">Agregar aquí →</span></a>{% empty %}<p>Primero configura un área del local.</p>{% endfor %}</div>{% endblock %}

@@ -7,6 +7,7 @@
 </h1>
 </div>{% include 'operations/management/partials/day_badge.html' %}
 </div>
+{% if can_add %}<section class="flow-start"><div><h2>Agrega lo que necesita tu operación</h2><p>Productos, existencias, mesas, reservas, eventos y usuarios.</p></div><a href="{% url 'management:add' %}">＋ Agregar</a></section>{% endif %}
 {% if day %}
 <div class="kpi-grid">
 <section class="kpi kpi--featured"><span>Ventas de la jornada</span><strong>{% if can_financial %}Q{{ summary.net_sales|floatformat:2 }}{% else %}Restringido{% endif %}</strong><small>Netas · consumo enviado{% if can_financial %}<span class="kpi-info" tabindex="0" aria-label="Brutas Q{{ summary.gross_sales|floatformat:2 }}; ajustes Q{{ summary.adjustments|floatformat:2 }}; reembolsos Q{{ summary.refunds|floatformat:2 }}" title="Brutas Q{{ summary.gross_sales|floatformat:2 }} − ajustes Q{{ summary.adjustments|floatformat:2 }} − reembolsos Q{{ summary.refunds|floatformat:2 }}">ⓘ</span>{% endif %}</small>

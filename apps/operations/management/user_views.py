@@ -85,7 +85,7 @@ def user_edit(request, pk=None):
             if pk and not request.POST.get('revision'):
                 raise ValidationError('Actualiza la pantalla antes de guardar.')
             target = services.save_user(form.cleaned_data, actor=request.user, pk=pk, expected=request.POST.get('revision') if pk else None)
-            messages.success(request, 'Usuario actualizado' if pk else 'Usuario creado')
+            messages.success(request, 'Usuario actualizado.' if pk else 'Usuario creado. Revisa sus permisos antes de que comience a trabajar.')
             return redirect(target_url(target))
         except ValidationError as exc:
             error_on(form, exc)

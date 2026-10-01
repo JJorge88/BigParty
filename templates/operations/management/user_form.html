@@ -9,7 +9,7 @@
 </header>
 <div class="admin-form-layout">
 <section class="admin-panel admin-form-panel">
-<form method="post" data-user-form>{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">{% include 'operations/management/partials/admin_fields.html' %}<div class="admin-form-footer">
+<div class="flow-form-guide"><span><strong>1.</strong> Datos de la persona</span><span><strong>2.</strong> Acceso según su rol</span><span><strong>3.</strong> Revisar permisos al terminar</span></div><form method="post" data-user-form data-flow-form>{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">{% include 'operations/management/partials/admin_fields.html' %}<div class="admin-form-footer">
 <a href="{{ back }}">Cancelar</a>
 <button class="admin-button admin-button--primary">Guardar usuario</button>
 </div>

@@ -22,9 +22,10 @@ def current_day():
 
 
 def base(request, section):
+    from .workflows import actions
     user = request.user
     name = user.get_full_name().strip() or user.username
-    return {'section':section, 'operator_name':name, 'operator_role':user.get_role_display(),
+    return {'can_add': bool(actions(user)), 'section':section, 'operator_name':name, 'operator_role':user.get_role_display(),
         'initials':''.join(part[0] for part in name.split()[:2]).upper(),
         'can_financial':security.financial(user), 'can_payments':security.can_review(user),
         'can_open':user.has_perm('cash.open_business_day'), 'can_close':user.has_perm('cash.close_business_day'),

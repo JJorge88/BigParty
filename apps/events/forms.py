@@ -10,6 +10,13 @@ class EventForm(forms.ModelForm):
         fields = ['name', 'artist_name', 'starts_at', 'ends_at', 'image', 'description', 'ticket_sales_enabled']
         widgets = {'image': forms.FileInput(), 'starts_at': DATETIME, 'ends_at': DATETIME, 'description': forms.Textarea(attrs={'rows': 3})}
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['name'].widget.attrs['placeholder'] = 'Ej. Noche de inauguración'
+        self.fields['ends_at'].help_text = 'Si termina después de medianoche, selecciona el día siguiente.'
+        self.fields['ticket_sales_enabled'].help_text = 'La venta comenzará según las fechas configuradas, después de publicar.'
+        self.fields['image'].help_text = 'JPEG, PNG o WebP, hasta 5 MB.'
+
     def clean_image(self):
         upload = self.cleaned_data.get('image')
         if upload and hasattr(upload, 'content_type'):

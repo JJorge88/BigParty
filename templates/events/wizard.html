@@ -5,7 +5,7 @@
 <div>
 <p class="eyebrow">CONFIGURACIÓN DEL EVENTO</p>
 <h1>{% if event %}{{ event.name }}{% else %}Crear evento{% endif %}</h1>
-<p class="muted">Construye una noche memorable, paso a paso.</p>
+<p class="muted">Paso {{ step }} de 4. El evento se guarda como borrador hasta que decidas publicarlo.</p>
 </div>
 <span class="badge">{{ event.get_status_display|default:'Borrador' }}</span>
 </div>
@@ -16,7 +16,7 @@
 <section class="event-panel">
 <h2>Información del evento</h2>
 <p class="muted">La primera impresión de tu próxima noche.</p>
-<form method="post" enctype="multipart/form-data" class="event-form information-form">{% csrf_token %}{% include 'events/fields.html' %}<p class="hint">Elige ambas fechas: si termina de madrugada, el fin corresponde al día siguiente. Zona horaria: Guatemala.</p>
+<form data-flow-form method="post" enctype="multipart/form-data" class="event-form information-form">{% csrf_token %}{% include 'events/fields.html' %}<p class="hint">Elige ambas fechas: si termina de madrugada, el fin corresponde al día siguiente. Zona horaria: Guatemala.</p>
 <button class="button button--primary">Guardar y continuar →</button>
 </form>
 </section>
@@ -43,7 +43,7 @@
 <a href="?type={{ kind.pk }}">Editar</a>
 </div>{% empty %}<p class="empty">Agrega el primer tipo de entrada.</p>{% endfor %}<hr>
 <h3>{% if form.instance.pk %}Editar {{ form.instance.name }}{% else %}Agregar tipo de entrada{% endif %}</h3>
-<form method="post" class="event-form two-columns">{% csrf_token %}{% include 'events/fields.html' %}<button class="button button--primary">Guardar tipo</button>
+<form data-flow-form method="post" class="event-form two-columns">{% csrf_token %}{% include 'events/fields.html' %}<button class="button button--primary">Guardar tipo</button>
 </form>
 </section>
 <aside class="event-panel wizard-aside">
@@ -65,13 +65,13 @@
 <strong>Q{{ table.total_price|floatformat:2 }}</strong>
 </div>{% empty %}<p class="empty">Todavía no hay mesas habilitadas.</p>{% endfor %}<hr>
 <h3>Configurar mesa</h3>
-<form method="post" class="event-form two-columns">{% csrf_token %}<input type="hidden" name="action" value="table">{% include 'events/fields.html' %}<button class="button button--primary">Guardar mesa</button>
+<form data-flow-form method="post" class="event-form two-columns">{% csrf_token %}<input type="hidden" name="action" value="table">{% include 'events/fields.html' %}<button class="button button--primary">Guardar mesa</button>
 </form>
 <p class="hint">Seleccionar una mesa existente actualiza cover, tipo y habilitación. La capacidad guardada se conserva.</p>
 </section>
 <aside class="event-panel wizard-aside">
 <p class="eyebrow">AFORO DEL EVENTO</p>
-<form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="action" value="capacity">
+<form data-flow-form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="action" value="capacity">
 <label for="capacity">Aforo máximo</label>
 <input id="capacity" type="number" name="maximum_capacity" min="1" value="{{ event.maximum_capacity }}" required>
 <button class="button button--ghost">Guardar aforo</button>
@@ -119,11 +119,11 @@
 <aside class="event-panel wizard-aside">
 <h3>Antes de publicar</h3>{% for issue in validation %}<p class="validation-error">! {{ issue.message }}</p>{% empty %}<p class="validation-ok">✓ Información y configuración completas</p>
 <p class="validation-ok">✓ Aforo dentro del límite</p>{% endfor %}<a class="button button--ghost" href="{% url 'events:preview' event.pk %}" target="_blank" rel="noopener">Vista previa pública ↗</a>
-<form method="post" class="event-form">{% csrf_token %}{% if event.status == 'DRAFT' and perms.events.publish_event %}<button name="action" value="publish" class="button button--primary" {% if validation %}disabled{% endif %}>Publicar evento</button>{% endif %}<button name="action" value="draft" class="button button--ghost">Guardar y salir</button>
+<form data-flow-form method="post" class="event-form">{% csrf_token %}{% if event.status == 'DRAFT' and perms.events.publish_event %}<button name="action" value="publish" class="button button--primary" {% if validation %}disabled{% endif %}>Publicar evento</button>{% endif %}<button name="action" value="draft" class="button button--ghost">Guardar y salir</button>
 </form>
 <p class="hint">Al publicar, el evento estará disponible para compras según las fechas de venta.</p>
 </aside>
 </div>{% endif %}
 {% if event and step < 4 %}<div class="wizard-footer">
-<a href="{% url 'events:detail' event.pk %}">Guardar y salir</a>{% if step == 2 %}<a class="button button--primary" href="{% url 'events:wizard' event.pk 3 %}">Continuar a mesas y aforo →</a>{% elif step == 3 %}<a class="button button--primary" href="{% url 'events:wizard' event.pk 4 %}">Revisar evento →</a>{% endif %}</div>{% endif %}
+<a href="{% url 'events:detail' event.pk %}">Salir del asistente</a>{% if step == 2 %}<a class="button button--primary" href="{% url 'events:wizard' event.pk 3 %}">Continuar a mesas y aforo →</a>{% elif step == 3 %}<a class="button button--primary" href="{% url 'events:wizard' event.pk 4 %}">Revisar evento →</a>{% endif %}</div>{% endif %}
 {% endblock %}
