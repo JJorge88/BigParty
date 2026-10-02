@@ -1,0 +1,22 @@
+<aside class="manager-sidebar" aria-label="Menú de Gerencia">
+<details class="manager-sidebar-panel" open>
+<summary class="manager-menu-toggle"><span>☰ Menú de Gerencia</span><span class="manager-menu-state" aria-hidden="true"></span></summary>
+<nav class="sidebar-nav" aria-label="Navegación principal">
+<span class="sidebar-heading">MI NEGOCIO</span>
+<a href="{% url 'management:home' %}" {% if section == 'inicio' %}aria-current="page"{% endif %}>Inicio</a>
+{% if can_add %}<a class="sidebar-add" href="{% url 'management:add' %}" {% if section == 'agregar' %}aria-current="page"{% endif %}>＋ Agregar</a>{% endif %}
+<span class="sidebar-heading">OPERACIÓN</span>
+{% if perms.inventory.view_inventory %}<a href="{% url 'management:inventory' %}" {% if section == 'inventario' %}aria-current="page"{% endif %}>Productos e inventario</a>{% endif %}
+{% if perms.tables.view_venuetable %}<a href="{% url 'management:tables' %}" {% if section == 'mesas' %}aria-current="page"{% endif %}>Mesas</a>{% endif %}
+<a href="{% url 'reservations:list' %}" {% if section == 'reservas' %}aria-current="page"{% endif %}>Reservas</a>
+<a href="{% url 'events:list' %}" {% if section == 'eventos' %}aria-current="page"{% endif %}>Eventos</a>
+<a href="{% url 'management:closures' %}" {% if section == 'cierres' %}aria-current="page"{% endif %}>Caja y cierres</a>
+<span class="sidebar-heading">Más módulos</span>
+{% if perms.accounts.view_user %}<a href="{% url 'management:users' %}" {% if section == 'usuarios' %}aria-current="page"{% endif %}>Usuarios y permisos</a>{% endif %}
+{% if perms.core.view_reports %}<a href="{% url 'management:reports' %}" {% if section == 'reportes' %}aria-current="page"{% endif %}>Reportes</a>{% endif %}
+{% if perms.audit.view_audit_log %}<a href="{% url 'management:audit' %}" {% if section == 'auditoria' %}aria-current="page"{% endif %}>Auditoría</a>{% endif %}
+{% if perms.printing.view_printjob or perms.printing.manage_printers %}<a href="{% url 'management:print-jobs' %}" {% if section == 'impresiones' %}aria-current="page"{% endif %}>Impresiones</a>{% endif %}
+{% if perms.core.view_configuration %}<a href="{% url 'management:configuration' %}" {% if section == 'configuracion' %}aria-current="page"{% endif %}>Configuración</a>{% endif %}
+</nav>
+</details>
+</aside>

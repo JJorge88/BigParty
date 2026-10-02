@@ -198,7 +198,7 @@ def print_jobs(request):
     data = history_data(request,request.user)
     if not request.user.has_perm('printing.manage_printers'):
         data['can_retry'] = data['can_reprint'] = False
-    return page(request,'print_jobs',data)
+    return page(request,'print_jobs',data,section='impresiones')
 
 
 @require_POST

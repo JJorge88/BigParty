@@ -1,0 +1,30 @@
+/* La navegación de Gerencia tiene su propia columna. */
+.management .topbar{position:sticky;top:0;z-index:40;height:76px;min-height:76px;padding:0 28px;flex-wrap:nowrap;gap:20px}
+.management .management-label{order:1}.management .management-user{order:2}
+.management .manager-sidebar{position:fixed;top:76px;left:0;bottom:0;width:240px;background:#171918;border-right:1px solid #353731;overflow-y:auto;overscroll-behavior:contain;z-index:35;padding:20px 14px}
+.management .manager-menu-toggle{display:none}
+.management .sidebar-nav{display:flex;flex-direction:column;gap:3px}
+.management .sidebar-heading{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#979a90;padding:14px 14px 6px}
+.management .sidebar-heading:first-child{padding-top:2px}
+.management .sidebar-nav a{display:flex;align-items:center;min-height:40px;padding:9px 14px;border:1px solid transparent;border-radius:8px;color:#c7c8c0;text-decoration:none;font-size:14px;line-height:1.4}
+.management .sidebar-nav a:hover{background:#242722;color:#fff}
+.management .sidebar-nav a[aria-current=page]{background:#332e24;border-color:#756347;color:#f1dab4;box-shadow:inset 3px 0 #d5bd95;font-weight:600}
+.management .sidebar-nav .sidebar-add{background:#d5bd95;color:#201d17;margin:5px 0 8px;font-weight:600;justify-content:center}
+.management .sidebar-nav .sidebar-add:hover{background:#e4cfad}
+.management .sidebar-nav .sidebar-add[aria-current=page]{color:#201d17;background:#e4cfad;box-shadow:none;border-color:#fff1d6}
+.management .management-main{margin-left:240px;margin-right:0;max-width:none;width:calc(100% - 240px);padding:30px 32px 20px;min-width:0}
+.management .sidebar-nav a:focus-visible,.management .manager-menu-toggle:focus-visible{outline:2px solid #e6cda5;outline-offset:3px}
+@media(min-width:901px) and (max-width:1200px){.management .simple-tasks{gap:12px}.management .simple-task{padding:20px}.management .simple-task strong{font-size:20px}.management .dashboard-grid{grid-template-columns:1fr}.management .admin-form-layout{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:900px){
+ .management .topbar{padding:12px 18px;height:auto;min-height:70px;gap:12px;position:relative}
+ .management .management-label{display:none}
+ .management .manager-sidebar{position:relative;top:auto;bottom:auto;width:100%;padding:0;border-right:0;border-bottom:1px solid #353731;overflow:visible;z-index:30}
+ .management .manager-menu-toggle{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;cursor:pointer;color:#e3cfac;font-size:15px;list-style:none}
+ .management .manager-menu-toggle::-webkit-details-marker{display:none}
+ .management .manager-menu-state:after{content:'＋'}
+ .management .manager-sidebar-panel[open] .manager-menu-state:after{content:'−'}
+ .management .sidebar-nav{padding:0 16px 20px;max-height:65vh;overflow-y:auto}
+ .management .management-main{margin:0;width:100%;padding:24px 20px 20px}
+ .management .simple-tasks{grid-template-columns:1fr}
+}
+@media(max-width:430px){.management .topbar .brand-name{font-size:14px;letter-spacing:1px}.management .management-user{gap:6px}.management .management-user .avatar{display:none}.management .management-user strong{font-size:11px}.management .topbar{gap:8px;padding:12px}.management .management-main{padding:22px 16px}}

@@ -17,6 +17,17 @@ for (const form of forms) {
   window.addEventListener('pageshow',()=>{submitting=false;form.removeAttribute('aria-busy');});
 }
 document.querySelector('[data-form-errors]')?.focus();
-const more = document.querySelector('.flow-more');
-document.addEventListener('click',event=>{if(more && !more.contains(event.target))more.open=false;});
-document.addEventListener('keydown',event=>{if(event.key==='Escape' && more?.open){more.open=false;more.querySelector('summary').focus();}});
+// Menú lateral fijo en computadora y desplegable en pantallas pequeñas.
+const sidebar = document.querySelector('.manager-sidebar-panel');
+if (sidebar) {
+  const smallScreen = window.matchMedia('(max-width: 900px)');
+  const adaptMenu = () => { sidebar.open = !smallScreen.matches; };
+  adaptMenu();
+  smallScreen.addEventListener('change', adaptMenu);
+  sidebar.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && smallScreen.matches && sidebar.open) {
+      sidebar.open = false;
+      sidebar.querySelector('summary').focus();
+    }
+  });
+}
