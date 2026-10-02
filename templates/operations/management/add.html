@@ -1,5 +1,5 @@
 {% extends 'operations/management/admin_base.html' %}
 {% block admin_content %}
-<header class="admin-heading"><div><span class="eyebrow">ACCESOS RÁPIDOS</span><h1>¿Qué quieres agregar?</h1><p>Elige una opción para comenzar. Después de guardar podrás revisar lo que agregaste.</p></div></header>
-<div class="flow-cards">{% for action in add_actions %}<a class="flow-card" href="{{ action.url }}"><span class="flow-card-icon" aria-hidden="true">＋</span><strong>{{ action.title }}</strong><p>{{ action.description }}</p><span class="flow-card-go">Comenzar →</span></a>{% empty %}<p>No tienes permisos de creación en este entorno. Puedes consultar los módulos disponibles en el menú.</p>{% endfor %}</div>
+<header class="admin-heading"><div><span class="eyebrow">ACCESOS RÁPIDOS</span><h1>¿Qué quieres agregar?</h1><p>Un producto nuevo y una compra recibida son tareas distintas. Elige lo que necesitas hacer.</p></div></header>
+{% include 'operations/management/partials/task_cards.html' %}
 {% endblock %}

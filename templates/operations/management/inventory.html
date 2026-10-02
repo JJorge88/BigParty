@@ -3,17 +3,66 @@
 <header class="admin-heading">
 <div>
 <span class="eyebrow">CATÁLOGO Y EXISTENCIAS</span>
-<h1>Inventario</h1>
-<p>Control de existencias y productos.</p>
+<h1>Productos e inventario</h1>
+<p>Busca un producto para editarlo o sumar las unidades que recibiste.</p>
 </div>
 <div class="admin-actions">
-{% if perms.inventory.receive_inventory %}<a class="admin-button" href="{% url 'management:stock-create' %}">＋ Registrar entrada</a>{% endif %}<a class="admin-button" href="{% url 'management:inventory-movements' %}">Movimientos ↗</a>{% if perms.catalog.add_product %}<a class="admin-button admin-button--primary" href="{% url 'management:product-create' %}">＋ Crear producto</a>{% endif %}</div>
+{% if perms.inventory.receive_inventory %}<a class="admin-button" href="{% url 'management:stock-create' %}">↓ Recibí mercadería</a>{% endif %}<a class="admin-button" href="{% url 'management:inventory-movements' %}">Movimientos ↗</a>{% if perms.catalog.add_product %}<a class="admin-button admin-button--primary" href="{% url 'management:product-create' %}">＋ Agregar producto</a>{% endif %}</div>
 </header>
 <nav class="admin-tabs">
 <a aria-current="page" href="{% url 'management:inventory' %}">Productos</a>
 <a href="{% url 'management:categories' %}">Categorías</a>
 </nav>
-<div class="admin-kpis">
+<section class="admin-panel">
+<form class="admin-filters" method="get">
+<label class="sr-only" for="inventory-search">Buscar producto</label>
+<input id="inventory-search" name="q" value="{{ request.GET.q }}" placeholder="Escribe el nombre del producto…" type="search">
+<label class="sr-only" for="inventory-state">Estado</label>
+<select id="inventory-state" name="state">
+<option value="">Todos los estados</option><option value="low" {% if request.GET.state == 'low' %}selected{% endif %}>Stock bajo</option>
+<option value="out" {% if request.GET.state == 'out' %}selected{% endif %}>Agotados</option>
+<option value="untracked" {% if request.GET.state == 'untracked' %}selected{% endif %}>Sin control</option>
+</select>
+<label class="sr-only" for="inventory-category">Categoría</label>
+<select id="inventory-category" name="category">
+<option value="">Todas las categorías</option>{% for category in categories %}<option value="{{ category.pk }}" {% if request.GET.category == category.pk|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select>
+<button class="admin-button">Filtrar</button>
+</form>
+<div class="admin-table-wrap">
+<table class="admin-table">
+<thead>
+<tr>
+<th>Producto</th>
+<th>Categoría</th>
+<th>Disponibles</th>
+<th>Precio</th>
+<th>Estado</th>
+
+<th>
+</th>
+</tr>
+</thead>
+<tbody>{% for product in rows %}<tr>
+<td>
+<a class="admin-product-name" href="{% url 'management:product' product.pk %}">{{ product.name }}</a>
+<small>{% if not product.is_active %}Inactivo{% endif %}{% if product.is_combo %} · Combo{% endif %}</small>
+</td>
+<td>{{ product.category.name }}</td>
+<td class="admin-number">{% if product.track_inventory %}{{ product.stock_quantity }}{% else %}—{% endif %}</td>
+<td>Q{{ product.base_price|floatformat:2 }}</td>
+<td>
+<span class="admin-badge {{ product.state_code }}">{{ product.state_label }}</span>
+</td>
+
+<td>
+<div class="simple-row-actions">{% if perms.catalog.change_product %}<a href="{% url 'management:product-edit' product.pk %}">Editar</a>{% endif %}{% if perms.inventory.receive_inventory and product.track_inventory and not product.is_combo %}<a href="{% url 'management:stock-receive' product.pk %}">Sumar unidades</a>{% endif %}<a href="{% url 'management:product' product.pk %}">Ver detalle</a></div>
+</td>
+</tr>{% empty %}<tr>
+<td colspan="6" class="admin-empty">No hay productos para estos filtros.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>{% include 'operations/management/partials/admin_pagination.html' %}</section>
+<details class="simple-summary"><summary>Ver resumen y productos por reponer</summary><div class="admin-kpis">
 <section>
 <span>Productos activos</span>
 <strong>{{ active_count }}</strong>
@@ -47,53 +96,5 @@
 <span>{{ product.stock_quantity }} uds.</span>
 </a>{% endfor %}</div>
 </section>{% endif %}
-<section class="admin-panel">
-<form class="admin-filters" method="get">
-<label class="sr-only" for="inventory-search">Buscar producto</label>
-<input id="inventory-search" name="q" value="{{ request.GET.q }}" placeholder="Buscar producto o identificador…" type="search">
-<label class="sr-only" for="inventory-state">Estado</label>
-<select id="inventory-state" name="state">
-<option value="">Todos los estados</option value="low" {% if request.GET.state == 'low' %}selected{% endif %}>Stock bajo</option>
-<option value="out" {% if request.GET.state == 'out' %}selected{% endif %}>Agotados</option>
-<option value="untracked" {% if request.GET.state == 'untracked' %}selected{% endif %}>Sin control</option>
-</select>
-<label class="sr-only" for="inventory-category">Categoría</label>
-<select id="inventory-category" name="category">
-<option value="">Todas las categorías</option>{% for category in categories %}<option value="{{ category.pk }}" {% if request.GET.category == category.pk|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select>
-<button class="admin-button">Filtrar</button>
-</form>
-<div class="admin-table-wrap">
-<table class="admin-table">
-<thead>
-<tr>
-<th>Producto</th>
-<th>Categoría</th>
-<th>Stock</th>
-<th>Mínimo</th>
-<th>Estado</th>
-<th>Control</th>
-<th>
-</th>
-</tr>
-</thead>
-<tbody>{% for product in rows %}<tr>
-<td>
-<a class="admin-product-name" href="{% url 'management:product' product.pk %}">{{ product.name }}</a>
-<small>{{ product.slug }}{% if not product.is_active %} · Inactivo{% endif %}{% if product.is_combo %} · Combo{% endif %}</small>
-</td>
-<td>{{ product.category.name }}</td>
-<td class="admin-number">{% if product.track_inventory %}{{ product.stock_quantity }}{% else %}—{% endif %}</td>
-<td>{% if product.track_inventory %}{{ product.minimum_stock }}{% else %}—{% endif %}</td>
-<td>
-<span class="admin-badge {{ product.state_code }}">{{ product.state_label }}</span>
-</td>
-<td>{{ product.track_inventory|yesno:'Sí,No' }}</td>
-<td>
-<a class="admin-text-link" href="{% url 'management:product' product.pk %}">Ver producto ↗</a>
-</td>
-</tr>{% empty %}<tr>
-<td colspan="7" class="admin-empty">No hay productos para estos filtros.</td>
-</tr>{% endfor %}</tbody>
-</table>
-</div>{% include 'operations/management/partials/admin_pagination.html' %}</section>
+</details>
 {% endblock %}

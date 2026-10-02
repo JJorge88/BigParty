@@ -54,6 +54,7 @@ def activity(request):
 @require_GET
 @security.required
 def home(request):
+    from .workflows import actions
     day = queries.current_day()
     data = queries.dashboard(day,request.user) if day else {'day':None}
     if request.user.has_perm('inventory.view_inventory'):
@@ -61,6 +62,7 @@ def home(request):
         from django.db.models import F
         data['inventory_attention'] = Product.objects.filter(is_active=True, track_inventory=True,
             stock_quantity__lte=F('minimum_stock')).count()
+    data['add_actions'] = actions(request.user)
     return page(request,'home',data)
 
 

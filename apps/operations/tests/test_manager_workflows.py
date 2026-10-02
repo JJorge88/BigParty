@@ -53,7 +53,7 @@ class ManagerWorkflowTests(AdministrationCase):
         self.product.refresh_from_db();self.assertEqual(self.product.stock_quantity,9)
         self.revoke('receive_inventory')
         self.assertEqual(self.client.post(self.url('stock-create'),{'product':self.product.pk,'quantity':5}).status_code,403)
-        self.assertNotContains(self.client.get('/gerencia/agregar/'),'Entrada de inventario')
+        self.assertNotContains(self.client.get('/gerencia/agregar/'),'href="/gerencia/inventario/entradas/nueva/"')
 
     def test_category_identifier_is_optional(self):
         response=self.client.post(self.url('category-create'),{'name':'Bebidas nuevas','slug':'','sort_order':0,'is_active':'on'})

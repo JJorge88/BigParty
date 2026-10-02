@@ -21,8 +21,8 @@ class AutomaticSlugForm(forms.ModelForm):
 
 
 class ProductForm(AutomaticSlugForm):
-    initial_stock = forms.IntegerField(label='Cantidad inicial disponible', min_value=0, required=False, initial=0,
-        help_text='Opcional. Activa el control de inventario para registrar estas unidades al guardar.')
+    initial_stock = forms.IntegerField(label='¿Cuántas unidades tienes ahora?', min_value=0, required=False, initial=0,
+        help_text='Si activaste el conteo, escribe la cantidad disponible. Si aún no tienes, deja 0.')
 
     class Meta:
         model = Product
@@ -35,7 +35,12 @@ class ProductForm(AutomaticSlugForm):
             self.fields['base_price'].disabled = True
         self.fields['slug'].required = False
         self.fields['slug'].help_text = 'Se genera automáticamente si lo dejas vacío.'
+        self.fields['name'].label = '¿Cómo se llama?'
         self.fields['name'].widget.attrs['placeholder'] = 'Ej. Mojito clásico'
+        self.fields['category'].label = '¿En qué categoría va?'
+        self.fields['base_price'].label = 'Precio de venta (Q)'
+        self.fields['preparation_route'].label = '¿Dónde se prepara?'
+        self.fields['track_inventory'].label = 'Llevar conteo de las unidades disponibles'
         self.fields['track_inventory'].help_text = 'Descuenta unidades con las ventas. Déjalo desactivado si no llevas conteo de este producto.'
         self.fields['preparation_route'].help_text = 'Indica dónde se prepara: barra, cocina o entrega directa.'
         self.fields['minimum_stock'].label = 'Avisar cuando queden estas unidades'

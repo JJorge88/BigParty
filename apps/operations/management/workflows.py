@@ -7,13 +7,13 @@ from . import security
 
 def actions(user):
     specs = [
-        ('Producto', 'Agrega un trago, bebida o comida con su precio y existencias iniciales.', 'management:product-create', ('inventory.view_inventory','catalog.add_product'), 'local'),
-        ('Entrada de inventario', 'Selecciona un producto y registra la cantidad recibida.', 'management:stock-create', ('inventory.view_inventory','inventory.receive_inventory'), 'local'),
-        ('Mesa', 'Elige el área y coloca la nueva mesa en el plano.', 'management:table-start', ('tables.view_venuetable','tables.add_venuetable'), 'local'),
-        ('Reserva', 'Ingresa el cliente, la mesa y la fecha en un solo formulario.', 'reservations:create', ('reservations.create_reservation',), 'cloud'),
-        ('Evento', 'Prepara la información, las entradas y el aforo paso a paso.', 'events:create', ('events.create_event',), 'cloud'),
-        ('Usuario', 'Crea su acceso y luego revisa sus permisos de trabajo.', 'management:user-create', ('accounts.view_user','accounts.add_user'), 'local'),
-        ('Categoría', 'Organiza los productos: cervezas, cócteles, comida y más.', 'management:category-create', ('inventory.view_inventory','catalog.add_category'), 'local'),
+        ('Agregar un producto', 'Un trago, bebida o comida que vas a vender.', 'management:product-create', ('inventory.view_inventory','catalog.add_product'), 'local'),
+        ('Recibí mercadería', 'Suma unidades de un producto que ya tienes registrado.', 'management:stock-create', ('inventory.view_inventory','inventory.receive_inventory'), 'local'),
+        ('Agregar una mesa', 'Elige dónde va y cuántas personas caben.', 'management:table-start', ('tables.view_venuetable','tables.add_venuetable'), 'local'),
+        ('Anotar una reserva', 'Guarda una mesa para un cliente.', 'reservations:create', ('reservations.create_reservation',), 'cloud'),
+        ('Crear un evento', 'Agrega la fecha, las entradas y la capacidad.', 'events:create', ('events.create_event',), 'cloud'),
+        ('Agregar un empleado', 'Crea su usuario y elige qué puede hacer.', 'management:user-create', ('accounts.view_user','accounts.add_user'), 'local'),
+        ('Crear una categoría', 'Agrupa tus productos, por ejemplo: cervezas o comida.', 'management:category-create', ('inventory.view_inventory','catalog.add_category'), 'local'),
     ]
     own = 'cloud' if settings.DEPLOYMENT_MODE == 'cloud' else 'local'
     return [dict(title=title, description=description, url=reverse(route)) for title,description,route,perms,authority in specs

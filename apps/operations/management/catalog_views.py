@@ -100,9 +100,9 @@ def product_edit(request, pk=None):
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
         'fieldsets': [(title, [form[key] for key in keys if key in form.fields]) for title, keys in (
-            ('1. Datos del producto', ('name', 'category', 'base_price', 'preparation_route', 'image')),
-            ('2. Existencias', ('track_inventory', 'initial_stock', 'minimum_stock')))],
-        'advanced_fields': [form[key] for key in ('slug', 'is_active', 'visible_in_pos', 'is_combo')],
+            ('Lo que vas a vender', ('name', 'category', 'base_price', 'preparation_route')),
+            ('Cantidad disponible', ('track_inventory', 'initial_stock')))],
+        'advanced_fields': [form[key] for key in ('image', 'minimum_stock', 'slug', 'is_active', 'visible_in_pos', 'is_combo')],
         'is_product_form': True}, section='inventario', status=400 if form.errors else 200)
 
 
@@ -234,7 +234,7 @@ def stock_create(request):
             return redirect('management:stock-create') if request.POST.get('after_save') == 'another' else redirect(product_url(data['product']))
         except ValidationError as exc:
             error_on(form, exc)
-    return page(request, 'catalog_form', {'form': form, 'title': 'Registrar entrada',
+    return page(request, 'catalog_form', {'form': form, 'title': 'Recibí mercadería',
         'subtitle': 'Selecciona lo que recibiste e indica la cantidad. El inventario se actualiza al guardar.',
-        'back': reverse('management:inventory'), 'submit': 'Registrar entrada', 'can_add_another': True, 'is_stock_entry': True},
+        'back': reverse('management:inventory'), 'submit': 'Sumar al inventario', 'can_add_another': True, 'is_stock_entry': True},
         section='inventario', status=400 if form.errors else 200)
