@@ -125,3 +125,21 @@ class PriceForm(forms.Form):
 class StockEntryForm(StockForm):
     product = forms.ModelChoiceField(label='Producto recibido', queryset=Product.objects.filter(is_active=True, track_inventory=True, is_combo=False).order_by('name'))
     field_order = ('product', 'quantity', 'reason')
+
+
+class ProductQuickForm(forms.ModelForm):
+    class Meta:
+        model = Product
+        fields = ('base_price', 'image', 'is_active', 'visible_in_pos')
+        labels = {'base_price': 'Precio de venta (Q)', 'image': 'Foto del producto',
+                  'is_active': 'Producto activo', 'visible_in_pos': 'Mostrar en el menú de ventas'}
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not user.has_perm('catalog.change_product_price'):
+            del self.fields['base_price']
+        self.fields['is_active'].help_text = 'Desactívalo para dejar de venderlo. Su historial se conserva.'
+        self.fields['visible_in_pos'].help_text = 'Si lo ocultas, el personal no lo verá en el menú de ventas.'
+        self.fields['image'].help_text = 'JPEG, PNG o WebP, hasta 5 MB.'
+
+    clean_image = ProductForm.clean_image

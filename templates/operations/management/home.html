@@ -9,6 +9,9 @@
 </div>
 <p class="simple-intro">Elige una tarea para comenzar.</p>
 {% include 'operations/management/partials/task_cards.html' %}
+<section class="daily-pending" aria-labelledby="daily-pending-title"><h2 id="daily-pending-title">Pendientes para revisar</h2>
+{% for task in daily_tasks %}<article class="daily-task"><div><strong>{{ task.title }}</strong><p>{{ task.detail }}</p></div><a class="button button--ghost" href="{{ task.url }}">{{ task.action }} →</a></article>{% empty %}<p class="daily-clear">No hay pendientes de revisión en los módulos a los que tienes acceso.</p>{% endfor %}</section>
+{% if not day %}<section class="flow-start"><div><h2>Antes de empezar a vender</h2><p>Abre el día de trabajo para que el personal pueda iniciar sus cajas.</p></div>{% if can_open %}<a href="{% url 'management:open-day' %}">Abrir día de trabajo</a>{% endif %}</section>{% endif %}
 <details class="simple-summary"><summary>Ver ventas y estado del día{% if pending_count %} · {{ pending_count }} pendientes{% endif %}</summary>
 {% if day %}
 <div class="kpi-grid">

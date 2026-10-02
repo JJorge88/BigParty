@@ -96,13 +96,12 @@ def product_edit(request, pk=None):
         except ValidationError as exc:
             error_on(form, exc)
     return page(request, 'catalog_form', {'form': form, 'title': 'Editar producto' if pk else 'Crear producto',
-        'subtitle': 'Nombre, precio, preparación y existencias iniciales en un solo formulario.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
+        'subtitle': 'Completa nombre, categoría y precio. Abre Más opciones si necesitas foto, preparación o inventario.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
         'fieldsets': [(title, [form[key] for key in keys if key in form.fields]) for title, keys in (
-            ('Lo que vas a vender', ('name', 'category', 'base_price', 'preparation_route')),
-            ('Cantidad disponible', ('track_inventory', 'initial_stock')))],
-        'advanced_fields': [form[key] for key in ('image', 'minimum_stock', 'slug', 'is_active', 'visible_in_pos', 'is_combo')],
+            ('Lo que vas a vender', ('name', 'category', 'base_price')),)],
+        'advanced_fields': [form[key] for key in ('image', 'preparation_route', 'track_inventory', 'initial_stock', 'minimum_stock', 'is_active', 'visible_in_pos', 'is_combo', 'slug') if key in form.fields],
         'is_product_form': True}, section='inventario', status=400 if form.errors else 200)
 
 
@@ -114,7 +113,7 @@ def stock(request, pk, action):
     security.require(request.user, 'inventory.adjust_inventory' if adjustment else 'inventory.receive_inventory')
     obj = get_object_or_404(Product, pk=pk, track_inventory=True, is_combo=False)
     form = forms.StockForm(request.POST or None, adjustment=adjustment)
-    title = 'Ajustar stock' if adjustment else 'Registrar entrada'
+    title = 'Corregir cantidad' if adjustment else 'Recibí mercadería'
     if request.method == 'POST' and form.is_valid():
         try:
             data = form.cleaned_data
@@ -126,7 +125,7 @@ def stock(request, pk, action):
             return redirect(product_url(obj))
         except ValidationError as exc:
             error_on(form, exc)
-    return page(request, 'catalog_form', {'form': form, 'title': title, 'subtitle': 'Cada movimiento conserva responsable, cantidad y motivo.',
+    return page(request, 'catalog_form', {'form': form, 'title': title, 'subtitle': 'Indica cuánto debes aumentar o reducir y explica el motivo.' if adjustment else f'¿Cuántas unidades de {obj.name} recibiste? Se sumarán a las {obj.stock_quantity} actuales.',
         'product': obj, 'stock_form': True, 'adjustment': adjustment, 'back': product_url(obj), 'submit': title}, section='inventario', status=400 if form.errors else 200)
 
 
@@ -238,3 +237,24 @@ def stock_create(request):
         'subtitle': 'Selecciona lo que recibiste e indica la cantidad. El inventario se actualiza al guardar.',
         'back': reverse('management:inventory'), 'submit': 'Sumar al inventario', 'can_add_another': True, 'is_stock_entry': True},
         section='inventario', status=400 if form.errors else 200)
+
+
+@require_http_methods(['GET', 'POST'])
+@security.required
+def product_quick_edit(request, pk):
+    security.require(request.user, 'inventory.view_inventory')
+    security.require(request.user, 'catalog.change_product')
+    obj = get_object_or_404(Product, pk=pk)
+    form = forms.ProductQuickForm(request.POST if request.method == 'POST' else None,
+        request.FILES or None, instance=obj, user=request.user)
+    if request.method == 'POST' and form.is_valid():
+        try:
+            writes.save_product(form.cleaned_data, user=request.user, pk=pk)
+            messages.success(request, f'Cambios guardados en {obj.name}.')
+            return redirect('management:inventory')
+        except ValidationError as exc:
+            error_on(form, exc)
+    return page(request, 'catalog_form', {'form': form, 'title': obj.name,
+        'subtitle': 'Cambia el precio, la foto o si está disponible para vender.',
+        'product': obj, 'quick_edit': True, 'back': reverse('management:inventory'),
+        'submit': 'Guardar cambios'}, section='inventario', status=400 if form.errors else 200)

@@ -54,7 +54,7 @@ def activity(request):
 @require_GET
 @security.required
 def home(request):
-    from .workflows import actions
+    from .workflows import actions, pending_tasks
     day = queries.current_day()
     data = queries.dashboard(day,request.user) if day else {'day':None}
     if request.user.has_perm('inventory.view_inventory'):
@@ -63,6 +63,7 @@ def home(request):
         data['inventory_attention'] = Product.objects.filter(is_active=True, track_inventory=True,
             stock_quantity__lte=F('minimum_stock')).count()
     data['add_actions'] = actions(request.user)
+    data['daily_tasks'] = pending_tasks(request.user, data)
     return page(request,'home',data)
 
 
@@ -79,6 +80,7 @@ def closures(request):
         day = queries.current_day() or BusinessDay.objects.first()
     data = queries.day_data(day,request.user) if day else {'day':None,'registers':queries.register_cards(None,[])}
     data['days'] = BusinessDay.objects.all()[:30]
+    data['current_day'] = queries.current_day()
     return page(request,'closures',data,section='cierres')
 
 

@@ -55,7 +55,7 @@
 </td>
 
 <td>
-<div class="simple-row-actions">{% if perms.catalog.change_product %}<a href="{% url 'management:product-edit' product.pk %}">Editar</a>{% endif %}{% if perms.inventory.receive_inventory and product.track_inventory and not product.is_combo %}<a href="{% url 'management:stock-receive' product.pk %}">Sumar unidades</a>{% endif %}<a href="{% url 'management:product' product.pk %}">Ver detalle</a></div>
+<div class="simple-row-actions">{% if perms.catalog.change_product %}<a href="{% url 'management:product-quick-edit' product.pk %}">Editar</a>{% endif %}{% if perms.inventory.receive_inventory and product.track_inventory and not product.is_combo %}<a href="{% url 'management:stock-receive' product.pk %}">Sumar unidades</a>{% endif %}<a href="{% url 'management:product' product.pk %}">Ver detalle</a></div>
 </td>
 </tr>{% empty %}<tr>
 <td colspan="6" class="admin-empty">No hay productos para estos filtros.</td>

@@ -28,6 +28,7 @@ urlpatterns += [
     path('inventario/', catalog.inventory, name='inventory'),
     path('inventario/producto/crear/', catalog.product_edit, name='product-create'),
     path('inventario/producto/<int:pk>/', catalog.product, name='product'),
+    path('inventario/producto/<int:pk>/editar-rapido/', catalog.product_quick_edit, name='product-quick-edit'),
     path('inventario/producto/<int:pk>/editar/', catalog.product_edit, name='product-edit'),
     path('inventario/producto/<int:pk>/entrada/', catalog.stock, {'action': 'receive'}, name='stock-receive'),
     path('inventario/producto/<int:pk>/ajuste/', catalog.stock, {'action': 'adjust'}, name='stock-adjust'),

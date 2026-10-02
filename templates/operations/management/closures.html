@@ -2,10 +2,12 @@
 {% block management_content %}
 <div class="page-heading">
 <div><span class="eyebrow">Control de la jornada</span>
-<h1>Cierres
+<h1>Caja y cierres
 </h1>
 </div>{% include 'operations/management/partials/day_badge.html' %}
 </div>
+<section class="cash-guide" aria-label="Pasos del día de trabajo"><div><strong>1. Abrir el día</strong><p>El gerente abre el día y cada cajero abre su caja.</p></div><div><strong>2. Revisar las cajas</strong><p>Cada cajero cuenta su efectivo y cierra su caja. Revisa los pendientes.</p></div><div><strong>3. Cerrar el día</strong><p>Revisa el resumen y confirma el cierre cuando todo esté resuelto.</p></div></section>
+{% if not current_day and can_open %}<p class="cash-next"><a class="button button--primary" href="{% url 'management:open-day' %}">Abrir un día de trabajo →</a></p>{% elif current_day and current_day.pk != day.pk %}<p class="cash-next">Estás consultando una jornada anterior. <a class="text-link" href="{% url 'management:closures' %}">Volver al día abierto →</a></p>{% endif %}
 <div class="toolbar"><p class="muted">Revisa las cajas y resuelve los pendientes antes de cerrar.</p>{% if days %}
 <form method="get"><label class="sr-only" for="jornada">Jornada comercial</label><select id="jornada" name="jornada">{% for option in days %}<option value="{{ option.pk }}" {% if option.pk == day.pk %}selected{% endif %}>{{ option.business_date|date:'d/m/Y' }} · {{ option.get_status_display }}</option>{% endfor %}</select><button class="button button--ghost">Consultar</button>
 </form>{% endif %}

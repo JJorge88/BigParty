@@ -76,7 +76,7 @@ class ManagementTests(CashTestCase):
 
     def test_manager_and_owner_login_without_staff(self):
         self.assertFalse(self.manager.is_staff)
-        self.assertContains(self.client.get('/gerencia/'),'Inicio de Gerencia')
+        self.assertContains(self.client.get('/gerencia/'),'¿Qué necesitas hacer?')
         self.manager.role='PROPIETARIO'; self.manager.save()
         self.assertEqual(self.login().status_code,302)
         self.assertContains(self.client.get('/gerencia/'),'Propietario')

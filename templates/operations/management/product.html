@@ -4,9 +4,9 @@
 <div>
 <span class="eyebrow">{{ product.category.name }}</span>
 <h1>{{ product.name }}</h1>
-<p>{{ product.slug }} · {{ product.is_active|yesno:'Activo,Inactivo' }}</p>
+<p>{{ product.is_active|yesno:'Activo,Inactivo' }}</p>
 </div>
-<div class="admin-actions">{% if perms.catalog.change_product %}<a class="admin-button" href="{% url 'management:product-edit' product.pk %}">Editar producto</a>{% endif %}{% if product.track_inventory %}{% if perms.inventory.adjust_inventory %}<a class="admin-button" href="{% url 'management:stock-adjust' product.pk %}">Ajustar stock</a>{% endif %}{% if perms.inventory.receive_inventory %}<a class="admin-button admin-button--primary" href="{% url 'management:stock-receive' product.pk %}">＋ Registrar entrada</a>{% endif %}{% endif %}</div>
+<div class="admin-actions">{% if perms.catalog.change_product %}<a class="admin-button" href="{% url 'management:product-quick-edit' product.pk %}">Editar precio, foto o disponibilidad</a>{% endif %}{% if product.track_inventory %}{% if perms.inventory.adjust_inventory %}<a class="admin-button" href="{% url 'management:stock-adjust' product.pk %}">Corregir cantidad</a>{% endif %}{% if perms.inventory.receive_inventory %}<a class="admin-button admin-button--primary" href="{% url 'management:stock-receive' product.pk %}">↓ Recibí mercadería</a>{% endif %}{% endif %}</div>
 </header>
 <div class="admin-detail-grid">
 <section class="admin-panel admin-context">
@@ -52,6 +52,7 @@
 <strong>Q{% if row.special %}{{ row.price|floatformat:2 }}{% else %}{{ product.base_price|floatformat:2 }}{% endif %}</strong>
 </div>{% endfor %}</section>
 </div>
+<details class="simple-summary"><summary>Ver historial y opciones del producto</summary>
 <section class="admin-panel">
 <div class="admin-section-title padded">
 <h2>Historial de precios</h2>
@@ -109,4 +110,5 @@
 <div class="admin-actions">{% if perms.catalog.change_combocomponent %}<a href="{% url 'management:component-edit' product.pk component.pk %}">Editar</a>{% endif %}{% if perms.catalog.delete_combocomponent %}<form method="post" action="{% url 'management:component-remove' product.pk component.pk %}">{% csrf_token %}<button class="admin-button">Retirar</button>
 </form>{% endif %}</div>
 </div>{% empty %}<p>Agrega componentes para habilitar la venta del combo.</p>{% endfor %}</section>{% endif %}
+</details>
 {% endblock %}

@@ -1,6 +1,6 @@
 {% extends 'operations/base.html' %}{% load static %}
 {% block title %}BIG PARTY · Gerencia{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}?v=mesas-2"><link rel="stylesheet" href="{% static 'css/operations/workflows.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/operations/sidebar.css' %}">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}?v=mesas-2"><link rel="stylesheet" href="{% static 'css/operations/workflows.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/operations/sidebar.css' %}?v=daily-1">{% endblock %}
 {% block body_attributes %}class="management" data-idle-timeout="{{ idle_timeout }}" data-activity-url="{% url 'management:activity' %}" data-logout-url="{% url 'management:logout' %}" data-login-url="{% url 'management:login' %}"{% endblock %}
 {% block topbar %}<span class="management-label">GERENCIA</span>
 
