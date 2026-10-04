@@ -182,6 +182,21 @@ class CollectionTests(AccountTestCase):
         orders.send_order(other, self.user)
         self.assertEqual(self.post("seleccion", {"selection": json.dumps([{"line_id":line.pk,"quantity":1}])}).status_code, 409)
 
+    def test_operator_verified_transfer_needs_no_manager_review(self):
+        response = self.pay("transferencia", reference="TR-SELF", received_verified="yes")
+        self.assertEqual(response.status_code, 200, response.content)
+        payment = Payment.objects.get()
+        self.assertEqual(payment.status, "CONFIRMED")
+        self.assertEqual(payment.confirmed_by, self.waiter)
+        self.assertEqual(payment.metadata["receipt_verified_by_operator"], self.waiter.pk)
+        self.assertTrue(response.json()["state"]["can_close"])
+        self.assertEqual(self.post("cerrar").status_code, 200)
+
+    def test_verified_deposit_still_requires_reference(self):
+        response = self.pay("deposito", received_verified="yes")
+        self.assertEqual(response.status_code, 409)
+        self.assertFalse(Payment.objects.exists())
+
     def test_transfer_requires_reference_and_reserves_balance(self):
         quote = self.quote()
         self.assertEqual(self.pay("transferencia", quote=quote).status_code, 409)

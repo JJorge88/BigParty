@@ -222,7 +222,6 @@ def page(request, screen):
     elif screen == "movimientos":
         data["rows"] = movement_rows(session)
     elif screen == "retiro":
-        data["approvers"] = security.candidates(approvers=True)
         data["withdrawal_token"] = signing.dumps(withdrawal_version(context), salt="cash.withdrawal.v1")
     elif screen in ("resultado", "cerrada", "comprobante"):
         # Único punto de revelación. La consulta vuelve a exigir permiso y conteo.
@@ -257,7 +256,6 @@ def action(request, action):
         if session.status != "OPEN" or (session.counted_at and action != "cerrar"):
             return error(request, "Esta caja ya está cerrada o tiene un conteo registrado. No admite nuevos movimientos.", 409)
     next_screen, message = "activa", ""
-    approver = None
     if action == "retirar":
         try:
             token = signing.loads(request.POST.get("withdrawal_token", ""), salt="cash.withdrawal.v1", max_age=settings.CASH_IDLE_TIMEOUT_SECONDS)
@@ -265,9 +263,6 @@ def action(request, action):
             token = None
         if token != withdrawal_version(context):
             return error(request, "El formulario cambió o este retiro ya fue registrado. Actualiza la pantalla.", 409)
-        approver, message, status = security.verify_pin(context["register"], request.POST.get("approver_id"), request.POST.get("approver_pin"), approval=True)
-        if not approver:
-            return error(request, message, status)
     try:
         # Savepoint permite informar errores sin confirmar cambios parciales ni borrar intentos de PIN.
         with transaction.atomic():
@@ -286,7 +281,7 @@ def action(request, action):
                 services.confirm_cash_handoff(handoff, session, user)
                 next_screen, message = "meseros", "Efectivo recibido"
             elif action == "retirar":
-                services.create_cash_withdrawal(session, request.POST.get("amount"), request.POST.get("reason", ""), user, approver)
+                services.create_cash_withdrawal(session, request.POST.get("amount"), request.POST.get("reason", ""), user)
                 message = "Retiro registrado"
             elif action == "contar":
                 services.submit_blind_cash_count(session, request.POST.get("counted_cash"), user)

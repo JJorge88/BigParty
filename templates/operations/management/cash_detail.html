@@ -19,7 +19,7 @@
 </section>
 <section class="kpi kpi--featured"><span>Efectivo esperado</span><strong>Q{{ financial.expected_cash|floatformat:2 }}</strong><small>Según movimientos registrados</small>
 </section>
-<section class="kpi"><span>{% if cash_session.status == 'OPEN' %}Retiros{% else %}Efectivo contado{% endif %}</span><strong>Q{% if cash_session.status == 'OPEN' %}{{ financial.withdrawals|floatformat:2 }}{% else %}{{ financial.counted_cash|floatformat:2 }}{% endif %}</strong><small>{% if cash_session.status == 'OPEN' %}Salidas autorizadas{% else %}Conteo de cierre{% endif %}</small>
+<section class="kpi"><span>{% if cash_session.status == 'OPEN' %}Retiros{% else %}Efectivo contado{% endif %}</span><strong>Q{% if cash_session.status == 'OPEN' %}{{ financial.withdrawals|floatformat:2 }}{% else %}{{ financial.counted_cash|floatformat:2 }}{% endif %}</strong><small>{% if cash_session.status == 'OPEN' %}Salidas registradas{% else %}Conteo de cierre{% endif %}</small>
 </section>
 <section class="kpi"><span>{% if cash_session.status == 'OPEN' %}Handoffs recibidos{% else %}Diferencia{% endif %}</span><strong>Q{% if cash_session.status == 'OPEN' %}{{ financial.waiter_handoffs|floatformat:2 }}{% else %}{{ financial.difference|floatformat:2 }}{% endif %}</strong><small>{% if cash_session.status == 'OPEN' %}Efectivo entregado por meseros{% else %}Contado menos esperado{% endif %}</small>
 </section>

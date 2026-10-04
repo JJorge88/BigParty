@@ -21,7 +21,7 @@ function reconcileSelection() {
 }
 function resetPayment() {
   clearQuote(); method = ''; mixed = false; scope = ''; scopeAmount = ''; scopeComplete = false;
-  $('cash-received').value = ''; $('payment-reference').value = ''; $('mixed-amount').value = '';
+  $('cash-received').value = ''; $('payment-reference').value = ''; $('payment-received-verified').checked = false; $('mixed-amount').value = '';
 }
 function accountView() { view = 'account'; resetPayment(); render(); }
 function controls() {
@@ -32,9 +32,9 @@ function controls() {
   $('close-account').disabled = busy || blocked || !state.can_close;
   $('confirm-payment').disabled = busy || blocked || !quote || !method ||
     (method === 'efectivo' && changeLabel($('cash-received').value, quote.amount) === '—') ||
-    (['transferencia','deposito'].includes(method) && !$('payment-reference').value.trim());
+    (['transferencia','deposito'].includes(method) && (!$('payment-reference').value.trim() || !$('payment-received-verified').checked));
   document.querySelectorAll('[data-quantity], .account-tab, [data-method], #mixed-method, #back-account, #cancel-payment').forEach(button => { button.disabled = busy; });
-  $('mixed-amount').disabled = busy; $('cash-received').disabled = busy; $('payment-reference').disabled = busy;
+  $('mixed-amount').disabled = busy; $('cash-received').disabled = busy; $('payment-reference').disabled = busy; $('payment-received-verified').disabled = busy;
   document.querySelectorAll('.quick-cash button').forEach(button => { button.disabled = busy; });
 }
 function lineCard(line, dividing = false) {
@@ -95,7 +95,7 @@ function render() {
   text('financial-reserved', summary.pending_verification); text('financial-available', summary.available_to_pay);
   show('reserved-summary', state.has_pending); show('draft-warning', state.has_drafts); show('pending-warning', state.has_pending);
   if (state.quick_sale) {
-    text('pending-warning', 'Pago pendiente de verificación por Gerencia. No entregar todavía.');
+    text('pending-warning', 'Pago anterior pendiente de verificación. No entregar todavía.');
     text('scope-complete', state.has_pending ? 'Pago pendiente de verificación. La venta sigue abierta; no entregar todavía.' : 'Pago registrado. Revisa el saldo para completar la venta.');
   }
   show('gross-row', state.has_adjustments || state.has_refunds); text('gross-value', summary.gross_total);
@@ -190,13 +190,13 @@ function prepareMixed() {
 }
 $('mixed-method').addEventListener('click', () => { mixed = true; method = ''; clearQuote(); render(); $('mixed-amount').focus(); });
 $('mixed-amount').addEventListener('input', prepareMixed);
-document.querySelectorAll('[data-method]').forEach(button => button.addEventListener('click', () => { method = button.dataset.method; show('payment-feedback', false); $('cash-received').value = ''; $('payment-reference').value = ''; render(); if (method === 'efectivo') $('cash-received').focus(); }));
-$('cash-received').addEventListener('input', cashChange); $('payment-reference').addEventListener('input', controls);
+document.querySelectorAll('[data-method]').forEach(button => button.addEventListener('click', () => { method = button.dataset.method; show('payment-feedback', false); $('cash-received').value = ''; $('payment-reference').value = ''; $('payment-received-verified').checked = false; render(); if (method === 'efectivo') $('cash-received').focus(); }));
+$('cash-received').addEventListener('input', cashChange); $('payment-reference').addEventListener('input', controls); $('payment-received-verified').addEventListener('change', controls);
 $('payment-form').addEventListener('submit', async event => {
   event.preventDefault(); if (busy || !quote || $('confirm-payment').disabled) return;
   busy = true; controls(); error();
   try {
-    const result = await request(`${url}${method}/`, {method:'POST', data:data({token:quote.token, received:$('cash-received').value, reference:$('payment-reference').value})});
+    const result = await request(`${url}${method}/`, {method:'POST', data:data({token:quote.token, received:$('cash-received').value, reference:$('payment-reference').value, received_verified:$('payment-received-verified').checked ? 'yes' : ''})});
     if (result.ok && result.data.next) { location.replace(result.data.next); return; }
     if (result.data.state) state = result.data.state;
     clearQuote();
@@ -205,7 +205,7 @@ $('payment-form').addEventListener('submit', async event => {
       const message = result.data.message + (method === 'efectivo' ? ` · Cambio ${result.data.payment.change}` : '');
       text('payment-feedback', message); show('payment-feedback', result.data.payment.status !== 'PENDING'); toast(message);
       if (mixed) {
-        method = ''; $('mixed-amount').value = ''; $('cash-received').value = ''; $('payment-reference').value = '';
+        method = ''; $('mixed-amount').value = ''; $('cash-received').value = ''; $('payment-reference').value = ''; $('payment-received-verified').checked = false;
         if (state.can_pay && !state.account_closed) {
           const remaining = await prepare({mode:'full', scope});
           if (remaining) { scope = remaining.token; scopeAmount = remaining.amount_label; }

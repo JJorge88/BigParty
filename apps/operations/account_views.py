@@ -78,6 +78,7 @@ def account_action(request, order_id, action):
             options["card_approved"] = True
         else:
             options["reference"] = request.POST.get("reference", "")
+            options["received_verified"] = request.POST.get("received_verified") == "yes"
         target = account or order
         if plan["mode"] == "selection":
             payment = payments.create_selected_payment(target, plan["selection"], method, context["user"], **options)
@@ -89,7 +90,7 @@ def account_action(request, order_id, action):
         order.refresh_from_db()
         if account:
             account.refresh_from_db()
-        message = "Pago pendiente de verificación por Gerencia." if payment.status == "PENDING" else "Pago registrado"
+        message = "Pago pendiente de verificación." if payment.status == "PENDING" else "Pago registrado"
         return JsonResponse({"success": True, "message": message,
             "payment": {"amount": money_label(payment.amount), "change": money_label(payment.change_due), "status": payment.status},
             "state": accounts.account_state(order, context["user"], account)})

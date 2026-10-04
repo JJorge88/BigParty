@@ -212,6 +212,16 @@ class CashSalesTests(CashTestCase):
         self.assertFalse(CashMovement.objects.exists())
         self.assertFalse(PreparationTicket.objects.exists())
 
+    def test_verified_transfer_completes_sale_without_manager(self):
+        order = self.create_sale(); self.add(order, self.food)
+        response = self.pay(order, "transferencia", received_verified="yes")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIn("next", response.json())
+        order.refresh_from_db()
+        self.assertEqual(order.status, "CLOSED")
+        self.assertEqual(Payment.objects.get().status, "CONFIRMED")
+        self.assertTrue(order.tickets.exists())
+
     def test_transfer_pending_does_not_complete_or_send_kitchen(self):
         order = self.create_sale(); self.add(order, self.food)
         response = self.pay(order, "transferencia")

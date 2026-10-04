@@ -118,7 +118,7 @@ def pay_quick_sale(context, order, token, method, data):
     if order.lines.filter(status="DRAFT").exists():
         orders.send_order(order, user, draft_origin=origin(context), fulfillment_mode="TAKE_AT_BAR", defer_ticket=True)
     orders.reserve_quick_sale_stock(order, user)
-    options = {"cash_session": context["session"], "received_amount": data.get("received", "")} if method == "CASH" else {"card_approved": True} if method == "CARD" else {"reference": data.get("reference", "")}
+    options = {"cash_session": context["session"], "received_amount": data.get("received", "")} if method == "CASH" else {"card_approved": True} if method == "CARD" else {"reference": data.get("reference", ""), "received_verified": data.get("received_verified") == "yes"}
     payment = payments.create_amount_payment(order, plan["amount"], method, user, unit_keys=plan["scope_keys"], **options)
     # El primer pago inmoviliza stock; un fallo revierte stock, líneas, pago y movimiento.
     # Cocina espera hasta que todos los métodos estén confirmados y sin saldo.

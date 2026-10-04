@@ -198,19 +198,27 @@ def confirm_cash_handoff(payment, cash_session, user):
 
 @sync_atomic('local')
 @transaction.atomic
-def create_cash_withdrawal(cash_session, amount, reason, requested_by, approved_by):
-    # approved_by es el actor autenticado que ejecuta/aprueba; requested_by solo identifica al solicitante.
-    _require(approved_by, "approve_cash_withdrawal")
+def create_cash_withdrawal(cash_session, amount, reason, requested_by, approved_by=None):
+    independent = approved_by is None
+    if independent:
+        if not requested_by.is_active or not requested_by.has_perm("operations.request_cash_withdrawal"):
+            raise PermissionDenied("No tienes permiso para registrar retiros.")
+        approved_by = requested_by
+    else:
+        # Preserve explicit historical/administrative calls without widening access.
+        _require(approved_by, "approve_cash_withdrawal")
     requested_by.refresh_from_db()
     if not requested_by.is_active:
         raise ValidationError("El solicitante debe estar activo.")
     amount, reason = _money(amount), _reason(reason)
     session = _session(cash_session, receiving=True)
+    if independent and session.cashier_id != requested_by.pk:
+        raise PermissionDenied("Solo el cajero titular puede registrar este retiro.")
     if amount > get_expected_cash(session):
         raise ValidationError("No se puede registrar el retiro solicitado: fondos insuficientes.")
     movement = _save(CashMovement(cash_session=session, movement_type="WITHDRAWAL", amount=amount,
         reason=reason, created_by=requested_by, approved_by=approved_by))
-    _audit(movement, approved_by, "withdrawal", requested_by=requested_by.pk, session_id=session.pk, amount=str(amount), reason=reason)
+    _audit(movement, approved_by, "withdrawal", requested_by=requested_by.pk, session_id=session.pk, amount=str(amount), reason=reason, independent=independent)
     return movement
 
 

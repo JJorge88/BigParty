@@ -21,7 +21,7 @@
   <div id="payment-feedback" class="payment-feedback" role="status" hidden></div>
   <section id="accounts-section" class="split-section" aria-label="Cuentas separadas" {% if order.billing_mode == 'SINGLE' %}hidden{% endif %}><div id="financial-accounts" class="account-tabs"></div></section>
   <div id="draft-warning" class="account-notice" hidden>Hay productos pendientes de enviar. Todavía no se pueden cobrar.</div>
-  <div id="pending-warning" class="account-notice" hidden>Pago pendiente de verificación por Gerencia.</div>
+  <div id="pending-warning" class="account-notice" hidden>Pago anterior pendiente de verificación.</div>
   <div id="account-layout" class="account-layout">
     <section class="account-detail">
       <div class="account-section-heading"><div><p class="eyebrow" id="view-eyebrow">CONSUMO DE LA MESA</p><h2 id="view-title">Ver cuenta</h2></div><button class="button button--ghost" id="back-account" hidden>← Volver a cuenta</button></div>
@@ -47,7 +47,7 @@
           <h3 id="method-title"></h3>
           <div id="cash-fields" hidden><label class="field-label" for="cash-received">Recibido</label><div class="money-field"><span>Q</span><input class="input money-input" id="cash-received" inputmode="decimal" placeholder="0.00" autocomplete="off"></div><div id="quick-cash" class="quick-cash"></div><div class="cash-change"><span>Cambio</span><strong id="cash-change">—</strong></div></div>
           <div id="card-fields" class="method-note" hidden><p>Realiza el cobro en la terminal bancaria.</p><p>Confirma aquí únicamente después de que la terminal apruebe el cobro.</p></div>
-          <div id="reference-fields" hidden><label class="field-label" for="payment-reference">Referencia</label><input class="input" id="payment-reference" maxlength="200" autocomplete="off" placeholder="Referencia de la operación"><p class="method-note">Pago pendiente de verificación por Gerencia.</p></div>
+          <div id="reference-fields" hidden><label class="field-label" for="payment-reference">Referencia</label><input class="input" id="payment-reference" maxlength="200" autocomplete="off" placeholder="Referencia de la operación"><label class="method-note"><input id="payment-received-verified" type="checkbox"> Comprobé que el dinero fue recibido.</label><p class="method-note">El pago quedará registrado a tu nombre, sin esperar autorización del gerente.</p></div>
           <button id="confirm-payment" class="button button--primary button--wide" type="submit" disabled>Confirmar pago</button>
         </form>
         <div id="scope-complete" class="payment-feedback" hidden>La selección ya quedó cubierta. Vuelve a la cuenta para revisar el resultado.</div>
@@ -72,4 +72,4 @@
 </main>
 {{ state|json_script:'account-state' }}
 {% endblock %}
-{% block scripts %}<script type="module" src="{% static 'js/operations/account.js' %}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/account.js' %}?v=independent-1"></script>{% endblock %}

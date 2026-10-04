@@ -189,7 +189,7 @@ def refresh_order_payment_status(order, user=None):
     return _refresh(current, user)
 
 
-def _create(order, account, allocations, method, user, *, reference="", notes="", received_amount=None, card_approved=False, cash_session=None):
+def _create(order, account, allocations, method, user, *, reference="", notes="", received_amount=None, card_approved=False, cash_session=None, received_verified=False):
     if method not in Payment.Method.values:
         raise ValidationError("Método de pago inválido.")
     from apps.core.configuration import require_method
@@ -204,8 +204,11 @@ def _create(order, account, allocations, method, user, *, reference="", notes=""
     if order.order_type == "QUICK_SALE" and method == "CASH":
         if cash_session is None or cash_session.pk != order.cash_session_id:
             raise ValidationError("La venta rápida requiere su sesión de caja de origen; no admite entregas de mesero.")
-    pending = method in ("TRANSFER", "DEPOSIT")
-    if pending and not reference:
+    bank_payment = method in ("TRANSFER", "DEPOSIT")
+    if received_verified is not False and (received_verified is not True or not bank_payment):
+        raise ValidationError("La recepción verificada solo aplica a transferencias y depósitos.")
+    pending = bank_payment and received_verified is not True
+    if bank_payment and not reference:
         raise ValidationError("La transferencia o depósito necesita una referencia.")
     if method == "CARD" and card_approved is not True:
         raise ValidationError("Confirma que la terminal bancaria aprobó el cobro.")
@@ -218,6 +221,8 @@ def _create(order, account, allocations, method, user, *, reference="", notes=""
         if received < amount:
             raise ValidationError("El efectivo recibido no alcanza para este pago.")
         metadata["received_amount"] = str(received)
+    if received_verified is True:
+        metadata["receipt_verified_by_operator"] = user.pk
     if method == "CARD":
         metadata["terminal_approved"] = True
     if order.order_type == "QUICK_SALE":

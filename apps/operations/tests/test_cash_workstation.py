@@ -295,34 +295,31 @@ class CashWorkstationTests(CashTestCase):
         self.assertPrivate(response)
         movement = CashMovement.objects.get()
         self.assertEqual(movement.created_by, self.cashier)
-        self.assertEqual(movement.approved_by, self.other_user)
+        self.assertEqual(movement.approved_by, self.cashier)
         self.assertEqual(movement.reason, "Cambio")
         log = AuditLog.objects.get(action="cash.withdrawal")
         self.assertEqual(log.data["requested_by"], self.cashier.pk)
         self.assertEqual(CashAccessSession.objects.get().user, self.cashier)
 
-    def test_withdrawal_requires_correct_pin(self):
-        response = self.withdrawal(self.open_cash(), approver_pin="1234")
-        self.assertEqual(response.status_code, 400)
-        self.assertFalse(CashMovement.objects.exists())
-        self.assertEqual(CashPinAttempt.objects.get(user=self.other_user).failed_attempts, 1)
-
-    def test_withdrawal_pin_lockout_persists_despite_failed_action(self):
+    def test_withdrawal_needs_no_manager_pin_and_ignores_forged_approver(self):
         session = self.open_cash()
-        for _ in range(5): response = self.withdrawal(session, approver_pin="1234")
-        self.assertEqual(response.status_code, 429)
-        self.assertEqual(self.withdrawal(session).status_code, 429)
-        self.assertFalse(CashMovement.objects.exists())
+        response = self.withdrawal(session, approver_id=self.other_cashier.pk, approver_pin="invalid")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(CashMovement.objects.get().approved_by, self.cashier)
+        self.assertTrue(AuditLog.objects.get(action="cash.withdrawal").data["independent"])
+        self.assertFalse(CashPinAttempt.objects.filter(user=self.other_cashier).exists())
+        self.assertNotContains(self.page("retiro"), 'name="approver_pin"')
 
-    def test_withdrawal_approver_needs_real_permission_not_role(self):
-        self.other_cashier.role = "GERENTE"; self.other_cashier.save()
-        response = self.withdrawal(self.open_cash(), approver_id=self.other_cashier.pk, approver_pin="4632")
-        self.assertEqual(response.status_code, 403)
-        self.assertFalse(CashMovement.objects.exists())
-
-    def test_withdrawal_inactive_approver_rejected(self):
+    def test_withdrawal_does_not_depend_on_manager_being_active(self):
         self.other_user.is_active = False; self.other_user.save()
-        self.assertEqual(self.withdrawal(self.open_cash()).status_code, 403)
+        self.assertEqual(self.withdrawal(self.open_cash()).status_code, 200)
+
+    def test_independent_withdrawal_rejects_other_cashier(self):
+        from django.core.exceptions import PermissionDenied
+        session = self.open_cash()
+        with self.assertRaises(PermissionDenied):
+            services.create_cash_withdrawal(session, 10, "Cambio", self.other_cashier)
+        self.assertFalse(CashMovement.objects.exists())
 
     def test_requester_needs_withdrawal_permission(self):
         session = self.open_cash()
