@@ -1,79 +1,16 @@
-{% extends 'operations/management/base.html' %}{% load l10n %}
-{% block main_class %}management-home{% endblock %}
+{% extends 'operations/management/base.html' %}{% load static %}
+{% block styles %}{{ block.super }}<link rel="stylesheet" href="{% static 'css/operations/manager-home.css' %}?v=1">{% endblock %}
+{% block main_class %}management-home home-simple{% endblock %}
 {% block management_content %}
-<div class="page-heading">
-<div><span class="eyebrow">GERENCIA</span>
-<h1>¿Qué necesitas hacer?
-</h1>
-</div>{% include 'operations/management/partials/day_badge.html' %}
-</div>
-<p class="simple-intro">Elige una tarea para comenzar.</p>
-{% include 'operations/management/partials/task_cards.html' %}
-<section class="daily-pending" aria-labelledby="daily-pending-title"><h2 id="daily-pending-title">Pendientes para revisar</h2>
-{% for task in daily_tasks %}<article class="daily-task"><div><strong>{{ task.title }}</strong><p>{{ task.detail }}</p></div><a class="button button--ghost" href="{{ task.url }}">{{ task.action }} →</a></article>{% empty %}<p class="daily-clear">No hay pendientes de revisión en los módulos a los que tienes acceso.</p>{% endfor %}</section>
-
-<details class="simple-summary"><summary>Ver ventas y estado del día{% if pending_count %} · {{ pending_count }} pendientes{% endif %}</summary>
-{% if day %}
-<div class="kpi-grid">
-<section class="kpi kpi--featured"><span>Ventas del período</span><strong>{% if can_financial %}Q{{ summary.net_sales|floatformat:2 }}{% else %}Restringido{% endif %}</strong><small>Netas · consumo enviado{% if can_financial %}<span class="kpi-info" tabindex="0" aria-label="Brutas Q{{ summary.gross_sales|floatformat:2 }}; ajustes Q{{ summary.adjustments|floatformat:2 }}; reembolsos Q{{ summary.refunds|floatformat:2 }}" title="Brutas Q{{ summary.gross_sales|floatformat:2 }} − ajustes Q{{ summary.adjustments|floatformat:2 }} − reembolsos Q{{ summary.refunds|floatformat:2 }}">ⓘ</span>{% endif %}</small>
+<header class="home-welcome"><span class="eyebrow">TU NEGOCIO</span><h1>¿Qué necesitas hacer?</h1><p>Empieza aquí. Las demás opciones están en el menú.</p></header>
+<section class="home-actions" aria-label="Acciones principales">
+{% if perms.inventory.view_inventory and perms.catalog.add_product %}<a class="home-action home-action--primary" href="{% url 'management:product-create' %}"><span class="home-action-icon" aria-hidden="true">＋</span><h2>Agregar producto</h2><p>Una bebida, un trago o una comida para vender.</p><span class="home-action-bottom">Crear producto <span aria-hidden="true">→</span></span></a>{% endif %}
+{% if perms.inventory.view_inventory and perms.inventory.receive_inventory %}<a class="home-action" href="{% url 'management:inventory-receive' %}"><span class="home-action-icon" aria-hidden="true">↓</span><h2>Recibir mercadería</h2><p>Registrar los productos que llegaron al negocio.</p><span class="home-action-bottom">Registrar entrada <span aria-hidden="true">→</span></span></a>{% endif %}
+<a class="home-action" href="{% url 'management:closures' %}"><span class="home-action-icon" aria-hidden="true">▤</span><h2>Revisar cajas</h2><p>Ver quién está cobrando y cómo cerró cada caja.</p><span class="home-action-bottom">Ver cajas <span aria-hidden="true">→</span></span></a>
 </section>
-<section class="kpi"><span>Mesas ocupadas</span><strong>{{ occupied_tables }}</strong><small>Mesas físicas con cuenta activa</small>
+<section class="home-pending" aria-labelledby="home-pending-title"><div class="home-section-heading"><div><h2 id="home-pending-title">Pendientes para revisar</h2><p>Solo lo que necesita tu atención.</p></div>{% if daily_tasks %}<span class="home-count">{{ daily_tasks|length }}</span>{% endif %}</div>
+{% for task in daily_tasks|slice:':3' %}<article class="home-pending-row"><div><h3>{{ task.title }}</h3><p>{{ task.detail }}</p></div><a href="{{ task.url }}">{{ task.action }} <span aria-hidden="true">→</span></a></article>{% empty %}<div class="home-all-clear"><span aria-hidden="true">✓</span><div><strong>No tienes pendientes de revisión.</strong><p>Si algo necesita atención, aparecerá aquí.</p></div></div>{% endfor %}
+{% if daily_tasks|length > 3 %}<details class="home-more-pending"><summary>Ver {{ daily_tasks|length|add:'-3' }} pendientes más</summary>{% for task in daily_tasks|slice:'3:' %}<article class="home-pending-row"><div><h3>{{ task.title }}</h3><p>{{ task.detail }}</p></div><a href="{{ task.url }}">{{ task.action }} →</a></article>{% endfor %}</details>{% endif %}
 </section>
-<section class="kpi"><span>Cajas abiertas</span><strong>{{ summary.sessions.open }} <em>/ {{ registers|length }}</em></strong><small>Sesiones operativas del período</small>
-</section>
-<section class="kpi"><span>Pendientes</span><strong>{{ pending_count }}</strong><small>Requieren atención de Gerencia</small>
-</section>
-</div>
-
-<div class="dashboard-grid">
-<section class="panel chart-panel">
-<div class="panel-heading">
-<div>
-<h2>Cobros confirmados por hora
-</h2><p class="help">Cobros confirmados netos · período de ventas</p>
-</div>{% if can_financial %}<strong class="chart-total">Q{{ confirmed_net|floatformat:2 }}</strong>{% endif %}
-</div>{% if can_financial %}{% if hourly.has_data %}{% localize off %}
-<svg class="sales-chart" viewBox="0 0 760 195" role="img" aria-label="Cobros confirmados netos por hora"><defs><linearGradient id="chart-wash" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cab58f" stop-opacity=".18"/><stop offset="100%" stop-color="#cab58f" stop-opacity="0"/></linearGradient></defs><path class="chart-grid" d="M30 28H730M30 71H730M30 115H730M30 158H730"/><polygon points="{{ hourly.fill }}" fill="url(#chart-wash)"/><polyline points="{{ hourly.line }}" fill="none" stroke="#d5bd95" stroke-width="2.5"/>{% for point in hourly.points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="3" fill="#e3cfac"><title>{{ point.label }} · Q{{ point.value }}</title></circle>{% endfor %}{% for tick in hourly.ticks %}<text x="{{ tick.x }}" y="185" text-anchor="middle">{{ tick.label }}</text>{% endfor %}
-</svg>{% endlocalize %}<details class="chart-accessible"><summary>Ver importes por hora</summary>{% for point in hourly.points %}<p>{{ point.label }} · Q{{ point.value|floatformat:2 }}</p>{% endfor %}</details>{% else %}
-<div class="empty chart-empty">Aún no hay cobros confirmados en este período.
-</div>{% endif %}{% else %}
-<div class="empty chart-empty">Necesitas permiso financiero para ver esta gráfica.
-</div>{% endif %}
-</section>
-<section class="panel attention-panel">
-<div class="panel-heading">
-<h2>Requiere atención
-</h2><span class="pill">{{ pending_count }}</span>
-</div>{% for item in attention %}
-<div class="attention-item"><span class="attention-symbol">!</span>
-<div><strong>{{ item.title }}</strong><p>{{ item.detail }}{% if item.amount != None %} · Q{{ item.amount|floatformat:2 }}{% endif %}</p>
-</div>{% if item.url %}<a class="arrow-link" href="{{ item.url }}" aria-label="Revisar {{ item.title }}">→</a>{% endif %}
-</div>{% empty %}
-<div class="empty"><span class="ready-mark">✓</span><strong>Todo en orden</strong><p>No hay alertas que requieran atención.</p>
-</div>{% endfor %}{% if can_payments %}<a class="text-link panel-bottom-link" href="{% url 'management:pending-payments' %}">Ver pagos pendientes →</a>{% endif %}
-</section>
-</div>
-
-<div class="two-columns">
-<section class="panel">
-<div class="panel-heading">
-<h2>Ventas por área
-</h2><span class="muted small">Consumo neto</span>
-</div>{% if can_financial %}{% for area in areas %}
-<div class="area-row">
-<div><span>{{ area.name }}</span><strong>Q{{ area.total|floatformat:2 }}</strong>
-</div>
-<div class="area-track">{% localize off %}<span style="width:{{ area.percent }}%"></span>{% endlocalize %}
-</div>
-</div>{% endfor %}{% else %}<p class="empty">Importes restringidos por permisos.</p>{% endif %}
-</section>{% include 'operations/management/partials/methods.html' %}
-</div>
-{% else %}
-<section class="panel empty-day"><span class="eyebrow">Operación en pausa</span>
-<h2>Todavía no hay cajas en operación
-</h2><p>Los indicadores aparecerán cuando un cajero abra su caja.</p><a class="text-link" href="{% url 'management:closures' %}">Consultar cierres anteriores →</a>
-</section>{% endif %}
-
-</details>
-{% if inventory_attention %}<p class="help"><a href="{% url 'management:inventory' %}">{{ inventory_attention }} productos con pocas unidades o agotados →</a></p>{% endif %}
+<div class="home-bottom"><p>{% if day %}<span class="home-live-dot" aria-hidden="true"></span>{{ summary.sessions.open }} caja{{ summary.sessions.open|pluralize }} abierta{{ summary.sessions.open|pluralize }} · {{ occupied_tables }} mesa{{ occupied_tables|pluralize }} ocupada{{ occupied_tables|pluralize }}{% else %}Todavía no hay cajas en operación{% endif %}</p>{% if perms.core.view_reports %}<a href="{% url 'management:report' 'jornada' %}">Consultar ventas <span aria-hidden="true">→</span></a>{% endif %}</div>
 {% endblock %}

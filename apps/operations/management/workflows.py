@@ -57,9 +57,4 @@ def pending_tasks(user, dashboard):
     for item in dashboard.get('attention', []):
         if item.get('url'):
             result.append({**item, 'action': 'Revisar'})
-    if dashboard.get('blockers'):
-        count = len(dashboard['blockers'])
-        result.append({'title': f'{count} pendientes de operación',
-            'detail': 'Revisa las cuentas y cajas que siguen abiertas.',
-            'url': reverse('management:closures'), 'action': 'Ver pendientes'})
     return result

@@ -48,15 +48,9 @@ def activity(request):
 @require_GET
 @security.required
 def home(request):
-    from .workflows import actions, pending_tasks
+    from .workflows import pending_tasks
     day = queries.current_day()
     data = queries.dashboard(day,request.user) if day else {'day':None}
-    if request.user.has_perm('inventory.view_inventory'):
-        from apps.catalog.models import Product
-        from django.db.models import F
-        data['inventory_attention'] = Product.objects.filter(is_active=True, track_inventory=True,
-            stock_quantity__lte=F('minimum_stock')).count()
-    data['add_actions'] = actions(request.user)
     data['daily_tasks'] = pending_tasks(request.user, data)
     return page(request,'home',data)
 

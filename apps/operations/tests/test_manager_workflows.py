@@ -135,3 +135,11 @@ class ManagerWorkflowTests(AdministrationCase):
         self.revoke('view_reservations')
         tasks = self.client.get(self.url('home')).context['daily_tasks']
         self.assertFalse(any('/reservas/' in t['url'] for t in tasks))
+
+    def test_home_does_not_treat_normal_open_cash_as_pending(self):
+        from apps.operations.management.workflows import pending_tasks
+        tasks = pending_tasks(self.manager, {'blockers': [{'type': 'OPEN_CASH_SESSION'}]})
+        self.assertFalse(any(task['url'].endswith('/cierres/') for task in tasks))
+        response = self.client.get(self.url('home'))
+        self.assertNotContains(response, 'Cobros confirmados por hora')
+        self.assertContains(response, 'Revisar cajas')
