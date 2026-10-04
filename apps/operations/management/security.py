@@ -41,6 +41,9 @@ def required(view):
             if request.headers.get('Accept') == 'application/json':
                 return JsonResponse({'active':False, 'next':reverse('management:login')}, status=401)
             return redirect('management:login')
+        if request.user.role == 'PROPIETARIO' and not request.user.is_superuser:
+            if request.resolver_match.view_name not in {'management:home', 'management:activity'}:
+                raise PermissionDenied('Tu acceso es únicamente para consultar gráficas.')
         return view(request, *args, **kwargs)
     return wrapped
 

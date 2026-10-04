@@ -27,7 +27,7 @@ class UserForm(forms.ModelForm):
             self.fields[key].required = True
             self.fields['confirm'].required = True
         self.fields['username'].help_text = 'El nombre que usará para entrar. Ejemplo: maria.barra'
-        self.fields['role'].help_text = 'Define el tipo de acceso. Los permisos se revisan en el siguiente paso.'
+        self.fields['role'].help_text = 'Propietario: solo gráficas. Los permisos de los demás roles se revisan en el siguiente paso.'
         if 'is_active' in self.fields:
             self.fields['is_active'].help_text = ''
 

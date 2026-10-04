@@ -40,6 +40,16 @@ class User(AbstractUser):
             ),
         ]
 
+    def has_perm(self, perm, obj=None):
+        if self.role == self.Role.PROPIETARIO and not self.is_superuser:
+            return self.is_active and perm == 'core.view_reports' and obj is None
+        return super().has_perm(perm, obj)
+
+    def has_module_perms(self, app_label):
+        if self.role == self.Role.PROPIETARIO and not self.is_superuser:
+            return False
+        return super().has_module_perms(app_label)
+
     def set_pin(self, raw_pin):
         """Establece un hash con sal; None deshabilita el PIN. Guardar aparte."""
         if raw_pin is not None:

@@ -33,7 +33,7 @@ class UserTests(TestCase):
             User.objects.create_user(username="invalid", role="DESCONOCIDO")
 
     def test_individual_permissions_are_independent_of_role(self):
-        user = User.objects.create_user(username="propietario", role=User.Role.PROPIETARIO)
+        user = User.objects.create_user(username="gerente", role=User.Role.GERENTE)
         self.assertFalse(user.is_superuser)
         self.assertFalse(user.has_perm("audit.view_auditlog"))
         permission = Permission.objects.get(content_type__app_label="audit", codename="view_auditlog")

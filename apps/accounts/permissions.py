@@ -76,4 +76,4 @@ def permission_map():
 
 
 def suggested(role):
-    return whitelist() if role == 'PROPIETARIO' else PRESETS.get(role, set())
+    return {'core.view_reports'} if role == 'PROPIETARIO' else PRESETS.get(role, set())

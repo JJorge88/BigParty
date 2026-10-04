@@ -1,0 +1,9 @@
+{% extends 'operations/management/base.html' %}
+{% block management_content %}
+<header><span class="eyebrow">PROPIETARIO · SOLO CONSULTA</span><h1>Gráficas del negocio</h1><p>Consulta las ventas y los cobros. Este acceso no permite realizar cambios.</p></header>
+<form method="get" class="panel">{{ form.as_p }}<button type="submit">Ver gráficas</button></form>
+{% if period %}<p>{{ period.label }}</p><p>Las ventas se agrupan por la fecha de inicio del período de caja. Los importes netos descuentan ajustes y reembolsos; no representan ganancias.</p>{% endif %}
+{% for chart in charts %}<section class="panel"><h2>{{ chart.title }}</h2>
+{% for row in chart.rows %}<figure><figcaption>{{ row.label }} · <strong>{{ row.display }}</strong></figcaption><svg viewBox="0 0 600 24" width="100%" height="24" role="img" aria-label="{{ row.label }}: {{ row.display }}"><rect width="600" height="24" rx="6" fill="#233047"/><rect width="{{ row.width }}" height="24" rx="6" fill="{% if row.amount < 0 %}#fb7185{% else %}#36d8b4{% endif %}"/></svg></figure>{% empty %}<p>Todavía no hay ventas en este período.</p>{% endfor %}
+</section>{% endfor %}
+{% endblock %}

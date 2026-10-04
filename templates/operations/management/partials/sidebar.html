@@ -2,6 +2,9 @@
 <details class="manager-sidebar-panel" open>
 <summary class="manager-menu-toggle"><span>☰ Menú de Gerencia</span><span class="manager-menu-state" aria-hidden="true"></span></summary>
 <nav class="sidebar-nav" aria-label="Navegación principal">
+{% if request.user.role == 'PROPIETARIO' and not request.user.is_superuser %}
+<a href="{% url 'management:home' %}" aria-current="page">Gráficas del negocio</a>
+{% else %}
 <span class="sidebar-heading">MI NEGOCIO</span>
 <a href="{% url 'management:home' %}" {% if section == 'inicio' %}aria-current="page"{% endif %}>Inicio</a>
 {% if can_add %}<a class="sidebar-add" href="{% url 'management:add' %}" {% if section == 'agregar' %}aria-current="page"{% endif %}>＋ Agregar</a>{% endif %}
@@ -18,6 +21,7 @@
 {% if perms.printing.view_printjob or perms.printing.manage_printers %}<a href="{% url 'management:print-jobs' %}" {% if section == 'impresiones' %}aria-current="page"{% endif %}>Impresiones</a>{% endif %}
 {% if perms.core.view_configuration %}<a href="{% url 'management:configuration' %}" {% if section == 'configuracion' %}aria-current="page"{% endif %}>Configuración</a>{% endif %}
 </div></details>
+{% endif %}
 </nav>
 </details>
 </aside>

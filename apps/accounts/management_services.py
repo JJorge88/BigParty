@@ -160,7 +160,9 @@ def update_permissions(pk, selection, *, actor, expected, preset=False):
     before = codes(target)
     selected = set(selection)
     if preset:
-        selected = (before & whitelist()) | suggested(target.role)
+        selected = suggested(target.role) if target.role == 'PROPIETARIO' else (before & whitelist()) | suggested(target.role)
+    if target.role == 'PROPIETARIO' and selected - {'core.view_reports'}:
+        raise ValidationError('El propietario solo puede consultar gráficas.')
     if not selected.issubset(available):
         raise ValidationError('Selecciona únicamente permisos del catálogo BIG PARTY.')
     if target.role == 'GUARDIA' and (target.is_superuser or (selected | (before - whitelist()) | group_codes(target)) - GUARD):

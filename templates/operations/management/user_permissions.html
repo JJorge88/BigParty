@@ -7,6 +7,9 @@
 </div>
 <a class="admin-button" href="{% url 'management:user' target.pk %}">← Volver al usuario</a>
 </header>
+{% if target.role == 'PROPIETARIO' and not target.is_superuser %}
+<section class="admin-panel"><h2>Solo gráficas</h2><p>Este perfil consulta ventas y cobros por período, productos y áreas. No puede editar datos, administrar usuarios ni operar cajas. El acceso se aplica automáticamente al crear el propietario.</p></section>
+{% else %}
 <section class="admin-attention">
 <div>
 <h2>Una base para su rol</h2>
@@ -38,4 +41,4 @@
 <button class="admin-button admin-button--primary">Aplicar permisos</button>
 </div>
 </form>
-</dialog>{% endblock %}
+</dialog>{% endif %}{% endblock %}

@@ -489,6 +489,8 @@ class UserConcurrencyTests(TransactionTestCase):
         self.assertEqual(User.objects.filter(role='PROPIETARIO', is_active=True).count(), 1)
 
     def test_concurrent_permission_edits_do_not_silently_overwrite(self):
+        self.one.role = 'GERENTE'
+        self.one.save(update_fields=['role'])
         expected = users.revision(self.one)
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [executor.submit(self.run_thread, lambda actor, code=code: users.update_permissions(self.one.pk, [code], actor=actor, expected=expected))

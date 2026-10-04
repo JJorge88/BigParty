@@ -48,6 +48,9 @@ def activity(request):
 @require_GET
 @security.required
 def home(request):
+    if request.user.role == 'PROPIETARIO' and not request.user.is_superuser:
+        from .owner_dashboard import dashboard
+        return dashboard(request)
     from .workflows import pending_tasks
     day = queries.current_day()
     data = queries.dashboard(day,request.user) if day else {'day':None}
