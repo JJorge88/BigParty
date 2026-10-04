@@ -2,4 +2,4 @@
 {% if fieldsets %}{% for title,fields in fieldsets %}<fieldset class="admin-form-section">
 <legend>{{ title }}</legend>{% include 'operations/management/partials/admin_field_list.html' %}</fieldset>{% endfor %}{% else %}{% include 'operations/management/partials/admin_field_list.html' with fields=form %}{% endif %}
 
-{% if advanced_fields %}<details class="flow-advanced" {% if form.errors %}open{% endif %}><summary>Más opciones{% if is_product_form %}: foto, preparación e inventario{% endif %}</summary><div>{% include 'operations/management/partials/admin_field_list.html' with fields=advanced_fields %}</div></details>{% endif %}
+{% if advanced_fields %}<details class="flow-advanced" {% if form.errors %}open{% endif %}><summary>Más opciones{% if is_product_form %}: foto y visibilidad{% endif %}</summary><div>{% include 'operations/management/partials/admin_field_list.html' with fields=advanced_fields %}</div></details>{% endif %}

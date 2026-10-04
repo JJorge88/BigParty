@@ -26,13 +26,21 @@ class ProductForm(AutomaticSlugForm):
 
     class Meta:
         model = Product
-        fields = ('name', 'slug', 'category', 'base_price', 'is_active', 'visible_in_pos', 'track_inventory',
+        fields = ('inventory_unit', 'purchase_size', 'purchase_label', 'uses_recipe', 'name', 'slug', 'category', 'base_price', 'is_active', 'visible_in_pos', 'track_inventory',
                   'minimum_stock', 'preparation_route', 'image', 'is_combo')
 
     def __init__(self, *args, user, **kwargs):
+        if args and args[0] is not None:
+            data = args[0].copy()
+            obj = kwargs.get('instance')
+            for key, default in [('inventory_unit', 'unit'), ('purchase_size', 1), ('purchase_label', 'unidad')]:
+                data.setdefault(key, getattr(obj, key, default))
+            args = (data, *args[1:])
         super().__init__(*args, **kwargs)
         if not user.has_perm('catalog.change_product_price'):
             self.fields['base_price'].disabled = True
+        self.fields['purchase_size'].help_text = 'Ejemplo: botella de 750 ml = 750; caja de 24 botellas = 24 unidades.'
+        self.fields['uses_recipe'].help_text = 'Desactiva el conteo propio. Después de guardar, agrega los ingredientes y cantidades de la receta.'
         self.fields['slug'].required = False
         self.fields['slug'].help_text = 'Se genera automáticamente si lo dejas vacío.'
         self.fields['name'].label = '¿Cómo se llama?'

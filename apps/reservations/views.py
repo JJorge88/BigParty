@@ -5,7 +5,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
@@ -75,7 +75,7 @@ def create(request):
         except ValidationError as exc:
             error = ' '.join(exc.messages)
     return page(request, 'form.html', {'form': form, 'error': error, 'title': 'Crear reserva', 'subtitle': 'Reserva interna · confirmación directa', 'button': 'Crear reserva', 'manual': True,
-        'groups': [(title, [form[key] for key in keys]) for title,keys in (('1. Cliente', ('customer_name','customer_phone')),('2. Mesa y horario', ('table','date','time','duration','party_size')),('3. Anticipo', ('payment_required','payment_type','payment_value','payment_application','payment_base_amount')))]})
+        'groups': [(title, [form[key] for key in keys]) for title,keys in (('1. Fecha y grupo', ('date','time','duration','party_size')),('2. Mesa disponible', ('table',)),('3. Cliente', ('customer_name','customer_phone')),('4. Anticipo', ('payment_required','payment_type','payment_value','payment_application','payment_base_amount')))]})
 
 
 @security.required
@@ -200,3 +200,21 @@ def proof(request, code):
         return response
     except (FileNotFoundError, OSError):
         raise Http404
+
+
+@security.required
+@require_GET
+def availability(request):
+    from datetime import date, time
+    from .queries import get_available_tables
+    services.require(request.user, 'create_reservation')
+    try:
+        selected_date = date.fromisoformat(request.GET.get('date', ''))
+        selected_time = time.fromisoformat(request.GET.get('time', ''))
+        duration = int(request.GET.get('duration', '180'))
+        party = int(request.GET.get('party_size', '0'))
+        if not 1 <= duration <= 1440 or party < 1: raise ValueError()
+        rows = get_available_tables(selected_date, selected_time, duration, party, public=False).select_related('area')
+        return JsonResponse({'tables': [{'id': row.pk, 'label': f'{row.area.name} · {row.name} — {row.capacity} personas'} for row in rows]})
+    except (ValueError, ValidationError):
+        return JsonResponse({'error': 'Revisa fecha, hora, duración y personas.'}, status=400)

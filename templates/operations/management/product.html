@@ -1,5 +1,5 @@
 {% extends 'operations/management/admin_base.html' %}
-{% block admin_content %}
+{% block admin_content %}{% if product.uses_recipe and perms.catalog.change_product %}<p class="notice">Este producto descuenta ingredientes. <a href="{% url 'management:product-recipe' product.pk %}">Configurar receta →</a></p>{% endif %}
 <header class="admin-heading">
 <div>
 <span class="eyebrow">{{ product.category.name }}</span>

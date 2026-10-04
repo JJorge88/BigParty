@@ -12,10 +12,10 @@
 <td>{{ movement.created_at|date:'d M Y' }}<small>{{ movement.created_at|date:'H:i' }}</small>
 </td>{% if show_product %}<td>
 <a href="{% url 'management:product' movement.product_id %}">{{ movement.product.name }}</a>
-</td>{% endif %}<td>{% if movement.metadata.manager_kind == 'exit' %}Salida manual{% else %}{{ movement.get_movement_type_display }}{% endif %}</td>
+</td>{% endif %}<td>{% if movement.metadata.manager_kind == 'exit' %}Salida manual{% elif movement.metadata.manager_kind == 'count' %}Conteo físico{% else %}{{ movement.get_movement_type_display }}{% endif %}</td>
 <td class="admin-number">{% if movement.quantity_delta > 0 %}+{% endif %}{{ movement.quantity_delta }}</td>
 <td>{{ movement.stock_before }} → {{ movement.stock_after }}</td>
-<td>{{ movement.user.get_full_name|default:movement.user.username|default:'Sistema' }}<small>{{ movement.reason|default:'—' }}</small>
+<td>{{ movement.user.get_full_name|default:movement.user.username|default:'Sistema' }}<small>{{ movement.reason|default:'—' }}</small>{% if movement.metadata.supplier %}<small>Proveedor: {{ movement.metadata.supplier }}</small>{% endif %}{% if movement.metadata.invoice %}<small>Referencia: {{ movement.metadata.invoice }}</small>{% endif %}{% if movement.metadata.total_cost %}<small>Costo de compra: Q{{ movement.metadata.total_cost }}</small>{% endif %}
 </td>
 </tr>{% empty %}<tr>
 <td colspan="6" class="admin-empty">Sin movimientos registrados.</td>

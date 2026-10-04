@@ -5,6 +5,15 @@ from .services import validate_proof
 
 
 class PaymentTermsForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        if args and args[0] is not None:
+            data = args[0].copy()
+            if not forms.BooleanField(required=False).clean(data.get('payment_required')):
+                for key, value in [('payment_type', 'FIXED'), ('payment_value', '0'), ('payment_application', 'CREDIT'), ('payment_base_amount', '0')]:
+                    data.setdefault(key, value)
+            args = (data, *args[1:])
+        super().__init__(*args, **kwargs)
+
     payment_required = forms.BooleanField(label='Requerir anticipo', required=False)
     payment_type = forms.ChoiceField(label='Tipo de anticipo', choices=AdvanceType.choices)
     payment_value = forms.DecimalField(label='Monto fijo (Q) o porcentaje (%)', min_value=0, max_digits=12, decimal_places=2)
@@ -26,15 +35,20 @@ class ManualReservationForm(PaymentTermsForm):
     customer_phone = forms.CharField(label='Teléfono internacional', max_length=20, widget=forms.TextInput(attrs={'placeholder': '+502 5555 5555'}))
     date = forms.DateField(label='Fecha', widget=forms.DateInput(attrs={'type': 'date'}))
     time = forms.TimeField(label='Hora', widget=forms.TimeInput(attrs={'type': 'time'}))
-    duration = forms.IntegerField(label='Duración (minutos)', min_value=1, max_value=1440)
+    duration = forms.IntegerField(label='Duración', min_value=1, max_value=1440, widget=forms.Select)
     party_size = forms.IntegerField(label='Personas', min_value=1)
     field_order = ['customer_name', 'customer_phone', 'table', 'date', 'time', 'duration', 'party_size',
                    'payment_required', 'payment_type', 'payment_value', 'payment_application', 'payment_base_amount']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['table'].help_text = 'El nombre incluye el área. La disponibilidad se comprueba al guardar.'
-        self.fields['duration'].help_text = 'Ejemplo: 120 minutos equivalen a 2 horas.'
+        self.fields['table'].help_text = 'Primero elige fecha, hora y personas para consultar mesas disponibles. Volvemos a comprobar al guardar.'
+        durations = [(60, '1 hora'), (90, '1 hora y media'), (120, '2 horas'), (180, '3 horas'), (240, '4 horas'), (360, '6 horas'), (480, '8 horas')]
+        selected = self['duration'].value()
+        if selected and str(selected).isdigit() and int(selected) not in dict(durations):
+            durations.append((int(selected), f'{selected} minutos'))
+        self.fields['duration'].widget.choices = durations
+        self.fields['duration'].help_text = 'Tiempo durante el que se reservará la mesa.'
         self.fields['payment_required'].help_text = 'Revisa esta opción con el cliente antes de confirmar.'
         self.fields['party_size'].help_text = 'Debe caber en la mesa seleccionada.'
 

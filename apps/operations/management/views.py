@@ -214,3 +214,11 @@ def print_action(request, pk, action):
     except ValidationError as exc:
         return page(request,'message',{'error':' '.join(exc.messages)},status=409)
     return redirect(reverse('management:print-jobs')+'?status=all')
+
+
+@require_GET
+@security.required
+def order_pending(request, pk):
+    from apps.orders.models import TableOrder
+    order = get_object_or_404(TableOrder.objects.select_related('responsible_waiter', 'primary_table', 'area', 'cash_session__register'), pk=pk)
+    return page(request, 'order_pending', {'order': order, 'lines': order.lines.exclude(status='CANCELLED')}, section='cierres')

@@ -228,3 +228,5 @@ if MIN_FREE_DISK_GB < 0 or not 30 <= BACKUP_TIMEOUT_SECONDS <= 86400 or min(RATE
 
 MIDDLEWARE.insert(1, 'apps.core.ops.middleware.OperationsSecurityMiddleware')
 TEMPLATES[0]['OPTIONS']['context_processors'].append('apps.core.ops.middleware.context')
+
+BACKUP_SCHEDULE_DESCRIPTION = os.environ.get('BACKUP_SCHEDULE_DESCRIPTION', '')

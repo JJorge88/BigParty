@@ -165,7 +165,7 @@ def detail(request, pk):
         event.refresh_from_db()
     can_capacity = request.user.has_perm('events.view_event_capacity')
     tables = queries.table_rows(event) if can_capacity else []
-    return page(request, 'detail.html', dict(event=event, error=error, issued=event.tickets.filter(purchase__isnull=True).select_related('ticket_type').order_by('-pk')[:30] if request.user.has_perm('events.issue_courtesy_tickets') else [], reschedule_form=reschedule_form,
+    return page(request, 'detail.html', dict(event=event, publication_checks=services.validate_event_for_publication(event) if event.status == 'DRAFT' else [], error=error, issued=event.tickets.filter(purchase__isnull=True).select_related('ticket_type').order_by('-pk')[:30] if request.user.has_perm('events.issue_courtesy_tickets') else [], reschedule_form=reschedule_form,
         capacity=queries.get_event_capacity_summary(event) if can_capacity else None,
         sold_count=event.tickets.filter(purchase__isnull=False).count() if can_capacity else None,
         types=queries.ticket_type_rows(event) if can_capacity else [], tables=tables[:5],

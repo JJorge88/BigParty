@@ -20,6 +20,8 @@ def save_table(area, data, *, actor, pk=None):
     permission = 'tables.change_venuetable' if pk else 'tables.add_venuetable'
     if not actor.is_active or actor.role not in ('GERENTE', 'PROPIETARIO') or not actor.has_perm(permission) or not actor.has_perm('tables.view_venuetable'):
         raise PermissionDenied('No tienes permiso para configurar mesas.')
+    from apps.venues.models import Area
+    Area.objects.select_for_update().get(pk=area.pk)
     table = VenueTable.objects.select_for_update().get(pk=pk, area=area) if pk else VenueTable(area=area)
     if pk and data.get('revision') != table.updated_at.isoformat():
         raise ValidationError('Esta mesa cambió mientras la editabas. Vuelve al mapa y ábrela de nuevo antes de guardar.')
@@ -36,3 +38,17 @@ def save_table(area, data, *, actor, pk=None):
         track(AuditLog.objects.create(user=actor, action='table.configuration_updated' if pk else 'table.created',
             entity=VenueTable._meta.label_lower, entity_id=str(table.pk), data={'before': before, 'after': after}))
     return table
+
+
+@sync_atomic('local')
+@transaction.atomic
+def arrange_tables(area, *, actor, revisions):
+    from apps.venues.models import Area
+    from .layout import suggestion
+    Area.objects.select_for_update().get(pk=area.pk)
+    rows = list(VenueTable.objects.select_for_update().filter(area=area).order_by('pk'))
+    if revisions != {str(t.pk): t.updated_at.isoformat() for t in rows}:
+        raise ValidationError('El plano cambió. Revisa la nueva propuesta antes de guardar.')
+    for table, position in suggestion(rows):
+        save_table(area, {**position, 'revision': table.updated_at.isoformat()}, actor=actor, pk=table.pk)
+    return len(rows)

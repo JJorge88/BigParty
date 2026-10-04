@@ -26,14 +26,22 @@ def get_combo_max_available(combo):
     components = list(combo.combo_components.all())
     if not components:
         return 0
-    limits = []
+    required, sources = {}, {}
     for item in components:
         product = item.component
-        # Un insumo oculto puede participar; uno desactivado o anidado no.
         if product.is_combo or not product.is_active or not product.category.is_active:
             return 0
+        if product.uses_recipe:
+            ingredients = list(product.recipe_ingredients.select_related('ingredient__category'))
+            if not ingredients: return 0
+            for row in ingredients:
+                if not row.ingredient.is_active or not row.ingredient.category.is_active or not row.ingredient.track_inventory: return 0
+                required[row.ingredient_id] = required.get(row.ingredient_id, 0) + row.quantity * item.quantity
+                sources[row.ingredient_id] = row.ingredient
         if product.track_inventory:
-            limits.append(product.stock_quantity // item.quantity)
+            required[product.pk] = required.get(product.pk, 0) + item.quantity
+            sources[product.pk] = product
+    limits = [sources[pk].stock_quantity // quantity for pk, quantity in required.items()]
     return min(limits) if limits else None
 
 
@@ -47,6 +55,9 @@ def is_product_available(product):
         return False
     if product.is_combo:
         return is_combo_available(product)
+    if product.uses_recipe:
+        ingredients = list(product.recipe_ingredients.select_related('ingredient__category'))
+        return bool(ingredients) and all(row.ingredient.is_active and row.ingredient.category.is_active and row.ingredient.track_inventory and row.ingredient.stock_quantity >= row.quantity for row in ingredients)
     return not product.is_out_of_stock
 
 

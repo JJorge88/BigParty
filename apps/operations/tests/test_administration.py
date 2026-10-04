@@ -76,14 +76,18 @@ class InventoryInterfaceTests(AdministrationCase):
             self.assertEqual(self.client.get(path).status_code, 403)
 
     def test_receive_and_adjust_movements_and_audit(self):
-        response = self.client.post(self.url('stock-receive', self.product.pk), {'quantity': 24, 'reason': 'Entrega'})
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(self.client.post(self.url('stock-adjust', self.product.pk), {'direction': 'minus', 'quantity': 2, 'reason': 'Rotura'}).status_code, 302)
-        self.assertEqual(self.client.post(self.url('stock-adjust', self.product.pk), {'direction': 'plus', 'quantity': 1, 'reason': 'Conteo'}).status_code, 302)
+        for route, data, confirmation_route in [
+            ('stock-receive', {'quantity': 24, 'reason': 'Entrega'}, 'inventory-receive'),
+            ('stock-adjust', {'direction': 'minus', 'quantity': 2, 'reason': 'Rotura'}, 'inventory-count'),
+            ('stock-adjust', {'direction': 'plus', 'quantity': 1, 'reason': 'Conteo'}, 'inventory-count'),
+        ]:
+            response = self.client.post(self.url(route, self.product.pk), data)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(self.client.post(self.url(confirmation_route), {'confirmation': response.context['review']['signed']}).status_code, 302)
         self.product.refresh_from_db(); self.assertEqual(self.product.stock_quantity, 27)
         self.assertEqual(InventoryMovement.objects.count(), 3)
         self.assertEqual(AuditLog.objects.filter(action__startswith='inventory.').count(), 3)
-        move = InventoryMovement.objects.get(reason='Rotura')
+        move = InventoryMovement.objects.get(reason__endswith='Rotura')
         self.assertEqual((move.quantity_delta, move.stock_before, move.stock_after), (-2, 28, 26))
 
     def test_stock_validation_and_permissions(self):

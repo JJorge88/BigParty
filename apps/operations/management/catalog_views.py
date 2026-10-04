@@ -17,6 +17,8 @@ from .views import page
 
 
 def stock_state(product):
+    if product.uses_recipe:
+        return ('recipe', 'Por receta')
     if product.is_out_of_stock:
         return ('out', 'Agotado')
     if product.is_low_stock:
@@ -96,12 +98,13 @@ def product_edit(request, pk=None):
         except ValidationError as exc:
             error_on(form, exc)
     return page(request, 'catalog_form', {'form': form, 'title': 'Editar producto' if pk else 'Crear producto',
-        'subtitle': 'Completa nombre, categoría y precio. Abre Más opciones si necesitas foto, preparación o inventario.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
+        'subtitle': 'Elige qué vas a vender y revisa dónde se prepara y cómo se cuentan sus existencias.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
         'fieldsets': [(title, [form[key] for key in keys if key in form.fields]) for title, keys in (
-            ('Lo que vas a vender', ('name', 'category', 'base_price')),)],
-        'advanced_fields': [form[key] for key in ('image', 'preparation_route', 'track_inventory', 'initial_stock', 'minimum_stock', 'is_active', 'visible_in_pos', 'is_combo', 'slug') if key in form.fields],
+            ('Lo que vas a vender', ('name', 'category', 'base_price')),
+            ('Cómo se entrega y se cuenta', ('preparation_route', 'track_inventory', 'initial_stock', 'minimum_stock', 'is_combo', 'uses_recipe', 'inventory_unit', 'purchase_size', 'purchase_label')),)],
+        'advanced_fields': [form[key] for key in ('image', 'is_active', 'visible_in_pos', 'slug') if key in form.fields],
         'is_product_form': True}, section='inventario', status=400 if form.errors else 200)
 
 
@@ -109,24 +112,19 @@ def product_edit(request, pk=None):
 @security.required
 def stock(request, pk, action):
     security.require(request.user, 'inventory.view_inventory')
-    adjustment = action == 'adjust'
-    security.require(request.user, 'inventory.adjust_inventory' if adjustment else 'inventory.receive_inventory')
-    obj = get_object_or_404(Product, pk=pk, track_inventory=True, is_combo=False)
-    form = forms.StockForm(request.POST or None, adjustment=adjustment)
-    title = 'Corregir cantidad' if adjustment else 'Recibí mercadería'
-    if request.method == 'POST' and form.is_valid():
-        try:
-            data = form.cleaned_data
-            if adjustment:
-                adjust_stock(obj, data['quantity'] * (-1 if data['direction'] == 'minus' else 1), user=request.user, reason=data['reason'])
-            else:
-                receive_stock(obj, data['quantity'], user=request.user, reason=data['reason'])
-            messages.success(request, 'Stock ajustado' if adjustment else 'Entrada registrada')
-            return redirect(product_url(obj))
-        except ValidationError as exc:
-            error_on(form, exc)
-    return page(request, 'catalog_form', {'form': form, 'title': title, 'subtitle': 'Indica cuánto debes aumentar o reducir y explica el motivo.' if adjustment else f'¿Cuántas unidades de {obj.name} recibiste? Se sumarán a las {obj.stock_quantity} actuales.',
-        'product': obj, 'stock_form': True, 'adjustment': adjustment, 'back': product_url(obj), 'submit': title}, section='inventario', status=400 if form.errors else 200)
+    from .inventory_views import move
+    # Legacy URLs enter the same review flow; a POST is never written directly.
+    if request.method == 'GET':
+        return redirect(reverse('management:inventory-count' if action == 'adjust' else 'management:inventory-receive') + f'?product={pk}')
+    data = request.POST.copy()
+    data['product'] = str(pk)
+    data['note'] = data.get('reason', '')
+    if action == 'adjust':
+        obj = get_object_or_404(Product, pk=pk)
+        try: data['quantity'] = str(obj.stock_quantity + int(data.get('quantity', '')) * (-1 if data.get('direction') == 'minus' else 1))
+        except ValueError: pass
+    request.POST = data
+    return move(request, 'count' if action == 'adjust' else 'receipt')
 
 
 @require_http_methods(['GET', 'POST'])
@@ -224,21 +222,11 @@ def component_remove(request, product_id, pk):
 @require_http_methods(['GET', 'POST'])
 @security.required
 def stock_create(request):
-    security.require(request.user, 'inventory.view_inventory')
-    security.require(request.user, 'inventory.receive_inventory')
-    form = forms.StockEntryForm(request.POST if request.method == 'POST' else None)
-    if request.method == 'POST' and form.is_valid():
-        try:
-            data = form.cleaned_data
-            receive_stock(data['product'], data['quantity'], user=request.user, reason=data['reason'])
-            messages.success(request, f"Entrada registrada: {data['quantity']} unidades de {data['product'].name}.")
-            return redirect('management:stock-create') if request.POST.get('after_save') == 'another' else redirect(product_url(data['product']))
-        except ValidationError as exc:
-            error_on(form, exc)
-    return page(request, 'catalog_form', {'form': form, 'title': 'Recibí mercadería',
-        'subtitle': 'Selecciona lo que recibiste e indica la cantidad. El inventario se actualiza al guardar.',
-        'back': reverse('management:inventory'), 'submit': 'Sumar al inventario', 'can_add_another': True, 'is_stock_entry': True},
-        section='inventario', status=400 if form.errors else 200)
+    from .inventory_views import move
+    if request.method == 'GET': return redirect('management:inventory-receive')
+    data = request.POST.copy(); data['note'] = data.get('reason', '')
+    request.POST = data
+    return move(request, 'receipt')
 
 
 @require_http_methods(['GET', 'POST'])

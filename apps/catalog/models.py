@@ -34,6 +34,11 @@ class Category(ValidatedModel):
 
 
 class Product(ValidatedModel):
+    inventory_unit = models.CharField('Unidad de inventario', max_length=4, choices=[('unit', 'unidades'), ('ml', 'mililitros'), ('g', 'gramos')], default='unit')
+    purchase_size = models.PositiveIntegerField('Unidades por presentación de compra', default=1, validators=[MinValueValidator(1)])
+    purchase_label = models.CharField('Presentación de compra', max_length=60, default='unidad')
+    last_unit_cost = models.DecimalField('Último costo por unidad de inventario (Q)', max_digits=18, decimal_places=6, default=0, validators=[MinValueValidator(0)])
+    uses_recipe = models.BooleanField('Descontar ingredientes mediante receta', default=False)
     barcode = models.CharField("código de barras", max_length=48, unique=True, null=True, blank=True)
     class PreparationRoute(models.TextChoices):
         AREA_BAR = "AREA_BAR", "Barra del área"
@@ -61,6 +66,10 @@ class Product(ValidatedModel):
         ordering = ("category__sort_order", "name", "pk")
         permissions = [("change_product_price", "Puede cambiar precios de productos")]
         constraints = [
+            models.CheckConstraint(condition=models.Q(inventory_unit__in=['unit','ml','g']), name='catalog_inventory_unit_valid'),
+            models.CheckConstraint(condition=models.Q(purchase_size__gte=1), name='catalog_purchase_size_positive'),
+            models.CheckConstraint(condition=models.Q(last_unit_cost__gte=0), name='catalog_unit_cost_nonnegative'),
+            models.CheckConstraint(condition=models.Q(uses_recipe=False) | models.Q(track_inventory=False, is_combo=False), name='catalog_recipe_no_own_stock'),
             models.CheckConstraint(condition=models.Q(base_price__gte=0), name="catalog_product_price_nonnegative"),
             models.CheckConstraint(condition=models.Q(preparation_route__in=["AREA_BAR", "KITCHEN", "NONE"]), name="catalog_preparation_valid"),
             models.CheckConstraint(
@@ -81,6 +90,15 @@ class Product(ValidatedModel):
     def clean(self):
         super().clean()
         if self.pk:
+            previous = Product.objects.filter(pk=self.pk).first()
+            if previous and previous.inventory_unit != self.inventory_unit and (self.stock_quantity or self.inventory_movements.exists() or self.recipe_uses.exists() or self.used_in_combos.exists()):
+                raise ValidationError({'inventory_unit': 'La unidad ya tiene historial o recetas. Crea un insumo separado para no reinterpretar existencias.'})
+            if (not self.track_inventory or self.is_combo) and self.recipe_uses.exists():
+                raise ValidationError({'track_inventory': 'Este ingrediente se utiliza en recetas y debe conservar inventario propio.'})
+            if self.uses_recipe and (self.used_in_combos.filter(combo__uses_recipe=True).exists() or self.recipe_uses.exists()):
+                raise ValidationError({'uses_recipe': 'Un ingrediente no puede convertirse en receta.'})
+            if not self.uses_recipe and self.recipe_ingredients.exists():
+                raise ValidationError({'uses_recipe': 'Retira los ingredientes antes de desactivar la receta.'})
             if self.is_combo or not self.track_inventory:
                 pending_consumption = self.inventory_movements.filter(
                     movement_type__in=["SALE", "CANCELLATION_RETURN", "REFUND_RETURN"],
@@ -240,3 +258,26 @@ class ComboComponent(ValidatedModel):
 
     def __str__(self):
         return f"{self.combo} · {self.quantity} × {self.component}"
+
+
+class RecipeIngredient(ValidatedModel):
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='recipe_ingredients')
+    ingredient = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='recipe_uses', verbose_name='Ingrediente')
+    quantity = models.PositiveIntegerField('Cantidad por bebida o plato', validators=[MinValueValidator(1)])
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['product', 'ingredient'], name='catalog_recipe_ingredient_unique'),
+                       models.CheckConstraint(condition=~models.Q(product=models.F('ingredient')), name='catalog_recipe_not_self'),
+                       models.CheckConstraint(condition=models.Q(quantity__gt=0), name='catalog_recipe_quantity_positive')]
+
+    def clean(self):
+        super().clean()
+        if self.product_id and not self.product.uses_recipe:
+            raise ValidationError('Activa el uso de receta en el producto antes de agregar ingredientes.')
+        if self.ingredient_id and (self.ingredient.is_combo or self.ingredient.uses_recipe or not self.ingredient.track_inventory):
+            raise ValidationError('El ingrediente debe tener inventario propio y no puede ser una receta ni combo.')
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        list(Product.objects.select_for_update().filter(pk__in=[self.product_id, self.ingredient_id]).order_by('pk'))
+        return super().save(*args, **kwargs)

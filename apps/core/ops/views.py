@@ -35,4 +35,8 @@ def backup_status(request):
             row['last_failed']=attempt.get('status')=='FAILED'
         except (OSError,ValueError,TypeError):pass
         latest.append(row)
-    return page(request,'backups',{'backups':latest,'recovery':status(),'configured':bool(settings.BACKUP_ROOT)},section='configuracion')
+    drill = {}
+    try:
+        drill = json.loads((Path(settings.BACKUP_ROOT) / 'logs' / 'last-restore-drill.json').read_text()) if settings.BACKUP_ROOT else {}
+    except (ValueError, OSError): pass
+    return page(request,'backups',{'schedule_description': getattr(settings, 'BACKUP_SCHEDULE_DESCRIPTION', ''), 'restore_drill': drill, 'backups':latest,'recovery':status(),'configured':bool(settings.BACKUP_ROOT)},section='configuracion')

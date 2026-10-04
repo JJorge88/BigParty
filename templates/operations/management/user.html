@@ -10,7 +10,7 @@
 </div>
 <div class="admin-actions">{% if perms.accounts.change_user %}<a class="admin-button" href="{% url 'management:user-edit' target.pk %}">Editar usuario</a>{% endif %}{% if perms.accounts.manage_user_permissions %}<a class="admin-button admin-button--primary" href="{% url 'management:user-permissions' target.pk %}">Administrar permisos ↗</a>{% endif %}</div>
 </header>
-{% if credential_error %}<div class="notice notice--error" role="alert">No se pudo actualizar la credencial. Abre el formulario para revisar el motivo.</div>{% endif %}
+<section class="admin-panel admin-context"><h2>Revisa qué puede hacer</h2><ul>{% for label,allowed in abilities %}<li>{{ allowed|yesno:"✓,—" }} {{ label }}</li>{% endfor %}</ul>{% if perms.accounts.manage_user_permissions %}<p><a href="{% url 'management:user-permissions' target.pk %}">Revisar permisos sugeridos para su rol →</a></p>{% endif %}</section>{% if credential_error %}<div class="notice notice--error" role="alert">No se pudo actualizar la credencial. Abre el formulario para revisar el motivo.</div>{% endif %}
 <div class="admin-detail-grid">
 <section class="admin-panel admin-context">
 <h2>Información</h2>

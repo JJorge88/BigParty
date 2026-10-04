@@ -5,6 +5,7 @@ urlpatterns = [
     path('agregar/', workflows.hub, name='add'),
     path('mesas/nueva/', tables.start, name='table-start'),
     path('inventario/entradas/nueva/', catalog.stock_create, name='stock-create'),
+    path('mesas/area/<int:area_id>/distribuir/', tables.arrange, name='table-arrange'),
     path('mesas/', tables.listing, name='tables'),
     path('mesas/area/<int:area_id>/crear/', tables.edit, name='table-create'),
     path('mesas/<int:pk>/editar/', tables.edit, name='table-edit'),
@@ -12,6 +13,7 @@ urlpatterns = [
     path('acceso/',views.login,name='login'),
     path('salir/',views.logout,name='logout'),
     path('actividad/',views.activity,name='activity'),
+    path('pendiente/pedido/<int:pk>/', views.order_pending, name='order-pending'),
     path('cierres/',views.closures,name='closures'),
     path('jornada/abrir/',views.open_day,name='open-day'),
     path('jornada/<int:day_id>/',views.day_result,name='day-result'),
@@ -66,9 +68,12 @@ urlpatterns += [
     path('configuracion/<slug:kind>/', configuration.edit, name='configuration-edit'),
 ]
 
-from . import inventory_views
+from . import inventory_views, recipe_views
 urlpatterns += [
+    path('inventario/producto/<int:pk>/receta/', recipe_views.recipe, name='product-recipe'),
+    path('inventario/etiquetas/', inventory_views.label_batch, name='label-batch'),
     path('inventario/recibir/', inventory_views.move, {'kind': 'receipt'}, name='inventory-receive'),
+    path('inventario/conteo/', inventory_views.move, {'kind': 'count'}, name='inventory-count'),
     path('inventario/salida/', inventory_views.move, {'kind': 'exit'}, name='inventory-exit'),
     path('inventario/producto/<int:pk>/codigo/', inventory_views.barcode, name='product-barcode'),
     path('inventario/producto/<int:pk>/etiqueta/', inventory_views.label, name='product-label'),

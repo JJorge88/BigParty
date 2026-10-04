@@ -54,7 +54,8 @@ def detail_data(request, target):
     recent = list(AuditLog.objects.filter(entity='accounts.user', entity_id=str(target.pk)).select_related('user').order_by('-created_at')[:10])
     for item in recent:
         item.action_label = labels.get(item.action.rsplit('.', 1)[-1], 'Actividad administrativa')
-    return {'target': target, 'has_pin': pin_configured(target), 'has_password': target.has_usable_password(),
+    abilities = [('Tomar pedidos', 'orders.add_order_line'), ('Enviar pedidos', 'orders.send_order'), ('Cobrar', 'payments.record_payment'), ('Administrar inventario', 'inventory.receive_inventory')]
+    return {'abilities': [(label, target.has_perm(code)) for label, code in abilities], 'target': target, 'has_pin': pin_configured(target), 'has_password': target.has_usable_password(),
         'pin_form': forms.CredentialForm(), 'password_form': forms.CredentialForm(kind='password'),
         'revision': services.revision(target),
         'state_confirmation': security.confirmation(request, 'user-state', target.pk, services.revision(target)),

@@ -21,6 +21,11 @@ class UserForm(forms.ModelForm):
             for key in ('pin', 'password', 'confirm', 'is_active'):
                 del self.fields[key]
             self.fields['role'].disabled = not actor.has_perm('accounts.change_user_role')
+        if not self.instance.pk:
+            role = self.data.get('role', self.initial.get('role', self.instance.role))
+            key = 'password' if role in ('GERENTE', 'PROPIETARIO') else 'pin'
+            self.fields[key].required = True
+            self.fields['confirm'].required = True
         self.fields['username'].help_text = 'El nombre que usará para entrar. Ejemplo: maria.barra'
         self.fields['role'].help_text = 'Define el tipo de acceso. Los permisos se revisan en el siguiente paso.'
         if 'is_active' in self.fields:

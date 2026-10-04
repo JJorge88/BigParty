@@ -32,8 +32,11 @@ class TableForm(forms.ModelForm):
 
 
 def map_data(area, selected=None):
-    return {'areas': Area.objects.all(), 'area': area,
-            'tables': area.tables.all() if area else [], 'selected_table': selected}
+    from apps.tables.layout import overlaps
+    from django.core import signing
+    rows = list(area.tables.all()) if area else []
+    return {'overlaps': overlaps(rows), 'layout_confirmation': signing.dumps({'area': area.pk, 'revisions': {str(t.pk): t.updated_at.isoformat() for t in rows}}, salt='tables.arrange') if area else '', ** {'areas': Area.objects.all(), 'area': area,
+            'tables': area.tables.all() if area else [], 'selected_table': selected}}
 
 
 @require_GET
@@ -74,3 +77,28 @@ def start(request):
     security.require(request.user, 'tables.view_venuetable')
     security.require(request.user, 'tables.add_venuetable')
     return page(request, 'table_start', {'areas': Area.objects.filter(is_active=True).prefetch_related('tables')}, section='mesas')
+
+
+@require_http_methods(['GET', 'POST'])
+@security.required
+def arrange(request, area_id):
+    from django.core import signing
+    from apps.tables.layout import suggestion
+    from apps.tables.management_services import arrange_tables
+    security.require(request.user, 'tables.change_venuetable')
+    security.require(request.user, 'tables.view_venuetable')
+    area = get_object_or_404(Area, pk=area_id)
+    error = ''
+    if request.method == 'POST':
+        try:
+            data = signing.loads(request.POST.get('confirmation', ''), salt='tables.arrange', max_age=600)
+            if data['area'] != area.pk: raise signing.BadSignature()
+            arrange_tables(area, actor=request.user, revisions=data['revisions'])
+            messages.success(request, 'Mesas distribuidas sin superposiciones. Puedes ajustar sus posiciones al plano real.')
+            return redirect(reverse('management:tables') + f'?area={area.pk}')
+        except (signing.BadSignature, ValidationError) as exc:
+            error = ' '.join(exc.messages) if isinstance(exc, ValidationError) else 'La propuesta venció. Revisa nuevamente.'
+    data = map_data(area)
+    for row, position in suggestion(data['tables']):
+        for key, value in position.items(): setattr(row, key, value)
+    return page(request, 'table_arrange', {**data, 'error': error}, section='mesas', status=400 if error else 200)

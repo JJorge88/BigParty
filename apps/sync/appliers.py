@@ -33,7 +33,7 @@ def apply_entity(spec,event):
     if identity and identity.origin!=event.source:raise SyncError('IDENTITY_OWNER_MISMATCH')
     if identity and identity.version>=event.entity_version:return
     if event.operation=='DELETE':
-        if spec.label not in ('catalog.combocomponent','catalog.productareaprice'):raise SyncError('DELETE_FORBIDDEN')
+        if spec.label not in ('catalog.combocomponent','catalog.productareaprice','catalog.recipeingredient'):raise SyncError('DELETE_FORBIDDEN')
         if identity:spec.model.objects.filter(pk=identity.object_pk).delete()
         else:raise MissingDependency()
     else:

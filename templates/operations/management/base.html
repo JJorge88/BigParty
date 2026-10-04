@@ -1,6 +1,6 @@
 {% extends 'operations/base.html' %}{% load static %}
 {% block title %}BIG PARTY · Gerencia{% endblock %}
-{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}?v=mesas-2"><link rel="stylesheet" href="{% static 'css/operations/workflows.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/operations/sidebar.css' %}?v=inventory-2">{% endblock %}
+{% block styles %}<link rel="stylesheet" href="{% static 'css/operations/management.css' %}?v=mesas-2"><link rel="stylesheet" href="{% static 'css/operations/workflows.css' %}?v=3"><link rel="stylesheet" href="{% static 'css/operations/sidebar.css' %}?v=audit-4">{% endblock %}
 {% block body_attributes %}class="management" data-idle-timeout="{{ idle_timeout }}" data-activity-url="{% url 'management:activity' %}" data-logout-url="{% url 'management:logout' %}" data-login-url="{% url 'management:login' %}"{% endblock %}
 {% block topbar %}<span class="management-label">GERENCIA</span>
 
@@ -15,6 +15,7 @@
 <main {% if sync_readonly %}data-sync-readonly="{% if sync_cloud %}local{% else %}cloud{% endif %}"{% endif %} id="main" class="management-main {% block main_class %}{% endblock %}">{% if error %}
 <div class="notice notice--error" role="alert">{{ error }}
 </div>{% endif %}
+{% if stale_day %}<aside class="notice notice--error" role="status"><strong>Sigues trabajando en la jornada del {{ stale_day.business_date|date:"d/m/Y" }}.</strong> Lleva {{ day_age }} días abierta. Las ventas se registran en esa fecha comercial. <a href="{% url 'management:closures' %}">Revisar pendientes de cierre →</a></aside>{% endif %}
 {% if sync_readonly %}<p class="notice">Administrado desde BIG PARTY {% if sync_cloud %}Local Node{% else %}Cloud{% endif %}. Información de lectura.</p>{% endif %}
 {% if recovery_active %}<p class="notice notice--error" role="alert">Modo recuperación · operación suspendida hasta completar la revisión.</p>{% endif %}
 {% for message in messages %}<div class="notice" role="status">{{ message }}</div>{% endfor %}
@@ -22,4 +23,4 @@
 <footer class="management-footer"><span>BIG PARTY · Control de la operación</span><span>Sesión protegida · 30 min de inactividad</span>
 </footer>
 </main>{% endblock %}
-{% block scripts %}<script type="module" src="{% static 'js/operations/sync-authority.js' %}"></script><script type="module" src="{% static 'js/operations/management.js' %}"></script><script type="module" src="{% static 'js/operations/workflows.js' %}?v=sidebar-1"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'js/operations/sync-authority.js' %}"></script><script type="module" src="{% static 'js/operations/management.js' %}"></script><script type="module" src="{% static 'js/operations/workflows.js' %}?v=audit-4"></script>{% endblock %}

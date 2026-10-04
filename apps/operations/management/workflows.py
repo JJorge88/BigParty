@@ -33,6 +33,11 @@ def pending_tasks(user, dashboard):
     from apps.catalog.models import Product
     from apps.reservations.models import Reservation
     result = []
+    if user.has_perm('core.view_configuration'):
+        from apps.core.ops.backups import health
+        backup = health()
+        if not backup['ok']:
+            result.append({'title': 'Respaldo por revisar', 'detail': backup['message'], 'url': reverse('backup-status'), 'action': 'Revisar respaldo'})
     if user.has_perm('inventory.view_inventory'):
         tracked = Product.objects.filter(is_active=True, track_inventory=True)
         for count, title, singular, state in (

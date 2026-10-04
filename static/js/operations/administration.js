@@ -9,6 +9,8 @@ if (userForm) {
       const field = userForm.querySelector(`[data-field="${key}"]`);
       if (!field) continue;
       field.hidden = key === 'pin' ? manager : !manager;
+      field.querySelector('.flow-optional')?.remove();
+      const input=field.querySelector('input'); if(input) input.required=!field.hidden;
       field.querySelector('input').disabled = field.hidden;
     }
     const confirmation = userForm.querySelector('[data-field="confirm"] label');

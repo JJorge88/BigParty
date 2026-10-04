@@ -179,10 +179,26 @@ def _selected_modifiers(product, option_ids):
 
 
 def _component_specs(product):
+    # Snapshot ingredient consumption with the order, so later recipe edits do not
+    # change cancellations/refunds. The prepared product keeps its own ticket route.
+    def recipe_specs(item, multiplier=1):
+        result = [(item.pk, multiplier, item.name, item.preparation_route)]
+        if item.uses_recipe:
+            result += [(row.ingredient_id, row.quantity * multiplier, row.ingredient.name, 'NONE')
+                       for row in item.recipe_ingredients.select_related('ingredient')]
+        return result
+    specs = []
     if product.is_combo:
-        return [(item.component_id, item.quantity, item.component.name, item.component.preparation_route)
-                for item in product.combo_components.all()]
-    return [(product.pk, 1, product.name, product.preparation_route)]
+        for row in product.combo_components.all(): specs.extend(recipe_specs(row.component, row.quantity))
+    else: specs = recipe_specs(product)
+    merged = {}
+    for pk, quantity, name, route in specs:
+        if pk in merged:
+            old = merged[pk]
+            if old[3] != route: raise ValidationError('Un ingrediente no puede venderse también como preparación en el mismo combo.')
+            quantity += old[1]
+        merged[pk] = (pk, quantity, name, route)
+    return list(merged.values())
 
 
 def get_order_product_quote(product, area, quantity=1, *, modifier_option_ids=None):

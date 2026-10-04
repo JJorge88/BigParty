@@ -115,7 +115,7 @@ def sync_atomic(authority_name,*,action=''):
 def record_delete(obj):
     """Only allowlisted technical configuration deletions, never financial history."""
     if enabled() and not _applying.get():
-        if obj._meta.label_lower not in ('catalog.combocomponent','catalog.productareaprice'):raise PermissionDenied('Desactiva la entidad; no se sincronizan borrados de historial.')
+        if obj._meta.label_lower not in ('catalog.combocomponent','catalog.productareaprice','catalog.recipeingredient'):raise PermissionDenied('Desactiva la entidad; no se sincronizan borrados de historial.')
         if _capture.get() is None:raise SyncError('MISSING_TRANSACTION_BOUNDARY')
         _capture.get()['deletes'].append(get_or_create_sync_identity(obj))
 

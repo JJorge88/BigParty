@@ -450,3 +450,5 @@ html:not(.js) .site-header{margin-bottom:390px}
   .venue-address{padding-top:8px}
   .faq-list summary{font-size:14px;min-height:68px}
 }
+
+@media(max-width:600px){.booking-layout .booking-photo{min-height:210px;height:210px}.booking-layout .booking-photo h1{font-size:30px}.booking-layout .booking-content{padding-top:24px}.booking-layout .booking-content h2{font-size:32px}}

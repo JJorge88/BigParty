@@ -453,3 +453,29 @@ offsite=exclusive(offsite)
 
 restore_database=exclusive(restore_database)
 restore_media=exclusive(restore_media)
+
+
+def health():
+    """Small manager alert; cached to avoid scanning files on every navigation."""
+    from django.core.cache import cache
+    key = 'backup-health:' + hashlib.sha256(str(settings.BACKUP_ROOT).encode()).hexdigest()
+    cached = cache.get(key)
+    if cached is not None: return cached
+    result = {'ok': False, 'message': 'Falta configurar el respaldo automático.'}
+    if settings.BACKUP_ROOT:
+        latest = None
+        for path in (Path(settings.BACKUP_ROOT) / 'manifests').glob('*-full.json'):
+            try:
+                row = read_manifest(path)
+                if latest is None or row['created_at'] > latest['created_at']: latest = row
+            except CommandError: continue
+        if latest:
+            old = (datetime.now(timezone.utc) - datetime.fromisoformat(latest['created_at'])).total_seconds() > settings.BACKUP_MAX_AGE_HOURS * 3600
+            result = {'ok': not old, 'message': 'El respaldo está atrasado. Revisa el proceso automático.' if old else 'Respaldo reciente disponible.'}
+        else: result['message'] = 'No hay un respaldo completo registrado.'
+        try:
+            last = json.loads((Path(settings.BACKUP_ROOT) / 'logs' / 'last-full.json').read_text())
+            if last.get('status') == 'FAILED': result = {'ok': False, 'message': 'El último respaldo falló. Revisa el almacenamiento y el proceso automático.'}
+        except (ValueError, OSError): pass
+    cache.set(key, result, 30)
+    return result

@@ -49,7 +49,10 @@ class ManagerWorkflowTests(AdministrationCase):
 
     def test_quick_receipt_reuses_inventory_service(self):
         response=self.client.post(self.url('stock-create'),{'product':self.product.pk,'quantity':5,'reason':'Compra','after_save':'another'})
-        self.assertRedirects(response,self.url('stock-create'))
+        self.assertEqual(response.status_code, 200)
+        self.product.refresh_from_db(); self.assertEqual(self.product.stock_quantity, 4)
+        response = self.client.post(self.url('inventory-receive'), {'confirmation': response.context['review']['signed']})
+        self.assertRedirects(response, self.url('inventory-movements'))
         self.product.refresh_from_db();self.assertEqual(self.product.stock_quantity,9)
         self.revoke('receive_inventory')
         self.assertEqual(self.client.post(self.url('stock-create'),{'product':self.product.pk,'quantity':5}).status_code,403)

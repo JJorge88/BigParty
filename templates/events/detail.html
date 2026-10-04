@@ -11,6 +11,7 @@
 </form>{% endif %}<a class="button button--ghost" href="#more">Más opciones ↓</a>
 </div>
 </div>
+{% if event.status == 'DRAFT' %}<section class="event-panel"><h2>Antes de publicar</h2>{% if publication_checks %}<ul>{% for check in publication_checks %}<li>{{ check.message }}</li>{% endfor %}</ul>{% else %}<p>Fecha, imagen, aforo y entradas están configurados.</p>{% endif %}<p>Revisa también las instrucciones de pago y la vista previa pública.</p>{% if perms.events.change_event %}<a href="{% url 'events:wizard' event.pk 4 %}">Revisar y publicar →</a>{% endif %}</section>{% endif %}
 {% if event.status == 'CANCELLED' %}<div class="notice notice--error">Evento cancelado · {{ event.cancellation_reason }}</div>{% endif %}
 {% if capacity %}<div class="event-kpis">
 <div>
