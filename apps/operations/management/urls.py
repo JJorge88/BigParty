@@ -65,3 +65,11 @@ urlpatterns += [
     path('configuracion/negocio/', configuration.business_hub, name='configuration-business'),
     path('configuracion/<slug:kind>/', configuration.edit, name='configuration-edit'),
 ]
+
+from . import inventory_views
+urlpatterns += [
+    path('inventario/recibir/', inventory_views.move, {'kind': 'receipt'}, name='inventory-receive'),
+    path('inventario/salida/', inventory_views.move, {'kind': 'exit'}, name='inventory-exit'),
+    path('inventario/producto/<int:pk>/codigo/', inventory_views.barcode, name='product-barcode'),
+    path('inventario/producto/<int:pk>/etiqueta/', inventory_views.label, name='product-label'),
+]

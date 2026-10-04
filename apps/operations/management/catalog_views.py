@@ -55,7 +55,7 @@ def inventory(request):
         products = products.filter({'low': low, 'out': out, 'untracked': Q(track_inventory=False)}[state])
     query = request.GET.get('q', '').strip()[:150]
     if query:
-        products = products.filter(Q(name__icontains=query) | Q(slug__icontains=query))
+        products = products.filter(Q(name__icontains=query) | Q(slug__icontains=query) | Q(barcode__icontains=query))
     category = request.GET.get('category', '')
     if category.isdecimal():
         products = products.filter(category_id=category)
@@ -162,7 +162,9 @@ def movements(request):
     if product.isdecimal():
         rows = rows.filter(product_id=product)
     kind = request.GET.get('type', '')
-    if kind in InventoryMovement.MovementType.values:
+    if kind == 'MANUAL_EXIT':
+        rows = rows.filter(metadata__manager_kind='exit')
+    elif kind in InventoryMovement.MovementType.values:
         rows = rows.filter(movement_type=kind)
     try:
         selected_date = date.fromisoformat(request.GET.get('date', ''))
@@ -170,7 +172,7 @@ def movements(request):
     except ValueError:
         pass
     return page(request, 'movements', {**paginate(request, rows), 'products': Product.objects.only('pk', 'name').order_by('name'),
-        'types': InventoryMovement.MovementType.choices}, section='inventario')
+        'types': [*InventoryMovement.MovementType.choices, ('MANUAL_EXIT', 'Salida manual')]}, section='inventario')
 
 
 @require_GET

@@ -34,6 +34,7 @@ class Category(ValidatedModel):
 
 
 class Product(ValidatedModel):
+    barcode = models.CharField("código de barras", max_length=48, unique=True, null=True, blank=True)
     class PreparationRoute(models.TextChoices):
         AREA_BAR = "AREA_BAR", "Barra del área"
         KITCHEN = "KITCHEN", "Cocina"

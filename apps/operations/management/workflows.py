@@ -8,7 +8,7 @@ from . import security
 def actions(user):
     specs = [
         ('Agregar un producto', 'Un trago, bebida o comida que vas a vender.', 'management:product-create', ('inventory.view_inventory','catalog.add_product'), 'local'),
-        ('Recibí mercadería', 'Suma unidades de un producto que ya tienes registrado.', 'management:stock-create', ('inventory.view_inventory','inventory.receive_inventory'), 'local'),
+        ('Recibí mercadería', 'Suma unidades de un producto que ya tienes registrado.', 'management:inventory-receive', ('inventory.view_inventory','inventory.receive_inventory'), 'local'),
         ('Agregar una mesa', 'Elige dónde va y cuántas personas caben.', 'management:table-start', ('tables.view_venuetable','tables.add_venuetable'), 'local'),
         ('Anotar una reserva', 'Guarda una mesa para un cliente.', 'reservations:create', ('reservations.create_reservation',), 'cloud'),
         ('Crear un evento', 'Agrega la fecha, las entradas y la capacidad.', 'events:create', ('events.create_event',), 'cloud'),

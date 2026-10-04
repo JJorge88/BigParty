@@ -34,7 +34,7 @@ register('venues.area','local','name slug description is_active sort_order creat
 register('venues.zone','local','area name slug description is_active sort_order created_at updated_at')
 register('tables.venuetable','local','area zone name capacity is_active operational_status reservable_web sort_order layout_x layout_y layout_width layout_height layout_shape created_at updated_at')
 register('catalog.category','local','name slug description sort_order is_active created_at updated_at')
-register('catalog.product','local','category name slug base_price is_active visible_in_pos track_inventory minimum_stock preparation_route is_combo created_at updated_at','area_prices modifier_groups combo_components')
+register('catalog.product','local','category name slug barcode base_price is_active visible_in_pos track_inventory minimum_stock preparation_route is_combo created_at updated_at','area_prices modifier_groups combo_components')
 register('catalog.productareaprice','local','product area price created_at updated_at')
 register('catalog.modifiergroup','local','product name selection_type min_selections max_selections sort_order is_required is_active','options')
 register('catalog.modifieroption','local','group name price_delta sort_order is_active')

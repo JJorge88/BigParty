@@ -12,7 +12,7 @@
 <td>{{ movement.created_at|date:'d M Y' }}<small>{{ movement.created_at|date:'H:i' }}</small>
 </td>{% if show_product %}<td>
 <a href="{% url 'management:product' movement.product_id %}">{{ movement.product.name }}</a>
-</td>{% endif %}<td>{{ movement.get_movement_type_display }}</td>
+</td>{% endif %}<td>{% if movement.metadata.manager_kind == 'exit' %}Salida manual{% else %}{{ movement.get_movement_type_display }}{% endif %}</td>
 <td class="admin-number">{% if movement.quantity_delta > 0 %}+{% endif %}{{ movement.quantity_delta }}</td>
 <td>{{ movement.stock_before }} → {{ movement.stock_after }}</td>
 <td>{{ movement.user.get_full_name|default:movement.user.username|default:'Sistema' }}<small>{{ movement.reason|default:'—' }}</small>

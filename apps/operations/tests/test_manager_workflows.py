@@ -9,7 +9,7 @@ from .test_administration import AdministrationCase
 class ManagerWorkflowTests(AdministrationCase):
     def test_hub_and_common_navigation(self):
         response = self.client.get('/gerencia/agregar/')
-        for link in ['/gerencia/inventario/producto/crear/', '/gerencia/inventario/entradas/nueva/',
+        for link in ['/gerencia/inventario/producto/crear/', '/gerencia/inventario/recibir/',
                      '/gerencia/mesas/nueva/', '/gerencia/reservas/nueva/', '/gerencia/eventos/nuevo/', '/gerencia/usuarios/crear/']:
             self.assertContains(response, link)
         for path in ['/gerencia/', '/gerencia/inventario/', '/gerencia/mesas/', '/gerencia/usuarios/',
@@ -53,7 +53,7 @@ class ManagerWorkflowTests(AdministrationCase):
         self.product.refresh_from_db();self.assertEqual(self.product.stock_quantity,9)
         self.revoke('receive_inventory')
         self.assertEqual(self.client.post(self.url('stock-create'),{'product':self.product.pk,'quantity':5}).status_code,403)
-        self.assertNotContains(self.client.get('/gerencia/agregar/'),'href="/gerencia/inventario/entradas/nueva/"')
+        self.assertNotContains(self.client.get('/gerencia/agregar/'),'href="/gerencia/inventario/recibir/"')
 
     def test_category_identifier_is_optional(self):
         response=self.client.post(self.url('category-create'),{'name':'Bebidas nuevas','slug':'','sort_order':0,'is_active':'on'})

@@ -6,7 +6,7 @@
 <h1>{{ product.name }}</h1>
 <p>{{ product.is_active|yesno:'Activo,Inactivo' }}</p>
 </div>
-<div class="admin-actions">{% if perms.catalog.change_product %}<a class="admin-button" href="{% url 'management:product-quick-edit' product.pk %}">Editar precio, foto o disponibilidad</a>{% endif %}{% if product.track_inventory %}{% if perms.inventory.adjust_inventory %}<a class="admin-button" href="{% url 'management:stock-adjust' product.pk %}">Corregir cantidad</a>{% endif %}{% if perms.inventory.receive_inventory %}<a class="admin-button admin-button--primary" href="{% url 'management:stock-receive' product.pk %}">↓ Recibí mercadería</a>{% endif %}{% endif %}</div>
+<div class="admin-actions">{% if perms.catalog.change_product %}<a class="admin-button" href="{% url 'management:product-quick-edit' product.pk %}">Editar precio, foto o disponibilidad</a><a class="admin-button" href="{% url 'management:product-barcode' product.pk %}">Código de barras / etiqueta</a>{% endif %}{% if product.track_inventory %}{% if perms.inventory.adjust_inventory %}<a class="admin-button" href="{% url 'management:stock-adjust' product.pk %}">Corregir conteo</a><a class="admin-button" href="{% url 'management:inventory-exit' %}?product={{ product.pk }}">Registrar salida</a>{% endif %}{% if perms.inventory.receive_inventory %}<a class="admin-button admin-button--primary" href="{% url 'management:inventory-receive' %}?product={{ product.pk }}">↓ Recibí mercadería</a>{% endif %}{% endif %}</div>
 </header>
 <div class="admin-detail-grid">
 <section class="admin-panel admin-context">

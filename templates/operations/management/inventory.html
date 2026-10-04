@@ -6,17 +6,20 @@
 <h1>Productos e inventario</h1>
 <p>Busca un producto para editarlo o sumar las unidades que recibiste.</p>
 </div>
-<div class="admin-actions">
-{% if perms.inventory.receive_inventory %}<a class="admin-button" href="{% url 'management:stock-create' %}">↓ Recibí mercadería</a>{% endif %}<a class="admin-button" href="{% url 'management:inventory-movements' %}">Movimientos ↗</a>{% if perms.catalog.add_product %}<a class="admin-button admin-button--primary" href="{% url 'management:product-create' %}">＋ Agregar producto</a>{% endif %}</div>
+<div class="admin-actions">{% if perms.catalog.add_product %}<a class="admin-button admin-button--primary" href="{% url 'management:product-create' %}">＋ Producto nuevo</a>{% endif %}</div>
 </header>
-<nav class="admin-tabs">
+<div class="inventory-actions">
+{% if perms.inventory.receive_inventory %}<a href="{% url 'management:inventory-receive' %}"><strong>↓ Recibir mercadería</strong><span>Suma lo que llegó al negocio</span></a>{% endif %}
+{% if perms.inventory.adjust_inventory %}<a href="{% url 'management:inventory-exit' %}"><strong>↑ Registrar salida</strong><span>Rotura, consumo interno y otros motivos</span></a>{% endif %}
+<a href="{% url 'management:inventory-movements' %}"><strong>↔ Ver movimientos</strong><span>Entradas, ventas y salidas registradas</span></a>
+</div><nav class="admin-tabs">
 <a aria-current="page" href="{% url 'management:inventory' %}">Productos</a>
 <a href="{% url 'management:categories' %}">Categorías</a>
 </nav>
 <section class="admin-panel">
 <form class="admin-filters" method="get">
 <label class="sr-only" for="inventory-search">Buscar producto</label>
-<input id="inventory-search" name="q" value="{{ request.GET.q }}" placeholder="Escribe el nombre del producto…" type="search">
+<input id="inventory-search" name="q" value="{{ request.GET.q }}" placeholder="Buscar por nombre o código de barras…" type="search">
 <label class="sr-only" for="inventory-state">Estado</label>
 <select id="inventory-state" name="state">
 <option value="">Todos los estados</option><option value="low" {% if request.GET.state == 'low' %}selected{% endif %}>Stock bajo</option>
@@ -45,7 +48,7 @@
 <tbody>{% for product in rows %}<tr>
 <td>
 <a class="admin-product-name" href="{% url 'management:product' product.pk %}">{{ product.name }}</a>
-<small>{% if not product.is_active %}Inactivo{% endif %}{% if product.is_combo %} · Combo{% endif %}</small>
+<small>{% if product.barcode %}{{ product.barcode }} · {% endif %}{% if not product.is_active %}Inactivo{% endif %}{% if product.is_combo %} · Combo{% endif %}</small>
 </td>
 <td>{{ product.category.name }}</td>
 <td class="admin-number">{% if product.track_inventory %}{{ product.stock_quantity }}{% else %}—{% endif %}</td>
@@ -55,7 +58,7 @@
 </td>
 
 <td>
-<div class="simple-row-actions">{% if perms.catalog.change_product %}<a href="{% url 'management:product-quick-edit' product.pk %}">Editar</a>{% endif %}{% if perms.inventory.receive_inventory and product.track_inventory and not product.is_combo %}<a href="{% url 'management:stock-receive' product.pk %}">Sumar unidades</a>{% endif %}<a href="{% url 'management:product' product.pk %}">Ver detalle</a></div>
+<div class="simple-row-actions">{% if perms.catalog.change_product %}<a href="{% url 'management:product-quick-edit' product.pk %}">Editar</a><a href="{% url 'management:product-barcode' product.pk %}">Código / etiqueta</a>{% endif %}{% if perms.inventory.receive_inventory and product.track_inventory and not product.is_combo %}<a href="{% url 'management:inventory-receive' %}?product={{ product.pk }}">Recibir</a>{% endif %}<a href="{% url 'management:product' product.pk %}">Ver detalle</a></div>
 </td>
 </tr>{% empty %}<tr>
 <td colspan="6" class="admin-empty">No hay productos para estos filtros.</td>
