@@ -15,7 +15,7 @@
 <main {% if sync_readonly %}data-sync-readonly="{% if sync_cloud %}local{% else %}cloud{% endif %}"{% endif %} id="main" class="management-main {% block main_class %}{% endblock %}">{% if error %}
 <div class="notice notice--error" role="alert">{{ error }}
 </div>{% endif %}
-{% if stale_day %}<aside class="notice notice--error" role="status"><strong>Sigues trabajando en la jornada del {{ stale_day.business_date|date:"d/m/Y" }}.</strong> Lleva {{ day_age }} días abierta. Las ventas se registran en esa fecha comercial. <a href="{% url 'management:closures' %}">Revisar pendientes de cierre →</a></aside>{% endif %}
+
 {% if sync_readonly %}<p class="notice">Administrado desde BIG PARTY {% if sync_cloud %}Local Node{% else %}Cloud{% endif %}. Información de lectura.</p>{% endif %}
 {% if recovery_active %}<p class="notice notice--error" role="alert">Modo recuperación · operación suspendida hasta completar la revisión.</p>{% endif %}
 {% for message in messages %}<div class="notice" role="status">{{ message }}</div>{% endfor %}

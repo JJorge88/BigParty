@@ -51,8 +51,7 @@ class BusinessDayTests(CashTestCase):
         s.close_business_day(self.day, self.user)
         operations = [lambda: payments.refund_payment(payment, self.user, amount=D("1"), reason="Devolución"),
                       lambda: orders.update_order_note(order, "Nueva", self.user),
-                      lambda: payments.refresh_order_payment_status(order),
-                      lambda: s.open_cash_session(session.register, self.user, 0, self.user)]
+                      lambda: payments.refresh_order_payment_status(order)]
         for operation in operations:
             with self.assertRaises(ValidationError):
                 operation()

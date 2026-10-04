@@ -65,7 +65,7 @@ class RegisterAndSessionTests(CashTestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             CashSession.objects.create(register=first.register, cashier=self.user, opened_by=self.user, business_day=self.day, opening_float=0)
 
-    def test_open_needs_active_register_area_cashier_and_day(self):
+    def test_open_needs_active_register_area_cashier(self):
         register = self.register()
         register.is_active = False
         register.save()
@@ -80,8 +80,8 @@ class RegisterAndSessionTests(CashTestCase):
         self.user.is_active = True
         self.user.save()
         s.close_business_day(self.day, self.user)
-        with self.assertRaises(ValidationError):
-            s.open_cash_session(register, self.user, D("0"), self.user)
+        session = s.open_cash_session(register, self.user, D("0"), self.user)
+        self.assertEqual(session.status, "OPEN")
 
     def test_open_permission_and_invalid_amounts(self):
         user = get_user_model().objects.create_user(username="no-perm", role="CAJERO")

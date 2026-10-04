@@ -81,11 +81,43 @@ def open_business_day(user, business_date=None):
     return day
 
 
+def _cash_period(user):
+    """Internal grouping only: opening a register never needs a manager day action.
+
+    Keep unsettled periods intact (including overnight sales). Advance safely when
+    the previous date has no pending orders, payments, handoffs or open registers.
+    The advisory gate serializes simultaneous openings even with no period yet.
+    """
+    lock_operation_gate()
+    today = timezone.localdate()
+    day = BusinessDay.objects.select_for_update().filter(status="OPEN").first()
+    if day and day.business_date < today and not get_business_day_close_blockers(day):
+        day.status, day.closed_at, day.closed_by = "CLOSED", timezone.now(), user
+        _save(day)
+        _audit(day, user, "period_closed_automatically")
+        day = None
+    if day:
+        return day
+    day = BusinessDay.objects.select_for_update().filter(business_date=today).first()
+    if day:
+        # Multiple cash shifts on the same date retain their individual closes.
+        previous_close = day.closed_at
+        day.status, day.closed_at, day.closed_by = "OPEN", None, None
+        day.reopened_at, day.reopened_by = timezone.now(), user
+        day.reopen_reason = "Continuación automática al abrir una caja."
+        _save(day)
+        _audit(day, user, "period_resumed_automatically", previous_close=str(previous_close))
+        return day
+    day = _save(BusinessDay(business_date=today, opened_by=user))
+    _audit(day, user, "period_opened_automatically")
+    return day
+
+
 @sync_atomic('local')
 @transaction.atomic
 def open_cash_session(register, cashier, opening_float, user):
     _require(user, "open_cash_session")
-    day = lock_open_day()
+    day = _cash_period(user)
     register = CashRegister.objects.select_for_update().get(pk=register.pk)
     cashier.refresh_from_db()
     if not register.is_active or not register.area.is_active or not cashier.is_active:

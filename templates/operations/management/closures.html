@@ -1,38 +1,9 @@
 {% extends 'operations/management/base.html' %}
 {% block management_content %}
-<div class="page-heading">
-<div><span class="eyebrow">Control de la jornada</span>
-<h1>Caja y cierres
-</h1>
-</div>{% include 'operations/management/partials/day_badge.html' %}
-</div>
-<section class="cash-guide" aria-label="Pasos del día de trabajo"><div><strong>1. Abrir el día</strong><p>El gerente abre el día y cada cajero abre su caja.</p></div><div><strong>2. Revisar las cajas</strong><p>Cada cajero cuenta su efectivo y cierra su caja. Revisa los pendientes.</p></div><div><strong>3. Cerrar el día</strong><p>Revisa el resumen y confirma el cierre cuando todo esté resuelto.</p></div></section>
-{% if not current_day and can_open %}<p class="cash-next"><a class="button button--primary" href="{% url 'management:open-day' %}">Abrir un día de trabajo →</a></p>{% elif current_day and current_day.pk != day.pk %}<p class="cash-next">Estás consultando una jornada anterior. <a class="text-link" href="{% url 'management:closures' %}">Volver al día abierto →</a></p>{% endif %}
-<div class="toolbar"><p class="muted">Revisa las cajas y resuelve los pendientes antes de cerrar.</p>{% if days %}
-<form method="get"><label class="sr-only" for="jornada">Jornada comercial</label><select id="jornada" name="jornada">{% for option in days %}<option value="{{ option.pk }}" {% if option.pk == day.pk %}selected{% endif %}>{{ option.business_date|date:'d/m/Y' }} · {{ option.get_status_display }}</option>{% endfor %}</select><button class="button button--ghost">Consultar</button>
-</form>{% endif %}
-</div>{% if day %}
-<div class="kpi-grid">
-<section class="kpi"><span>Cajas cerradas</span><strong>{{ summary.sessions.closed }}</strong><small>Sesiones cerradas de la jornada</small>
-</section>
-<section class="kpi"><span>Cajas abiertas</span><strong>{{ summary.sessions.open }}</strong><small>Por finalizar</small>
-</section>
-<section class="kpi"><span>Pendientes</span><strong>{{ blockers|length }}</strong><small>Motivos que bloquean el cierre</small>
-</section>
-<section class="kpi kpi--featured"><span>Estado de jornada</span><strong class="state-value">{{ day.get_status_display }}</strong><small>Fecha comercial {{ day.business_date|date:'d/m/Y' }}</small>
-</section>
-</div>{% endif %}{% include 'operations/management/partials/registers.html' %}{% if day %}
-<div class="dashboard-grid">{% if day.status == 'OPEN' %}{% include 'operations/management/partials/blockers.html' %}
-<section class="panel close-card"><span class="eyebrow">Cierre de jornada</span>
-<h2>{% if blockers %}Prepara el cierre<br>de tu jornada.{% else %}Todo listo para cerrar.{% endif %}
-</h2><p class="muted">El cierre consolida la jornada y bloquea nuevas operaciones comerciales.</p>{% if can_close %}{% if blockers %}<button class="button button--primary" disabled>Cerrar jornada</button><p class="help">Resuelve los {{ blockers|length }} pendientes indicados.</p><a class="text-link" href="{% url 'management:close-day' day.pk %}">Consultar resumen previo →</a>{% else %}<a class="button button--primary" href="{% url 'management:close-day' day.pk %}">Cerrar jornada →</a>{% endif %}{% else %}<p class="help">Necesitas permiso para cerrar jornadas.</p>{% endif %}
-</section>{% else %}
-<section class="panel">
-<h2>Jornada cerrada
-</h2><p class="muted">Cierre registrado el {{ day.closed_at|date:'d/m/Y H:i' }}.</p><a class="button button--primary" href="{% url 'management:day-result' day.pk %}">Ver resumen final →</a>
-</section>{% endif %}
-</div>{% include 'operations/management/partials/session_table.html' %}{% else %}
-<section class="panel empty">
-<h2>No hay jornadas registradas
-</h2>{% if can_open %}<a class="button button--primary" href="{% url 'management:open-day' %}">Abrir jornada</a>{% endif %}
-</section>{% endif %}{% endblock %}
+<div class="page-heading"><div><span class="eyebrow">Control de cajas</span><h1>Caja y cierres</h1></div></div>
+<section class="cash-guide" aria-label="Funcionamiento de las cajas"><div><strong>1. El cajero abre su caja</strong><p>Ingresa su fondo inicial y comienza a trabajar. No necesita que el gerente abra el día.</p></div><div><strong>2. El cajero cuenta y cierra</strong><p>Al terminar su turno registra el efectivo contado y confirma el cierre de su caja.</p></div><div><strong>3. Gerencia consulta</strong><p>Revisa las cajas, diferencias y pendientes cuando lo necesites. No hay un cierre general obligatorio.</p></div></section>
+<div class="toolbar"><p class="muted">Los cierres de cada caja se conservan por separado.</p>{% if days %}<form method="get"><label for="jornada">Historial desde</label><select id="jornada" name="jornada">{% for option in days %}<option value="{{ option.pk }}" {% if option.pk == day.pk %}selected{% endif %}>{{ option.business_date|date:'d/m/Y' }}</option>{% endfor %}</select><button class="button button--ghost">Consultar</button></form>{% endif %}</div>
+{% if day %}<div class="kpi-grid"><section class="kpi"><span>Cajas cerradas</span><strong>{{ summary.sessions.closed }}</strong><small>Cierres registrados en la selección</small></section><section class="kpi"><span>Cajas abiertas</span><strong>{{ summary.sessions.open }}</strong><small>Turnos en operación</small></section><section class="kpi"><span>Pendientes de operación</span><strong>{{ blockers|length }}</strong><small>Cuentas, pagos y cajas por atender</small></section></div>{% endif %}
+{% include 'operations/management/partials/registers.html' %}
+{% if day %}{% include 'operations/management/partials/session_table.html' %}{% include 'operations/management/partials/blockers.html' %}{% include 'operations/management/partials/incidents.html' %}{% else %}<section class="panel empty"><h2>Aún no hay aperturas de caja</h2><p>Cuando un cajero abra su caja, podrás consultar aquí su operación.</p></section>{% endif %}
+{% endblock %}

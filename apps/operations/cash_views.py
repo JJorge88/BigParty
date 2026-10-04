@@ -21,7 +21,7 @@ from apps.cash.models import CashRegister, CashHandoff
 from apps.cash.queries import get_pending_cash_handoffs
 from . import cash_security as security
 
-NO_DAY = "No hay una jornada abierta. Solicita a Gerencia abrir la jornada."
+NO_DAY = "Abre tu caja para comenzar."
 SCREENS = {"abrir", "activa", "meseros", "retiro", "movimientos", "cierre", "resultado", "cerrada", "comprobante"}
 PERMISSIONS = {"quick": "orders.create_quick_sale", "tables": "orders.add_products_from_cash_register", "abrir": "cash.open_cash_session", "meseros": "cash.receive_waiter_cash",
     "retiro": "operations.request_cash_withdrawal", "movimientos": "cash.view_cashmovement",
@@ -90,7 +90,7 @@ def destination(context):
 
 def session_error(context):
     session = context["session"]
-    if not context["day"]:
+    if not context["day"] and session:
         return NO_DAY
     if session and (session.register_id != context["register"].pk or session.business_day_id != context["day"].pk):
         return "Esta sesión no corresponde a la estación o jornada actual. Vuelve a ingresar."
@@ -274,7 +274,8 @@ def action(request, action):
             if action == "abrir":
                 session = services.open_cash_session(context["register"], user, request.POST.get("opening_float"), user)
                 context["access"].cash_session = session
-                context["access"].save(update_fields=["cash_session"])
+                context["access"].business_day_id = session.business_day_id
+                context["access"].save(update_fields=["cash_session", "business_day"])
                 message = "Caja abierta correctamente"
             elif action == "recibir":
                 handoff = CashHandoff.objects.filter(pk=request.POST.get("handoff"), payment__order__business_day=context["day"]).first()

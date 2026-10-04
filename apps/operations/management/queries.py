@@ -25,13 +25,10 @@ def base(request, section):
     from .workflows import actions
     user = request.user
     name = user.get_full_name().strip() or user.username
-    day = current_day()
-    age = (timezone.localdate() - day.business_date).days if day else 0
-    return {'stale_day': day if age > 1 else None, 'day_age': age, 'can_add': bool(actions(user)), 'section':section, 'operator_name':name, 'operator_role':user.get_role_display(),
+    return {'can_add': bool(actions(user)), 'section':section, 'operator_name':name, 'operator_role':user.get_role_display(),
         'initials':''.join(part[0] for part in name.split()[:2]).upper(),
         'can_financial':security.financial(user), 'can_payments':security.can_review(user),
-        'can_open':user.has_perm('cash.open_business_day'), 'can_close':user.has_perm('cash.close_business_day'),
-        'can_reopen':user.has_perm('cash.reopen_business_day'),
+        'can_open':False, 'can_close':False, 'can_reopen':False,
         'idle_timeout':settings.MANAGEMENT_IDLE_TIMEOUT_SECONDS}
 
 
@@ -74,7 +71,7 @@ def blocker_rows(blockers, day, user):
             url = reverse('management:cash-detail',args=[day.pk,pk])
         elif kind in ('ACTIVE_ORDER', 'OUTSTANDING_BALANCE', 'FINANCIAL_INCONSISTENCY', 'UNASSIGNED_LEGACY_ORDER'):
             url = reverse('management:order-pending', args=[pk])
-        guidance = {'ACTIVE_ORDER': 'El responsable debe revisar y finalizar este pedido.', 'OUTSTANDING_BALANCE': 'Revisa el cobro con el responsable de la cuenta.', 'PENDING_PAYMENT': 'Verifica el comprobante antes de confirmar o rechazar.', 'OPEN_CASH_SESSION': 'El cajero debe contar el efectivo y cerrar su caja.', 'PENDING_HANDOFF': 'El mesero debe entregar el efectivo y el cajero confirmar su recepción.', 'FINANCIAL_INCONSISTENCY': 'Revisa el detalle de la cuenta antes de cerrar. No ajustes saldos para ocultar la diferencia.', 'CASH_INCONSISTENCY': 'Revisa movimientos y entregas de efectivo con el cajero.', 'UNASSIGNED_LEGACY_ORDER': 'Esta cuenta requiere revisar su jornada con una persona autorizada.'}.get(kind, 'Revisa este pendiente antes de cerrar.')
+        guidance = {'ACTIVE_ORDER': 'El responsable debe revisar y finalizar este pedido.', 'OUTSTANDING_BALANCE': 'Revisa el cobro con el responsable de la cuenta.', 'PENDING_PAYMENT': 'Verifica el comprobante antes de confirmar o rechazar.', 'OPEN_CASH_SESSION': 'El cajero debe contar el efectivo y cerrar su caja.', 'PENDING_HANDOFF': 'El mesero debe entregar el efectivo y el cajero confirmar su recepción.', 'FINANCIAL_INCONSISTENCY': 'Revisa el detalle de la cuenta antes de cerrar. No ajustes saldos para ocultar la diferencia.', 'CASH_INCONSISTENCY': 'Revisa movimientos y entregas de efectivo con el cajero.', 'UNASSIGNED_LEGACY_ORDER': 'Esta cuenta requiere revisar su fecha de origen con una persona autorizada.'}.get(kind, 'Revisa este pendiente antes de cerrar.')
         rows.append({**blocker,'description':description,'url':url,'guidance':guidance})
     return rows
 
@@ -137,7 +134,7 @@ def dashboard(day, user):
     for blocker in important:
         handoff = handoffs.get(blocker['object_id']) if blocker['type'] == 'PENDING_HANDOFF' else None
         attention.append({'title': 'Efectivo de mesero pendiente' if handoff else 'Revisión operativa pendiente',
-            'detail': handoff.payment.order.display_name if handoff else 'Revisa el resumen de cierre de jornada',
+            'detail': handoff.payment.order.display_name if handoff else 'Revisa el historial de cajas',
             'amount': handoff.payment.amount if handoff and security.financial(user) else None,
             'url': blocker['url'] or reverse('management:closures')})
     totals = defaultdict(lambda: ZERO)

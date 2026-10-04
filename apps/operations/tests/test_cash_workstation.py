@@ -198,14 +198,15 @@ class CashWorkstationTests(CashTestCase):
         self.client.post("/caja/bloquear/")
         self.assertEqual(self.client.post("/caja/actividad/", HTTP_ACCEPT="application/json").status_code, 401)
 
-    def test_no_open_day(self):
+    def test_cashier_opens_without_manager_day(self):
         services.close_business_day(self.day, self.user)
-        self.assertEqual(self.page("abrir", True).status_code, 401)
-        self.login()
-        self.assertContains(self.page("abrir"), "No hay una jornada abierta.", status_code=409)
-        response = self.client.post("/caja/accion/abrir/", {"opening_float": "500"}, HTTP_ACCEPT="application/json")
-        self.assertEqual(response.status_code, 409)
-        self.assertFalse(CashSession.objects.exists())
+        self.assertEqual(self.page("abrir", True).status_code, 200)
+        self.assertFalse(self.cashier.has_perm("cash.open_business_day"))
+        session = self.open_cash("500")
+        self.assertEqual(session.cashier, self.cashier)
+        self.assertEqual(self.page("activa", True).status_code, 200)
+        self.assertEqual(session.business_day.status, "OPEN")
+
 
     def test_opening_zero_allowed_and_links_correct_station_actor_day(self):
         session = self.open_cash("0")

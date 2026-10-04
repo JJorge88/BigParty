@@ -40,7 +40,7 @@ def generate(report, period, user):
     for section in report['sections']:
         if not section['rows']: continue
         story.extend([p(section['title'], 'Heading2'), table(section['columns'], section['rows']), Spacer(1,14)])
-    story.append(p('Ventas por jornada comercial. Bruto menos ajustes y reembolsos = consumo neto. Cobros y anticipos se presentan por separado. Reservas y eventos: fecha programada local. Documento generado con datos actuales; no sustituye un cierre.', 'SmallInfo'))
+    story.append(p('Ventas agrupadas por período de operación. Bruto menos ajustes y reembolsos = consumo neto. Cobros y anticipos se presentan por separado. Reservas y eventos: fecha programada local. Documento generado con datos actuales; no sustituye un cierre.', 'SmallInfo'))
     def footer(canvas, document):
         canvas.saveState(); canvas.setFont('Helvetica', 8); canvas.setFillColor(colors.HexColor('#555555'))
         canvas.drawString(32, 19, 'BIG PARTY · Reporte de Gerencia · America/Guatemala')

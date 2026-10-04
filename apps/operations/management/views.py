@@ -1,10 +1,8 @@
-from datetime import date
 from django.contrib.auth import login as auth_login, logout as auth_logout
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.http import JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse
-from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -17,7 +15,6 @@ from . import queries, security, services
 def page(request, template, context=None, *, section='inicio', status=200):
     return render(request,'operations/management/'+template+'.html',{
         **queries.base(request,section), **(context or {})},status=status)
-
 
 @never_cache
 @sensitive_post_parameters('password')
@@ -35,7 +32,6 @@ def login(request):
         return redirect('management:home')
     return render(request,'operations/management/login.html',{'form':form},status=400 if request.method=='POST' else 200)
 
-
 @never_cache
 @require_POST
 def logout(request):
@@ -44,12 +40,10 @@ def logout(request):
     auth_logout(request)
     return redirect('management:login')
 
-
 @require_POST
 @security.required
 def activity(request):
     return JsonResponse({'active':True})
-
 
 @require_GET
 @security.required
@@ -65,7 +59,6 @@ def home(request):
     data['add_actions'] = actions(request.user)
     data['daily_tasks'] = pending_tasks(request.user, data)
     return page(request,'home',data)
-
 
 @require_GET
 @security.required
@@ -83,7 +76,6 @@ def closures(request):
     data['current_day'] = queries.current_day()
     return page(request,'closures',data,section='cierres')
 
-
 @require_GET
 @security.required
 def cash_detail(request, day_id, session_id):
@@ -91,43 +83,16 @@ def cash_detail(request, day_id, session_id):
     session = get_object_or_404(CashSession.objects.select_related('cashier','register__area','closed_by'),pk=session_id,business_day=day)
     return page(request,'cash_detail',queries.cash_detail(day,session,request.user),section='cierres')
 
-
 @require_http_methods(['GET','POST'])
 @security.required
 def open_day(request):
-    security.require(request.user,'cash.open_business_day')
-    error = ''
-    if request.method=='POST':
-        try:
-            business_date = date.fromisoformat(request.POST.get('business_date',''))
-            day = services.day_action(request,'open',business_date=business_date)
-            return redirect('management:home')
-        except (ValidationError,ValueError) as exc:
-            error = ' '.join(exc.messages) if isinstance(exc,ValidationError) else 'Selecciona una fecha comercial válida.'
-    return page(request,'open_day',{'error':error,'today':timezone.localdate(),'current_day':queries.current_day(),
-        'confirmation':security.confirmation(request,'open',0,'new-day')},section='cierres',status=409 if error else 200)
+    return redirect("management:closures")
 
 
 @require_http_methods(['GET','POST'])
 @security.required
 def close_day(request, day_id):
-    security.require(request.user,'cash.close_business_day')
-    day = get_object_or_404(BusinessDay,pk=day_id,status='OPEN')
-    error = ''
-    if request.method=='POST':
-        try:
-            services.day_action(request,'close',day.pk)
-            return redirect('management:day-result',day_id=day.pk)
-        except ValidationError as exc:
-            error = ' '.join(exc.messages)
-    day.refresh_from_db()
-    if day.status != 'OPEN':
-        return redirect('management:day-result', day_id=day.pk)
-    data = queries.day_data(day,request.user)
-    if error and data['blockers']:
-        error = 'La jornada tiene pendientes. Revisa los motivos antes de confirmar el cierre.'
-    data.update(error=error,confirmation=security.confirmation(request,'close',day.pk,day.updated_at.isoformat()))
-    return page(request,'close_day',data,section='cierres',status=409 if error else 200)
+    return redirect("management:closures")
 
 
 @require_GET
@@ -136,24 +101,10 @@ def day_result(request, day_id):
     day = get_object_or_404(BusinessDay.objects.select_related('closed_by','reopened_by'),pk=day_id)
     return page(request,'day_result',queries.day_data(day,request.user),section='cierres')
 
-
 @require_http_methods(['GET','POST'])
 @security.required
 def reopen_day(request, day_id):
-    security.require(request.user,'cash.reopen_business_day')
-    day = get_object_or_404(BusinessDay,pk=day_id,status='CLOSED')
-    error = ''
-    if request.method=='POST':
-        try:
-            services.day_action(request,'reopen',day.pk)
-            return redirect('management:day-result',day_id=day.pk)
-        except ValidationError as exc:
-            error = ' '.join(exc.messages)
-    day.refresh_from_db()
-    if day.status != 'CLOSED':
-        return redirect('management:day-result', day_id=day.pk)
-    return page(request,'reopen_day',{'day':day,'error':error,
-        'confirmation':security.confirmation(request,'reopen',day.pk,day.updated_at.isoformat())},section='cierres',status=409 if error else 200)
+    return redirect("management:closures")
 
 
 @require_GET
@@ -165,7 +116,6 @@ def pending_payments(request):
     payments = Payment.objects.filter(order__business_day=day,status='PENDING',method__in=['TRANSFER','DEPOSIT']).select_related(
         'order__primary_table','order__area','recorded_by') if day else []
     return page(request,'pending_payments',{'day':day,'payments':payments})
-
 
 @require_http_methods(['GET','POST'])
 @security.required
@@ -190,7 +140,6 @@ def payment(request, day_id, payment_id):
         'confirm_token':security.confirmation(request,'confirm',row.pk,revision),
         'reject_token':security.confirmation(request,'reject',row.pk,revision)},status=409 if error else 200)
 
-
 @require_GET
 @security.required
 def print_jobs(request):
@@ -201,7 +150,6 @@ def print_jobs(request):
     if not request.user.has_perm('printing.manage_printers'):
         data['can_retry'] = data['can_reprint'] = False
     return page(request,'print_jobs',data,section='impresiones')
-
 
 @require_POST
 @security.required
@@ -214,7 +162,6 @@ def print_action(request, pk, action):
     except ValidationError as exc:
         return page(request,'message',{'error':' '.join(exc.messages)},status=409)
     return redirect(reverse('management:print-jobs')+'?status=all')
-
 
 @require_GET
 @security.required

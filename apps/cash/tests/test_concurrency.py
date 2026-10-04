@@ -104,10 +104,23 @@ class CashConcurrencyTests(TransactionTestCase):
         self.day.refresh_from_db()
         self.assertEqual(self.day.orders.exists(), self.day.status == "OPEN")
 
-    def test_day_close_and_new_session_cannot_both_succeed(self):
+    def test_legacy_close_and_new_session_leave_an_open_period(self):
         results = self.run_concurrent([lambda user: s.close_business_day(self.day, user),
                                        lambda user: s.open_cash_session(self.register, user, 0, user)])
-        self.assertCountEqual(results, [True, False])
+        self.assertTrue(results[1])
+        self.assertEqual(CashSession.objects.filter(status="OPEN", business_day__status="CLOSED").count(), 0)
+        self.assertEqual(BusinessDay.objects.filter(status="OPEN").count(), 1)
+
+    def test_simultaneous_first_openings_share_one_automatic_period(self):
+        self.day.delete()
+        other = CashRegister.objects.create(name="Other", code="OTHER", area=self.area)
+        results = self.run_concurrent([
+            lambda user: s.open_cash_session(self.register, user, 0, user),
+            lambda user: s.open_cash_session(other, user, 0, user),
+        ])
+        self.assertEqual(results, [True, True])
+        self.assertEqual(BusinessDay.objects.count(), 1)
+        self.assertEqual(CashSession.objects.filter(status="OPEN").count(), 2)
 
     def test_direct_movement_retries_return_same_record(self):
         session = self.session()

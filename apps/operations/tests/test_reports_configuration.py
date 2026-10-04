@@ -141,7 +141,7 @@ class ReportsConfigurationTests(CashTestCase):
         from pypdf import PdfReader
         reader=PdfReader(BytesIO(response.content))
         text='\n'.join(page.extract_text() for page in reader.pages)
-        for expected in ['Resumen de jornada','Julia Morales','Q100.00','Página','Productos','Cobros']:
+        for expected in ['Resumen de ventas','Julia Morales','Q100.00','Página','Productos','Cobros']:
             self.assertIn(expected,text)
         self.assertIn('no-store',response['Cache-Control'])
         self.assertGreaterEqual(len(reader.pages),1)

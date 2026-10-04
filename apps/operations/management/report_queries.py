@@ -20,7 +20,7 @@ from apps.core.models import BusinessSettings
 ZERO = Decimal('0.00')
 LIMIT = 5000
 MONEY = DecimalField(max_digits=20, decimal_places=2)
-REPORTS = {'jornada': ('Resumen de jornada', 'Ventas, cobros y resultados de la operación.'),
+REPORTS = {'jornada': ('Resumen de ventas', 'Ventas, cobros y resultados de la operación.'),
            'productos': ('Ventas por producto', 'Productos y combos vendidos; ajustes atribuibles.'),
            'areas': ('Ventas por área', 'Mesas y ventas rápidas en cada área.'),
            'meseros': ('Actividad por mesero', 'Responsabilidad comercial, cobros y entregas.'),
@@ -33,7 +33,7 @@ REPORTS = {'jornada': ('Resumen de jornada', 'Ventas, cobros y resultados de la 
 
 
 class PeriodForm(forms.Form):
-    period = forms.ChoiceField(label='Periodo', choices=[('current', 'Jornada actual'), ('day', 'Jornada específica'), ('range', 'Rango de jornadas')])
+    period = forms.ChoiceField(label='Periodo', choices=[('current', 'Período en curso'), ('day', 'Período por fecha de inicio'), ('range', 'Rango de fechas de inicio')])
     start = forms.DateField(label='Desde', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
     end = forms.DateField(label='Hasta', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
 
@@ -58,7 +58,7 @@ class Period:
             day = BusinessDay.objects.filter(status='OPEN').first()
             self.start = self.end = day.business_date if day else timezone.localdate()
             self.days = BusinessDay.objects.filter(pk=day.pk) if day else BusinessDay.objects.none()
-            self.label = f'Jornada actual · {self.start:%d/%m/%Y}' if day else 'Sin jornada abierta'
+            self.label = f'Período en curso · {self.start:%d/%m/%Y}' if day else 'Sin aperturas de caja'
         else:
             self.start, self.end = cleaned['start'], cleaned['end']
             self.days = BusinessDay.objects.filter(business_date__range=(self.start, self.end))

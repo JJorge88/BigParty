@@ -21,7 +21,7 @@
 </div>
 <div><dt>Área</dt><dd>{{ payment.order.area.name }}</dd>
 </div>
-<div><dt>Jornada comercial</dt><dd>{{ day.business_date|date:'d/m/Y' }}</dd>
+<div><dt>Período de ventas</dt><dd>{{ day.business_date|date:'d/m/Y' }}</dd>
 </div>
 </dl>{% if payment.status == 'CONFIRMED' %}
 <div class="notice">Confirmado por {{ payment.confirmed_by.get_full_name|default:payment.confirmed_by.username }} · {{ payment.confirmed_at|date:'d/m/Y H:i' }}. La cuenta refleja el estado actualizado.

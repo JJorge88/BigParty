@@ -11,15 +11,15 @@
 {% include 'operations/management/partials/task_cards.html' %}
 <section class="daily-pending" aria-labelledby="daily-pending-title"><h2 id="daily-pending-title">Pendientes para revisar</h2>
 {% for task in daily_tasks %}<article class="daily-task"><div><strong>{{ task.title }}</strong><p>{{ task.detail }}</p></div><a class="button button--ghost" href="{{ task.url }}">{{ task.action }} →</a></article>{% empty %}<p class="daily-clear">No hay pendientes de revisión en los módulos a los que tienes acceso.</p>{% endfor %}</section>
-{% if not day %}<section class="flow-start"><div><h2>Antes de empezar a vender</h2><p>Abre el día de trabajo para que el personal pueda iniciar sus cajas.</p></div>{% if can_open %}<a href="{% url 'management:open-day' %}">Abrir día de trabajo</a>{% endif %}</section>{% endif %}
+
 <details class="simple-summary"><summary>Ver ventas y estado del día{% if pending_count %} · {{ pending_count }} pendientes{% endif %}</summary>
 {% if day %}
 <div class="kpi-grid">
-<section class="kpi kpi--featured"><span>Ventas de la jornada</span><strong>{% if can_financial %}Q{{ summary.net_sales|floatformat:2 }}{% else %}Restringido{% endif %}</strong><small>Netas · consumo enviado{% if can_financial %}<span class="kpi-info" tabindex="0" aria-label="Brutas Q{{ summary.gross_sales|floatformat:2 }}; ajustes Q{{ summary.adjustments|floatformat:2 }}; reembolsos Q{{ summary.refunds|floatformat:2 }}" title="Brutas Q{{ summary.gross_sales|floatformat:2 }} − ajustes Q{{ summary.adjustments|floatformat:2 }} − reembolsos Q{{ summary.refunds|floatformat:2 }}">ⓘ</span>{% endif %}</small>
+<section class="kpi kpi--featured"><span>Ventas del período</span><strong>{% if can_financial %}Q{{ summary.net_sales|floatformat:2 }}{% else %}Restringido{% endif %}</strong><small>Netas · consumo enviado{% if can_financial %}<span class="kpi-info" tabindex="0" aria-label="Brutas Q{{ summary.gross_sales|floatformat:2 }}; ajustes Q{{ summary.adjustments|floatformat:2 }}; reembolsos Q{{ summary.refunds|floatformat:2 }}" title="Brutas Q{{ summary.gross_sales|floatformat:2 }} − ajustes Q{{ summary.adjustments|floatformat:2 }} − reembolsos Q{{ summary.refunds|floatformat:2 }}">ⓘ</span>{% endif %}</small>
 </section>
 <section class="kpi"><span>Mesas ocupadas</span><strong>{{ occupied_tables }}</strong><small>Mesas físicas con cuenta activa</small>
 </section>
-<section class="kpi"><span>Cajas abiertas</span><strong>{{ summary.sessions.open }} <em>/ {{ registers|length }}</em></strong><small>Sesiones operativas de la jornada</small>
+<section class="kpi"><span>Cajas abiertas</span><strong>{{ summary.sessions.open }} <em>/ {{ registers|length }}</em></strong><small>Sesiones operativas del período</small>
 </section>
 <section class="kpi"><span>Pendientes</span><strong>{{ pending_count }}</strong><small>Requieren atención de Gerencia</small>
 </section>
@@ -30,12 +30,12 @@
 <div class="panel-heading">
 <div>
 <h2>Cobros confirmados por hora
-</h2><p class="help">Cobros confirmados netos · jornada comercial</p>
+</h2><p class="help">Cobros confirmados netos · período de ventas</p>
 </div>{% if can_financial %}<strong class="chart-total">Q{{ confirmed_net|floatformat:2 }}</strong>{% endif %}
 </div>{% if can_financial %}{% if hourly.has_data %}{% localize off %}
 <svg class="sales-chart" viewBox="0 0 760 195" role="img" aria-label="Cobros confirmados netos por hora"><defs><linearGradient id="chart-wash" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#cab58f" stop-opacity=".18"/><stop offset="100%" stop-color="#cab58f" stop-opacity="0"/></linearGradient></defs><path class="chart-grid" d="M30 28H730M30 71H730M30 115H730M30 158H730"/><polygon points="{{ hourly.fill }}" fill="url(#chart-wash)"/><polyline points="{{ hourly.line }}" fill="none" stroke="#d5bd95" stroke-width="2.5"/>{% for point in hourly.points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="3" fill="#e3cfac"><title>{{ point.label }} · Q{{ point.value }}</title></circle>{% endfor %}{% for tick in hourly.ticks %}<text x="{{ tick.x }}" y="185" text-anchor="middle">{{ tick.label }}</text>{% endfor %}
 </svg>{% endlocalize %}<details class="chart-accessible"><summary>Ver importes por hora</summary>{% for point in hourly.points %}<p>{{ point.label }} · Q{{ point.value|floatformat:2 }}</p>{% endfor %}</details>{% else %}
-<div class="empty chart-empty">Aún no hay cobros confirmados en esta jornada.
+<div class="empty chart-empty">Aún no hay cobros confirmados en este período.
 </div>{% endif %}{% else %}
 <div class="empty chart-empty">Necesitas permiso financiero para ver esta gráfica.
 </div>{% endif %}
@@ -70,8 +70,8 @@
 </div>
 {% else %}
 <section class="panel empty-day"><span class="eyebrow">Operación en pausa</span>
-<h2>No hay jornada abierta
-</h2><p>Los indicadores aparecerán al iniciar una jornada comercial.</p>{% if can_open %}<a class="button button--primary" href="{% url 'management:open-day' %}">Abrir jornada →</a>{% endif %}<a class="text-link" href="{% url 'management:closures' %}">Consultar cierres anteriores →</a>
+<h2>Todavía no hay cajas en operación
+</h2><p>Los indicadores aparecerán cuando un cajero abra su caja.</p><a class="text-link" href="{% url 'management:closures' %}">Consultar cierres anteriores →</a>
 </section>{% endif %}
 
 </details>

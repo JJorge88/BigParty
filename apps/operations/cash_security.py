@@ -140,10 +140,13 @@ def context(request, *, touch=True):
     day = BusinessDay.objects.filter(status="OPEN").first()
     if (now - access.last_activity_at >= timedelta(seconds=settings.CASH_IDLE_TIMEOUT_SECONDS)
         or not eligible(user) or not constant_time_compare(access.auth_hash, user_auth_hash(user))
-        or access.business_day_id != (day.pk if day else None)):
+        or (access.cash_session_id and access.business_day_id != (day.pk if day else None))):
         access.revoked_at = now
         access.save(update_fields=["revoked_at"])
         return None
+    if not access.cash_session_id and access.business_day_id != (day.pk if day else None):
+        access.business_day = day
+        access.save(update_fields=["business_day"])
     if touch:
         access.last_activity_at = now
         access.save(update_fields=["last_activity_at"])

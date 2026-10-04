@@ -125,25 +125,17 @@ class ManagementTests(CashTestCase):
         self.manager.role='CAJERO'; self.manager.save()
         self.assertRedirects(self.client.get('/gerencia/'),'/gerencia/acceso/')
 
-    def test_no_day_does_not_open_automatically(self):
+    def test_manager_has_no_day_actions(self):
         cash.close_business_day(self.day,self.user)
         response=self.client.get('/gerencia/')
-        self.assertContains(response,'No hay jornada abierta')
-        self.assertContains(response,'Abrir jornada')
+        self.assertContains(response,'Todavía no hay cajas en operación')
+        self.assertNotContains(response,'Abrir jornada')
         self.assertFalse(BusinessDay.objects.filter(status='OPEN').exists())
-        self.revoke('open_business_day')
-        self.assertNotContains(self.client.get('/gerencia/'),'Abrir jornada')
-        self.assertEqual(self.client.get('/gerencia/jornada/abrir/').status_code,403)
-
-    def test_open_day_requires_explicit_confirmation_and_permission(self):
-        cash.close_business_day(self.day,self.user)
-        url='/gerencia/jornada/abrir/'
-        token=self.client.get(url).context['confirmation']
-        data={'confirmation':token,'business_date':str(self.day.business_date+timedelta(days=1))}
-        self.assertEqual(self.client.post(url,data).status_code,409)
-        data['confirmed']='yes'
-        self.assertEqual(self.client.post(url,data).status_code,302)
-        self.assertEqual(BusinessDay.objects.filter(status='OPEN').count(),1)
+        for method in ('get','post'):
+            for url in ['/gerencia/jornada/abrir/',self.day_url(),self.day_url('reopen-day')]:
+                self.assertRedirects(getattr(self.client,method)(url),'/gerencia/cierres/')
+        self.day.refresh_from_db()
+        self.assertEqual(self.day.status,'CLOSED')
 
     def test_current_day_scope_excludes_other_day_even_when_calendar_overlaps(self):
         old=self.day
@@ -244,7 +236,7 @@ class ManagementTests(CashTestCase):
         session=self.session('9876.54')
         order,_=self.consumption()
         self.revoke('view_cash_session_financials')
-        for url in ['/gerencia/','/gerencia/cierres/',self.day_url(),reverse('management:cash-detail',args=[self.day.pk,session.pk])]:
+        for url in ['/gerencia/','/gerencia/cierres/',reverse('management:cash-detail',args=[self.day.pk,session.pk])]:
             with self.subTest(url=url):
                 response=self.client.get(url)
                 self.assertEqual(response.status_code,200)
@@ -264,58 +256,16 @@ class ManagementTests(CashTestCase):
         self.assertEqual(len(response.context['pending_handoffs']),1)
         self.assertEqual(self.client.post(response.request['PATH_INFO']).status_code,405)
 
-    def test_blockers_show_orders_balance_pending_cash_handoffs_and_disable_close(self):
+    def test_pending_operations_visible_without_general_close(self):
         self.session(); order,_=self.consumption()
         self.payment(order,method='TRANSFER'); self.payment(order)
-        response=self.client.get(self.day_url())
+        response=self.client.get('/gerencia/cierres/')
         kinds={b['type'] for b in response.context['blockers']}
         self.assertTrue({'ACTIVE_ORDER','OUTSTANDING_BALANCE','PENDING_PAYMENT','PENDING_HANDOFF','OPEN_CASH_SESSION'}<=kinds)
-        self.assertContains(response,'data-open-dialog="close-confirmation" disabled')
-        self.assertEqual(self.day_post().status_code,409)
+        self.assertNotContains(response,'Cerrar jornada')
+        self.assertContains(response,'No hay un cierre general obligatorio')
+        self.assertRedirects(self.client.post(self.day_url()),'/gerencia/cierres/')
         self.day.refresh_from_db(); self.assertEqual(self.day.status,'OPEN')
-
-    def test_close_rechecks_new_blocker_after_preview(self):
-        response=self.client.get(self.day_url()); token=response.context['confirmation']
-        self.session()
-        response=self.client.post(self.day_url(),{'confirmation':token,'confirmed':'yes'})
-        self.assertEqual(response.status_code,409)
-        self.assertContains(response,'continúa abierta',status_code=409)
-        self.day.refresh_from_db(); self.assertEqual(self.day.status,'OPEN')
-
-    def test_close_success_explicit_confirmation_and_audit(self):
-        response=self.client.get(self.day_url()); token=response.context['confirmation']
-        self.assertEqual(self.client.post(self.day_url(),{'confirmation':token}).status_code,409)
-        response=self.client.post(self.day_url(),{'confirmation':token,'confirmed':'yes'})
-        self.assertRedirects(response,self.day_url('day-result'))
-        self.day.refresh_from_db(); self.assertEqual(self.day.status,'CLOSED')
-        self.assertEqual(self.day.closed_by,self.manager)
-        self.assertTrue(AuditLog.objects.filter(action='cash.day_closed',user=self.manager).exists())
-        self.assertContains(self.client.get(self.day_url('day-result')),'Jornada cerrada')
-        self.assertEqual(self.client.get(self.day_url()).status_code,404)
-
-    def test_close_rejects_permission_missing_or_tampered_token(self):
-        self.assertEqual(self.client.post(self.day_url(),{'confirmation':'invalid','confirmed':'yes'}).status_code,409)
-        self.revoke('close_business_day')
-        self.assertEqual(self.client.get(self.day_url()).status_code,403)
-        self.assertEqual(self.client.post(self.day_url()).status_code,403)
-
-    def test_reopen_reason_permission_and_audit(self):
-        cash.close_business_day(self.day,self.user)
-        self.assertEqual(self.day_post('reopen-day',reason=' ').status_code,409)
-        response=self.day_post('reopen-day',reason='Corrección autorizada')
-        self.assertRedirects(response,self.day_url('day-result'))
-        self.day.refresh_from_db(); self.assertEqual(self.day.status,'OPEN')
-        self.assertEqual(BusinessDayReopen.objects.get().reason,'Corrección autorizada')
-        self.assertTrue(AuditLog.objects.filter(action='cash.day_reopened',user=self.manager).exists())
-        cash.close_business_day(self.day,self.user)
-        self.revoke('reopen_business_day')
-        self.assertEqual(self.client.get(self.day_url('reopen-day')).status_code,403)
-        self.assertEqual(self.client.post(self.day_url('reopen-day')).status_code,403)
-
-    def test_reopen_rejects_when_another_day_open(self):
-        cash.close_business_day(self.day,self.user)
-        cash.open_business_day(self.user,self.day.business_date+timedelta(days=1))
-        self.assertEqual(self.day_post('reopen-day',reason='Corrección').status_code,409)
 
     def test_pending_list_transfer_deposit_and_empty_state(self):
         self.assertContains(self.client.get('/gerencia/pagos-pendientes/'),'No hay transferencias ni depósitos pendientes')
@@ -443,10 +393,10 @@ class ManagementTests(CashTestCase):
 
     def test_incidents_show_cash_reason_without_becoming_close_blockers(self):
         session=self.session(); self.close_session(session,'80','Diferencia documentada')
-        response=self.client.get(self.day_url())
+        response=self.client.get('/gerencia/cierres/')
         self.assertEqual(response.context['blockers'],[])
         self.assertContains(response,'Diferencia documentada')
-        self.assertEqual(self.day_post().status_code,302)
+        self.assertRedirects(self.client.post(self.day_url()), '/gerencia/cierres/')
         self.revoke('view_cash_session_financials')
         response=self.client.get(self.day_url('day-result'))
         self.assertNotContains(response,'Q20')
