@@ -20,7 +20,7 @@
 <span>Referencia</span>
 <strong>{{ purchase.payment.reference }}</strong>
 </div>
-<p>Enviado {{ purchase.payment.submitted_at|date:'d M Y · H:i' }}</p>{% if purchase.payment.rejection_reason %}<p class="notice notice--error">{{ purchase.payment.rejection_reason }}</p>{% endif %}{% else %}<p class="muted">El cliente todavía no ha enviado un comprobante.</p>{% endif %}{% if purchase.status == 'CONFIRMED' or purchase.status == 'REJECTED' %}<a class="button button--primary" href="{{ whatsapp }}" target="_blank" rel="noreferrer noopener">Enviar WhatsApp ↗</a>{% endif %}</section>
+<p>Enviado {{ purchase.payment.submitted_at|date:'d M Y · H:i' }}</p>{% if purchase.payment.rejection_reason %}<p class="notice notice--error">{{ purchase.payment.rejection_reason }}</p>{% endif %}{% else %}<p class="muted">El cliente todavía no ha enviado un comprobante.</p>{% endif %}{% if purchase.status == 'CONFIRMED' %}<p class="notice">Pago confirmado · {{ purchase.tickets.count }} entrada{{ purchase.tickets.count|pluralize }} emitida{{ purchase.tickets.count|pluralize }}.</p><a class="button button--primary" href="{{ whatsapp }}" target="_blank" rel="noreferrer noopener">Enviar entradas por WhatsApp ↗</a>{% elif purchase.status == 'REJECTED' %}<a class="button button--ghost" href="{{ whatsapp }}" target="_blank" rel="noreferrer noopener">Avisar rechazo por WhatsApp ↗</a>{% endif %}</section>
 <aside class="event-panel">{% if purchase.payment %}<h2>Comprobante</h2>
 <a href="{% url 'events:proof' purchase.public_code %}" target="_blank" rel="noopener">
 <img class="proof-image" src="{% url 'events:proof' purchase.public_code %}" alt="Comprobante de transferencia">

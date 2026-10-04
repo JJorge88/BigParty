@@ -175,6 +175,13 @@ class PrivateFiles(SimpleTestCase):
 
 
 class SecurityCases(SimpleTestCase):
+    @override_settings(PUBLIC_BASE_URL='https://bigpartygt.com', ALLOWED_HOSTS=['bigpartygt.com', 'www.bigpartygt.com'], SECURITY_HEADERS_ENABLED=True, RECOVERY_MODE=False, RATE_LIMIT_ENABLED=False)
+    def test_www_redirects_to_canonical_host(self):
+        middleware=OperationsSecurityMiddleware(lambda request:HttpResponse('ok'))
+        response=middleware(RequestFactory().get('/eventos/?page=2',HTTP_HOST='www.bigpartygt.com'))
+        self.assertEqual(response.status_code,301)
+        self.assertEqual(response['Location'],'https://bigpartygt.com/eventos/?page=2')
+
     def test_upload_names_actual_image_type(self):
         from apps.events.services import validate_image
         from apps.reservations.services import validate_proof

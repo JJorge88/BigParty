@@ -1,6 +1,6 @@
 <header class="site-header">
-  <a class="brand" href="{% url 'core:home' %}" aria-label="BIG PARTY · Inicio">BIG PARTY<span class="brand-dot">●</span></a>
-  <button class="menu-toggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="public-nav" data-menu-toggle>Menú <span aria-hidden="true">＋</span></button>
+  {% load static %}<a class="brand brand-logo" href="{% url 'core:home' %}" aria-label="BIG PARTY Discotec · Inicio"><img src="{% static 'images/invitation/big-party-logo-256.png' %}" width="52" height="52" style="width:52px;height:52px;object-fit:contain" alt="BIG PARTY Discotec"></a>
+  <button class="menu-toggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="public-nav" data-menu-toggle><span>Menú</span><i aria-hidden="true"><b></b><b></b></i></button>
   <nav id="public-nav" aria-label="Navegación principal">
     <a class="mobile-home" href="{% url 'core:home' %}">Inicio</a>
     <a href="{% url 'core:events' %}">Eventos</a>

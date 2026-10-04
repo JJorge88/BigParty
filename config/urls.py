@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from apps.core.public_media import serve as public_media
 from apps.sync import views as sync_views
 from apps.core.ops.views import backup_status
 
@@ -10,6 +11,7 @@ admin.site.site_title = "BIG PARTY"
 admin.site.index_title = "Administración"
 
 urlpatterns = [
+    path("archivos-publicos/<path:path>", public_media, name="public-media"),
     path("gerencia/configuracion/backups/",backup_status,name="backup-status"),
     path("gerencia/configuracion/sincronizacion/",sync_views.status,name="sync-status"),
     path("api/sync/v1/", include("apps.sync.urls")),

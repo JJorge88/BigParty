@@ -2,11 +2,15 @@ import {clampQuantity, totalCents, remainingSeconds, formatCountdown, formatQuet
 document.documentElement.classList.add('js');
 import {initReveals} from './motion.mjs';
 import {initMenu} from './menu.mjs';
-initMenu({button:document.querySelector('[data-menu-toggle]'), nav:document.getElementById('public-nav'),
- body:document.body, main:document.querySelector('main'), footer:document.querySelector('footer'),
- document, viewport:matchMedia('(max-width:700px)')});
 const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
-initReveals({elements:[...document.querySelectorAll('[data-reveal]')], preference:reducedMotion, Observer:window.IntersectionObserver});
+try {
+ initMenu({button:document.querySelector('[data-menu-toggle]'), nav:document.getElementById('public-nav'),
+  body:document.body, main:document.querySelector('main'), footer:document.querySelector('footer'),
+  document, viewport:matchMedia('(max-width:700px)')});
+} catch(error) { console.error('No fue posible iniciar el menú.', error); }
+try {
+ initReveals({elements:[...document.querySelectorAll('[data-reveal]')], preference:reducedMotion, Observer:window.IntersectionObserver});
+} catch(error) { console.error('No fue posible iniciar las animaciones.', error); }
 const areas=[...document.querySelectorAll('[data-area]')];
 const tabs=[...document.querySelectorAll('[data-area-select]')];
 function selectArea(slug){areas.forEach(area=>area.hidden=area.dataset.area!==slug);tabs.forEach(tab=>tab.setAttribute('aria-pressed',String(tab.dataset.areaSelect===slug)));}
@@ -17,7 +21,8 @@ const mapButton=map?.querySelector('button[type=submit], .selection-bar button')
 if(mapButton)mapButton.disabled=true;
 map?.addEventListener('change',()=>{const selected=map.querySelector('input:checked');if(selected){document.querySelector('[data-table-summary]').textContent=`${selected.dataset.tableName} · ${selected.dataset.tableArea} · ${selected.dataset.tableCapacity} personas`;mapButton.disabled=false;}});
 const checkout=document.querySelector('[data-checkout]');
-if(checkout){
+if(checkout && checkout.dataset.enhanced!=='true'){
+ checkout.dataset.enhanced='true';
  const quantities=[...checkout.querySelectorAll('[data-price]')];
  const tables=[...checkout.querySelectorAll('[name=table]')];
  const total=checkout.querySelector('[data-total-display]');

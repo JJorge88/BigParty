@@ -41,8 +41,8 @@ SECURE_SSL_REDIRECT = env_bool('SECURE_SSL_REDIRECT', True)
 SECURE_REDIRECT_EXEMPT = [r'^healthz/$', r'^readyz/$']
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = 'same-origin'
-SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '3600'))
-SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '31536000'))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = False
 # Domain/subdomain inventory and preload consent are deferred to physical deployment.
 SILENCED_SYSTEM_CHECKS = ['security.W005', 'security.W021']

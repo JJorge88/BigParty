@@ -156,6 +156,8 @@ def detail(request, pk):
                 quantity = int(request.POST.get('quantity', '0')) if request.POST.get('quantity', '').isdigit() else 0
                 services.issue_courtesy_tickets(event, kind, quantity, request.user, request.POST.get('reason', '')[:2000])
                 return redirect(reverse('events:detail', args=[pk]) + '?courtesias=1')
+            elif action == 'unpublish':
+                services.unpublish_event(event, request.user)
             else:
                 raise ValidationError('Acción desconocida.')
             if not issued:
@@ -245,7 +247,13 @@ def proof(request, code):
 @never_cache
 @require_http_methods(['GET', 'POST'])
 def public_event(request, slug):
-    event = get_object_or_404(Event, slug=slug, status__in=queries.LIVE_STATUSES)
+    event = Event.objects.filter(slug=slug, status__in=queries.LIVE_STATUSES).first()
+    if event is None and 'ignaguracion' in slug:
+        corrected = slug.replace('ignaguracion', 'inauguracion')
+        if Event.objects.filter(slug=corrected, status__in=queries.LIVE_STATUSES).exists():
+            return redirect('event-public:event', slug=corrected, permanent=True)
+    if event is None:
+        raise Http404
     return event_checkout(request, event)
 
 

@@ -83,3 +83,19 @@ class PublicComponentTests(EventCase):
         self.assertRedirects(self.client.get('/reservas/'), '/eventos/')
         self.assertContains(home,'class="mobile-home"')
         self.assertContains(home,'aria-controls="public-nav"')
+        self.assertContains(home,'images/invitation/big-party-logo-256.png', count=4)
+        self.assertContains(home,'class="brand brand-logo"', count=2)
+
+    @override_settings(PUBLIC_INVITATION_ENABLED=True, PUBLIC_INVITATION_STARTS_AT='2026-10-22T14:00:00-06:00')
+    def test_inauguration_has_official_logo_and_countdown(self):
+        page = self.client.get('/inauguracion')
+        self.assertContains(page, 'images/invitation/big-party-logo-256.png', count=3)
+        self.assertContains(page, 'data-invitation-date="2026-10-22T14:00:00-06:00"')
+        self.assertContains(page, 'data-countdown')
+        for unit in ('data-days', 'data-hours', 'data-minutes', 'data-seconds'):
+            self.assertContains(page, unit)
+        self.assertContains(page, '/inauguracion/contador.js?v=live-countdown-3')
+        script = self.client.get('/inauguracion/contador.js')
+        self.assertEqual(script['Content-Type'], 'text/javascript; charset=utf-8')
+        self.assertContains(script, 'window.setInterval(update, 1000)')
+        self.assertRedirects(self.client.get('/ignaguracion'), '/inauguracion', status_code=301, fetch_redirect_response=False)

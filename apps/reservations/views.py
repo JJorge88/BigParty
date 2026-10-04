@@ -58,7 +58,16 @@ def index(request):
     paginated = Paginator(rows.order_by('-starts_at', '-pk'), 30).get_page(request.GET.get('page'))
     for row in paginated:
         row.effective_expired = bool(row.deadline and row.deadline <= now)
-    return page(request, 'list.html', {'rows': paginated, 'counts': counts, 'filters': filters, 'selected': selected, 'search': search})
+    event_purchases = []
+    event_purchase_count = 0
+    if request.user.has_perm('events.view_event_purchases'):
+        from apps.events.models import EventPurchase
+        pending_event_purchases = EventPurchase.objects.filter(status='PAYMENT_REVIEW').select_related('event', 'payment').order_by('-updated_at')
+        event_purchase_count = pending_event_purchases.count()
+        event_purchases = pending_event_purchases[:10]
+    return page(request, 'list.html', {'rows': paginated, 'counts': counts, 'filters': filters,
+        'selected': selected, 'search': search, 'event_purchases': event_purchases,
+        'event_purchase_count': event_purchase_count})
 
 
 @security.required

@@ -3,19 +3,21 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101110">
 <title>Inauguración · BIG PARTY</title>
 <meta name="robots" content="noindex,nofollow,noarchive">
-<meta name="description" content="Estás invitado a la inauguración de BIG PARTY. {{ invitation_starts_at|date:'l j \d\e F \d\e Y'|capfirst }}, {{ invitation_starts_at|date:'g:i a' }}. Guatemala.">
+<meta name="description" content="Estás invitado a la inauguración de BIG PARTY. {{ invitation_starts_at|date:'l j \d\e F \d\e Y'|capfirst }}, {{ invitation_starts_at|date:'g:i a' }} · Guatemala.">
+<link rel="icon" type="image/png" href="{% static 'images/invitation/big-party-logo-256.png' %}">
+<link rel="apple-touch-icon" href="{% static 'images/invitation/big-party-logo-256.png' %}">
 <link rel="canonical" href="{{ canonical }}">
 <meta property="og:type" content="website"><meta property="og:title" content="Estás invitado · Inauguración BIG PARTY">
 <meta property="og:description" content="{{ invitation_starts_at|date:'l j \d\e F \d\e Y'|capfirst }} · {{ invitation_starts_at|date:'g:i a' }} · Celebremos el comienzo. Encuentra aquí la ubicación.">
 <meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ og_image }}"><meta property="og:image:alt" content="Logo dorado de BIG PARTY Discotec"><meta property="og:locale" content="es_GT">
 <link rel="preload" href="{% static 'fonts/InterVariable.woff2' %}" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{% static 'css/public/invitation.css' %}">
+<link rel="stylesheet" href="{% static 'css/public/invitation.css' %}?v=cosmos-credit-1">
 </head><body data-server-now="{{ server_now }}" data-invitation-date="{{ invitation_starts_at|date:'c' }}">
 <a class="skip-link" href="#invitacion">Ir a la invitación</a>
 <main class="invitation" id="invitacion">
-  <div class="invitation-scene" aria-hidden="true"><img src="{% static 'images/public/event-fallback-concept.webp' %}" width="1536" height="1024" alt="" fetchpriority="high"><div class="scene-copy"><span class="eyebrow">EL COMIENZO DE ALGO GRANDE</span><p>La primera<br>de muchas<br><em>noches.</em></p><span class="scene-caption">SPORT BAR · DISCOTECA · PREMIUM</span></div></div>
+  <div class="invitation-scene" aria-hidden="true"><img src="{% static 'images/public/event-fallback-concept.webp' %}?v=production-1" width="1536" height="1024" alt="" fetchpriority="high"><div class="scene-copy"><span class="eyebrow">EL COMIENZO DE ALGO GRANDE</span><p>La primera<br>de muchas<br><em>noches.</em></p><span class="scene-caption">SPORT BAR · DISCOTECA · PREMIUM</span></div></div>
   <section class="invitation-card" aria-labelledby="invitation-title">
-    <a class="invitation-logo" href="{% url 'core:home' %}" aria-label="BIG PARTY · Ir al inicio"><img src="{% static 'images/invitation/big-party-logo.png' %}" width="800" height="800" alt="BIG PARTY Discotec"></a>
+    <a class="invitation-logo" href="{% url 'core:home' %}" aria-label="BIG PARTY · Ir al inicio"><img src="{% static 'images/invitation/big-party-logo-256.png' %}" width="256" height="256" alt="BIG PARTY Discotec"></a>
     <p class="eyebrow invitation-intro">ESTÁS INVITADO</p>
     <h1 id="invitation-title">Nuestra<br><span>inauguración.</span></h1>
     <p class="invitation-message">Un nuevo lugar para encontrarnos.<br>Y tú, parte del comienzo.</p>
@@ -23,11 +25,12 @@
       <span class="date-number">{{ invitation_starts_at|date:'d' }}</span>
       <div><span class="date-month">{{ invitation_starts_at|date:'F'|capfirst }} {{ invitation_starts_at|date:'Y' }}</span><span class="date-detail">{{ invitation_starts_at|date:'l'|capfirst }} · {{ invitation_starts_at|date:'g:i a' }}</span><span class="date-timezone">Hora de Guatemala</span></div>
     </div>
-    <div class="invitation-countdown" data-countdown hidden aria-label="Tiempo para la inauguración"><p class="eyebrow">CADA VEZ MÁS CERCA</p><div class="countdown-values"><div><strong data-days>00</strong><span>Días</span></div><i aria-hidden="true">:</i><div><strong data-hours>00</strong><span>Horas</span></div><i aria-hidden="true">:</i><div><strong data-minutes>00</strong><span>Minutos</span></div><i aria-hidden="true">:</i><div><strong data-seconds>00</strong><span>Segundos</span></div></div></div>
+    <div class="invitation-countdown" data-countdown aria-label="Tiempo para la inauguración"><p class="eyebrow">CADA VEZ MÁS CERCA</p><div class="countdown-values"><div><strong data-days>{{ invitation_countdown.days|stringformat:'02d' }}</strong><span>Días</span></div><i aria-hidden="true">:</i><div><strong data-hours>{{ invitation_countdown.hours|stringformat:'02d' }}</strong><span>Horas</span></div><i aria-hidden="true">:</i><div><strong data-minutes>{{ invitation_countdown.minutes|stringformat:'02d' }}</strong><span>Minutos</span></div><i aria-hidden="true">:</i><div><strong data-seconds>{{ invitation_countdown.seconds|stringformat:'02d' }}</strong><span>Segundos</span></div></div></div>
     <div class="invitation-actions"><a class="invitation-button primary" href="{{ venue_directions_url }}" target="_blank" rel="noopener noreferrer">Cómo llegar <span aria-hidden="true">↗</span><span class="sr-only"> (abre Google Maps)</span></a><button class="invitation-button secondary" type="button" data-share hidden>Compartir invitación <span aria-hidden="true">↗</span></button></div>
     <div class="share-fallback" hidden><label for="invitation-link">Enlace de la invitación</label><input id="invitation-link" readonly type="url"></div><p class="share-status" role="status" aria-live="polite"></p>
     <p class="invitation-location">{{ brand.business_name }} · {% if brand.address_text %}{{ brand.address_text }}{% else %}Guatemala{% endif %}</p>
+    <a class="invitation-credit" href="https://cosmoscompany.net" target="_blank" rel="noopener noreferrer">Página realizada por CosmosCompany.net ↗</a>
   </section>
 </main>
-<script type="module" src="{% static 'js/public/invitation.js' %}"></script>
+<script defer src="{% url 'core:invitation-script' %}?v=live-countdown-3"></script>
 </body></html>

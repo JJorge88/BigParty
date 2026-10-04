@@ -8,10 +8,12 @@ export function initReveals({elements, preference, Observer}) {
     }
   }), {threshold: 0.08});
   elements.forEach(node => {node.classList.add('reveal-ready'); observer.observe(node);});
-  preference.addEventListener('change', () => {
+  const preferenceChange = () => {
     if (preference.matches) {
       observer.disconnect();
       elements.forEach(node => node.classList.add('is-visible'));
     }
-  });
+  };
+  if (preference.addEventListener) preference.addEventListener('change', preferenceChange);
+  else preference.addListener?.(preferenceChange);
 }

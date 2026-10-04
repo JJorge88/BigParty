@@ -112,7 +112,7 @@
 <label class="event-check">
 <input type="checkbox" name="confirmed" value="yes" required>Confirmo la cancelación de este evento</label>
 <button class="button button--ghost">Cancelar evento</button>
-</form>{% endif %}{% if perms.events.change_event %}<hr>
+</form>{% endif %}{% if event.status == 'PUBLISHED' or event.status == 'RESCHEDULED' %}{% if perms.events.publish_event %}<hr><h3>Hacer privado</h3><p class="muted">Retira el evento de la web pública y lo devuelve a borrador. No está disponible si ya tiene compras activas o confirmadas.</p><form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="action" value="unpublish"><label class="event-check"><input type="checkbox" name="confirmed" value="yes" required>Confirmo que deseo retirar este evento de la web.</label><button class="button button--ghost">Hacer evento privado</button></form>{% endif %}{% endif %}{% if perms.events.change_event %}<hr>
 <form method="post" class="event-form">{% csrf_token %}<input type="hidden" name="action" value="finish">
 <label class="event-check">
 <input type="checkbox" name="confirmed" value="yes" required>Confirmo que el evento finalizó</label>
