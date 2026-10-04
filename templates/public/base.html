@@ -4,9 +4,9 @@
 <meta name="description" content="{{ meta_description|default:'Eventos, entradas y reservas en BIG PARTY.' }}">
 {% if private_page %}<meta name="robots" content="noindex,nofollow,noarchive">{% else %}<link rel="canonical" href="{{ canonical }}"><meta property="og:type" content="website"><meta property="og:title" content="{{ page_title }} · {{ brand.business_name }}"><meta property="og:description" content="{{ meta_description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ og_image }}"><meta property="og:locale" content="es_GT">{% endif %}
 <link rel="preload" href="{% static 'fonts/InterVariable.woff2' %}" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{% static 'css/public/site.css' %}?v=audit-4">{% block head %}{% endblock %}</head>
+<link rel="stylesheet" href="{% static 'css/public/site.css' %}?v=event-map-1">{% block head %}{% endblock %}</head>
 <body data-server-now="{{ server_now }}"><a class="skip-link" href="#main">Ir al contenido</a>
 {% include 'public/partials/header.html' %}
 <main id="main">{% block content %}{% endblock %}</main>
 {% include 'public/partials/footer.html' %}
-<script type="module" src="{% static 'js/public/site.js' %}"></script>{% block scripts %}{% endblock %}</body></html>
+<script type="module" src="{% static 'js/public/site.js' %}?v=event-map-1"></script>{% block scripts %}{% endblock %}</body></html>

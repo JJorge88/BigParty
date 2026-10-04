@@ -9,7 +9,7 @@ from .models import VenueTable
 
 CONFIGURATION_FIELDS = (
     "area", "zone", "name", "capacity", "is_active", "operational_status", "reservable_web",
-    "sort_order", "layout_x", "layout_y", "layout_width", "layout_height", "layout_shape",
+    "level", "sort_order", "layout_x", "layout_y", "layout_width", "layout_height", "layout_shape",
 )
 
 

@@ -64,7 +64,7 @@
 <span>Q{{ table.cover_per_person|floatformat:2 }} / persona</span>
 <strong>Q{{ table.total_price|floatformat:2 }}</strong>
 </div>{% empty %}<p class="empty">Todavía no hay mesas habilitadas.</p>{% endfor %}<hr>
-<h3>Configurar mesa</h3>
+<h3>Configurar mesa</h3><p>Estas mesas aparecerán en el mapa público de este evento. Un tipo de entrada por sí solo no reserva una mesa física.</p><a class="text-link" href="{% url 'management:tables' %}">Editar ubicación y niveles de las mesas →</a>
 <form data-flow-form method="post" class="event-form two-columns">{% csrf_token %}<input type="hidden" name="action" value="table">{% include 'events/fields.html' %}<button class="button button--primary">Guardar mesa</button>
 </form>
 <p class="hint">Seleccionar una mesa existente actualiza cover, tipo y habilitación. La capacidad guardada se conserva.</p>

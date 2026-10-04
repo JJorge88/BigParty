@@ -38,26 +38,36 @@ class PublicFormattingTests(SimpleTestCase):
 
 
 
-class PublicLayoutTests(ReservationCase):
-    def test_configured_geometry_fallback_and_empty_area(self):
+class PublicLayoutTests(EventCase):
+    def test_event_geometry_levels_and_unavailable_tables(self):
+        from apps.events import services
+        self.table.level='LEVEL_2'
         self.table.layout_x=10; self.table.layout_y=20
         self.table.layout_width=25; self.table.layout_height=25
         self.table.layout_shape='CIRCLE'; self.table.save()
-        Area.objects.create(name='Premium', slug='premium', sort_order=10)
-        data={'date':self.start.date(), 'time':self.start.strftime('%H:%M'), 'party_size':4}
-        page=self.client.get('/reservas/mesas/',data)
+        url=f'/eventos/{self.event.slug}/'
+        page=self.client.get(url)
         self.assertContains(page,'table-map-diagram')
         self.assertContains(page,'--x:10.0%;--y:20.0%;--w:25.0%;--h:25.0%')
         self.assertContains(page,'shape-circle')
-        self.assertContains(page,'--map-min:240px')
-        self.assertContains(page,'Pronto podrás consultar mesas web en esta área.')
-        self.assertNotContains(page,'table-map-grid')
-        VenueTable.objects.create(area=self.area,name='Mesa superpuesta',capacity=4,reservable_web=True,
-            layout_x=15,layout_y=25,layout_width=25,layout_height=25)
-        page=self.client.get('/reservas/mesas/',data)
+        self.assertContains(page,'Nivel 2')
+        self.assertEqual(len(page.context['table_groups']),1)
+        other=VenueTable.objects.create(area=self.table.area,name='Planta baja',capacity=4,level='LEVEL_1',
+            layout_x=10,layout_y=20,layout_width=25,layout_height=25)
+        services.save_event_table(self.event,self.manager,other,self.vip,100)
+        page=self.client.get(url)
+        self.assertEqual(len(page.context['table_groups']),2)
+        self.assertTrue(all(group['diagram'] for group in page.context['table_groups']))
+        self.buy(table=True)
+        page=self.client.get(url)
+        self.assertContains(page,'No disponible')
+        self.assertNotContains(page,f'name="table" value="{self.config.pk}"')
+
+    def test_missing_geometry_uses_honest_list(self):
+        page=self.client.get(f'/eventos/{self.event.slug}/')
+        self.assertContains(page,'Ubicación en el plano pendiente de confirmar')
         self.assertContains(page,'table-map-grid')
-        self.assertNotContains(page,'table-map-diagram')
-        self.assertEqual(sum(len(g['tables']) for g in page.context['groups']),2)
+        self.assertNotContains(page,'Nivel 2')
 
 
 class PublicComponentTests(EventCase):
@@ -70,6 +80,6 @@ class PublicComponentTests(EventCase):
         for variant in ('sport','disco','premium','reservation','event'):
             self.assertContains(home,'atmosphere--'+variant)
         self.assertContains(self.client.get('/eventos/'),'event-grid--single')
-        self.assertNotContains(self.client.get('/reservas/'), 'src="/static/images/public/nightlife-hero.webp"')
+        self.assertRedirects(self.client.get('/reservas/'), '/eventos/')
         self.assertContains(home,'class="mobile-home"')
         self.assertContains(home,'aria-controls="public-nav"')

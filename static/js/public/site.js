@@ -26,6 +26,8 @@ if(checkout){
 
  function update(){
   const table=tables.find(t=>t.checked);
+  const summary=checkout.querySelector('[data-event-table-summary]');
+  if(summary)summary.textContent=table?table.dataset.tableSummary:'Selecciona una mesa disponible para ver tu elección.';
   const cents=table?Math.round(Number(table.dataset.total)*100):totalCents(quantities.map(input=>({quantity:input.value,maximum:input.max,price:input.dataset.price})));
   total.textContent=formatQuetzales(cents);action.disabled=cents<=0 || checkout.hasAttribute('data-preview');
   quantities.forEach(input=>{const stepper=input.closest('.stepper');stepper.querySelector('[data-delta="-1"]').disabled=Number(input.value)<=0;stepper.querySelector('[data-delta="1"]').disabled=Number(input.value)>=Number(input.max);});

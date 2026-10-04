@@ -1,4 +1,4 @@
 <article class="experience experience--{{ variant }}" data-reveal>
   <div class="experience-media">{% include 'public/partials/atmosphere.html' with image=image variant=variant label=name number=number %}</div>
-  <div class="experience-copy"><p class="eyebrow">{{ number }} / {{ mood }}</p><h3>{{ name }}</h3><p>{{ description }}</p><a class="text-link" href="{% url 'core:reservations' %}">Encuentra tu mesa ↗</a></div>
+  <div class="experience-copy"><p class="eyebrow">{{ number }} / {{ mood }}</p><h3>{{ name }}</h3><p>{{ description }}</p><a class="text-link" href="{% url 'core:events' %}">Ver eventos ↗</a></div>
 </article>

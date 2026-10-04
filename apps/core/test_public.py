@@ -35,7 +35,7 @@ class PublicEventTests(EventCase):
         self.assertNotContains(page,'noindex')
         purchase=self.buy()
         sitemap=self.client.get('/sitemap.xml')
-        self.assertContains(sitemap,'https://example.test/reservas/')
+        self.assertNotContains(sitemap,'https://example.test/reservas/')
         for secret in [purchase.secure_token,'/gerencia/','/compra/','/entrada/','/mesas/']:
             self.assertNotContains(sitemap,secret)
         robots=self.client.get('/robots.txt')
@@ -61,7 +61,7 @@ class PublicEventTests(EventCase):
     def test_event_table_price_hold_and_hidden_after_sale(self):
         page=self.client.get(self.url())
         self.assertContains(page,'Q600.00')
-        self.assertContains(page,'6 entradas individuales con QR')
+        self.assertContains(page,'6 entradas')
         response=self.client.post(self.url(),{'table':self.config.pk,'customer_name':'Ana','customer_phone':'55555555'})
         self.assertEqual(response.status_code,302)
         row=EventPurchase.objects.get();self.assertEqual(row.amount,600)
@@ -81,46 +81,14 @@ class PublicReservationTests(ReservationCase):
     def search(self):
         return {'date':self.start.date().isoformat(),'time':self.start.strftime('%H:%M'),'party_size':4}
 
-    def selection(self):
-        response=self.client.get('/reservas/mesas/',self.search())
-        return response.context['groups'][0]['tables'][0]['selection']
-
-    def test_map_only_public_tables_safe_projection(self):
-        VenueTable.objects.create(area=self.area,name='Mesa privada secreta',capacity=6,reservable_web=False)
-        response=self.client.get('/reservas/mesas/',self.search())
-        self.assertContains(response,'VIP 2');self.assertNotContains(response,'Mesa privada secreta')
-        self.assertNotContains(response,'PENDING_REVIEW')
-        self.assertTrue(response.context['groups'][0]['tables'][0]['available'])
-        self.request()
-        response=self.client.get('/reservas/mesas/',self.search())
-        self.assertFalse(response.context['has_available'])
-        self.assertContains(response,'No hay mesas disponibles')
-
-    def test_two_sessions_single_hold_and_friendly_conflict(self):
-        selection=self.selection()
-        payload={'selection':selection,'customer_name':'Ana','customer_phone':'+502 5555 5555'}
-        response=self.client.post('/reservas/datos/',payload)
-        self.assertEqual(response.status_code,302)
-        row=Reservation.objects.get();self.assertEqual(row.status,'PENDING_REVIEW')
-        second=Client().post('/reservas/datos/',payload)
-        self.assertEqual(second.status_code,409)
-        self.assertContains(second,'ya no está disponible',status_code=409)
-        self.assertEqual(Reservation.objects.count(),1)
-        page=self.client.get(response.url)
-        self.assertContains(page,'Solicitud recibida.');self.assertContains(page,'aún no está confirmada')
-        self.assertNotContains(page,row.customer_phone)
-        self.assertNotContains(page,'/entrada/')
-
-    def test_bad_selection_and_invalid_dates(self):
-        self.assertEqual(self.client.get('/reservas/datos/',{'selection':'tampered'}).status_code,409)
-        page=self.client.get('/reservas/mesas/',{'date':'2000-01-01','time':'20:00','party_size':4})
-        self.assertContains(page,'futuras')
-        self.assertFalse(page.context['groups'])
-
-    def test_disabled_reservations_and_capacity(self):
-        ReservationSettings.objects.create(pk=1,reservations_enabled=False)
-        self.assertNotContains(self.client.get('/reservas/'),'Ver mesas disponibles')
-        self.assertFalse(self.client.get('/reservas/mesas/',self.search()).context['groups'])
+    def test_normal_booking_routes_redirect_without_creating_reservations(self):
+        for path in ['/reservas/', '/reservas/mesas/', '/reservas/datos/']:
+            self.assertRedirects(self.client.get(path, self.search()), '/eventos/')
+        from django.core import signing
+        selection = signing.dumps({'table':self.table.pk, **self.search()}, salt='public.reservation.choice')
+        self.assertRedirects(self.client.post('/reservas/datos/', {
+            'selection':selection, 'customer_name':'Ana', 'customer_phone':'55555555'}), '/eventos/')
+        self.assertFalse(Reservation.objects.exists())
 
     def test_payment_portal_upload_and_confirmation(self):
         row=self.approve(paid=True)
@@ -136,7 +104,7 @@ class PublicReservationTests(ReservationCase):
         self.assertIn('no-store',page['Cache-Control'])
 
     def test_csrf_on_public_hold(self):
-        response=Client(enforce_csrf_checks=True).post('/reservas/datos/',{'selection':self.selection()})
+        response=Client(enforce_csrf_checks=True).post('/reservas/datos/',{'selection':'retired-public-form'})
         self.assertEqual(response.status_code,403)
 
     def test_stored_expiry_no_countdown_and_no_payment_form(self):

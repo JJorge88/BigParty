@@ -53,9 +53,9 @@ def get_operational_map(area):
     reserved = set(current_reserved_tables().filter(table__in=tables).values_list("table_id", flat=True))
     groups = {}
     for table in tables:
-        key = table.zone_id
+        key = f"{table.level}:{table.zone_id}" if table.level else table.zone_id
         if key not in groups:
-            groups[key] = {"id": key, "name": table.zone.name if key else "Área general", "tables": []}
+            groups[key] = {"id": key, "name": " · ".join(filter(None, [table.get_level_display() if table.level else "", table.zone.name if table.zone_id else "Área general"])), "tables": []}
         groups[key]["tables"].append(table_data(table, orders.get(table.pk), table.pk in reserved))
     for group in groups.values():
         group["has_layout"] = _has_layout(group["tables"])

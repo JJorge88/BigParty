@@ -6,7 +6,7 @@ from apps.sync.services import sync_atomic, save_tracked, track
 from .models import VenueTable
 from .services import update_table_configuration
 
-FIELDS = ('name', 'capacity', 'zone', 'layout_shape', 'layout_x', 'layout_y',
+FIELDS = ('name', 'capacity', 'zone', 'level', 'layout_shape', 'layout_x', 'layout_y',
           'layout_width', 'layout_height', 'reservable_web', 'is_active', 'operational_status')
 
 
@@ -42,11 +42,11 @@ def save_table(area, data, *, actor, pk=None):
 
 @sync_atomic('local')
 @transaction.atomic
-def arrange_tables(area, *, actor, revisions):
+def arrange_tables(area, *, actor, revisions, level=''):
     from apps.venues.models import Area
     from .layout import suggestion
     Area.objects.select_for_update().get(pk=area.pk)
-    rows = list(VenueTable.objects.select_for_update().filter(area=area).order_by('pk'))
+    rows = list(VenueTable.objects.select_for_update().filter(area=area, level=level).order_by('pk'))
     if revisions != {str(t.pk): t.updated_at.isoformat() for t in rows}:
         raise ValidationError('El plano cambió. Revisa la nueva propuesta antes de guardar.')
     for table, position in suggestion(rows):

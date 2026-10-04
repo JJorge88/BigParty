@@ -20,6 +20,9 @@ class VenueTable(models.Model):
     zone = models.ForeignKey(
         Zone, verbose_name="zona", on_delete=models.PROTECT, related_name="tables", null=True, blank=True,
     )
+    level = models.CharField("nivel (opcional)", max_length=12, blank=True, default="",
+        choices=[("", "Sin definir"), ("LEVEL_1", "Nivel 1"), ("LEVEL_2", "Nivel 2")],
+        help_text="Asígnalo cuando la distribución esté confirmada. El nivel no determina si una mesa es VIP.")
     name = models.CharField("nombre", max_length=100)
     capacity = models.PositiveIntegerField("capacidad", validators=[MinValueValidator(1)])
     is_active = models.BooleanField("activa administrativamente", default=True)
@@ -90,7 +93,7 @@ class VenueTable(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.area} · {self.name}"
+        return " · ".join(filter(None, [str(self.area), self.get_level_display() if self.level else "", self.name]))
 
     def clean(self):
         super().clean()

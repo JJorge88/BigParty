@@ -56,6 +56,17 @@ class ManagerRefinementTests(AdministrationCase):
         self.assertFalse(overlaps(self.area.tables.all()))
         with self.assertRaises(ValidationError):arrange_tables(self.area,actor=self.manager,revisions=revision)
 
+    def test_arrangement_is_scoped_to_selected_level(self):
+        lower=VenueTable.objects.create(area=self.area,name='Abajo',capacity=4,level='LEVEL_1')
+        upper=VenueTable.objects.create(area=self.area,name='Arriba',capacity=4,level='LEVEL_2')
+        revision={str(upper.pk):upper.updated_at.isoformat()}
+        arrange_tables(self.area,actor=self.manager,revisions=revision,level='LEVEL_2')
+        lower.refresh_from_db(); upper.refresh_from_db()
+        self.assertEqual(lower.layout_x,0)
+        self.assertGreater(upper.layout_x,0)
+        page=self.client.get(self.url('tables'),{'area':self.area.pk,'level':'LEVEL_2'})
+        self.assertEqual([table.pk for table in page.context['tables']],[upper.pk])
+
     def test_credential_labels_match_required_fields(self):
         page=self.client.get(self.url('user-create'))
         self.assertTrue(page.context['form'].fields['pin'].required)

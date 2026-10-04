@@ -8,9 +8,9 @@ from .public_site import absolute
 
 SCHEMA_DAYS = ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')
 RESERVATION_RULES = (
-    'Una solicitud no equivale a una reserva confirmada: BIG PARTY debe aprobarla. '
-    'Algunas reservas requieren anticipo; en ese caso, se confirman después de verificar el pago. '
-    'Conserva tu enlace privado para seguir el estado de tu solicitud.'
+    'Las reservas web están disponibles únicamente para eventos. Elige un evento, consulta sus entradas '
+    'y selecciona una mesa disponible en el mapa. No se aceptan reservas web para días normales. '
+    'La compra se confirma después de verificar el pago; conserva tu enlace privado.'
 )
 EVENT_RULES = (
     'Las entradas son individuales y cada entrada confirmada tiene un QR único. '
@@ -45,8 +45,8 @@ def venue_context(brand):
         dict(question='¿Necesito identificación para entrar?', answer=brand.identification_text),
         dict(question='¿Existe código de vestimenta?', answer=' '.join(filter(None, [brand.dress_code, brand.dress_code_description]))),
         dict(question='¿Cómo funciona una reserva?', answer=RESERVATION_RULES),
-        dict(question='¿Necesito pagar para reservar una mesa?', answer='Algunas reservas pueden requerir anticipo. Si tu solicitud lo requiere, verás las instrucciones en tu enlace privado y se confirmará después de verificar el pago.'),
-        dict(question='¿Qué pasa si llegamos menos personas?', answer='Llegar con menos personas no invalida automáticamente una reserva normal. Para una mesa de evento se reserva la capacidad completa de la mesa.'),
+        dict(question='¿Necesito pagar para reservar una mesa?', answer='Cada evento muestra el precio de sus entradas y mesas. Sigue las instrucciones de pago de tu compra para recibir tus entradas.'),
+        dict(question='¿Qué pasa si llegamos menos personas?', answer='La mesa se reserva por su capacidad completa, aunque asistan menos personas.'),
         dict(question='¿Qué es el cover?', answer=COVER_RULES),
         dict(question='¿Cómo funcionan las mesas en eventos?', answer=EVENT_RULES),
         dict(question='¿Cómo recibo mis entradas?', answer='Después de confirmar tu compra, tus entradas están disponibles en el enlace privado de la compra. Cada entrada tiene un QR único; consérvalo para el ingreso.'),

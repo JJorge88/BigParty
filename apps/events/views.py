@@ -275,13 +275,16 @@ def event_checkout(request, event, preview=False):
     for kind in types:
         kind.public_max = min(kind.max_per_purchase, kind.available)
     remaining = queries.get_event_capacity_summary(event)['remaining']
-    tables = [t for t in queries.table_rows(event) if t.available and t.enabled and t.cover_per_person > 0
+    configurations = [t for t in queries.table_rows(event) if t.enabled and t.table.is_active and t.table.area.is_active]
+    tables = [t for t in configurations if t.available and t.enabled and t.cover_per_person > 0
               and t.table.is_active and t.table.area.is_active and t.table.operational_status == 'ACTIVE'
               and t.ticket_type.is_active and t.capacity_snapshot <= remaining] if sale_open else []
+    from .public_map import table_groups
+    groups = table_groups(configurations, {t.pk for t in tables})
     response = render(request, 'events/public.html', {
         **site.context(request, title=event.name, description=event.description[:155] or 'Entradas y mesas para '+event.name,
                        image=event.image.url if event.image else None, private=preview),
-        'event':event, 'error':error, 'preview':preview, 'types':types, 'tables':tables,
+        'event':event, 'error':error, 'preview':preview, 'types':types, 'tables':tables, 'table_groups':groups,
         'guest_form':GuestForm(initial={'customer_name':request.POST.get('customer_name',''), 'customer_phone':request.POST.get('customer_phone','')}),
         'sale_open':sale_open})
     return private(response) if preview else response

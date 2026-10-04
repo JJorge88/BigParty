@@ -452,3 +452,4 @@ html:not(.js) .site-header{margin-bottom:390px}
 }
 
 @media(max-width:600px){.booking-layout .booking-photo{min-height:210px;height:210px}.booking-layout .booking-photo h1{font-size:30px}.booking-layout .booking-content{padding-top:24px}.booking-layout .booking-content h2{font-size:32px}}
+.event-map-section .table-face{gap:4px;text-align:center;padding:8px}.event-map-section .table-face small{font-size:11px;line-height:1.3}.event-map-section .table-map-grid .public-table{min-height:120px}.event-map-selection{padding:16px 18px;border:1px solid var(--line,#47433b);border-radius:10px;color:var(--gold,#d7c29b)}.event-map-section .map-area h3{margin-top:24px}

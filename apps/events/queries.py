@@ -69,7 +69,7 @@ def ticket_type_rows(event):
 
 
 def table_rows(event):
-    rows = list(event.table_configurations.select_related('table', 'ticket_type'))
+    rows = list(event.table_configurations.select_related('table__area', 'ticket_type').order_by('table__area__sort_order', 'table__area_id', 'table__level', 'table__sort_order', 'table__name'))
     for row in rows:
         row.available = table_available(row)
     return rows

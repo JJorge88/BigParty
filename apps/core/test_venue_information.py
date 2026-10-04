@@ -108,8 +108,8 @@ class PublicVenueTests(TestCase):
 
     def test_reservation_and_event_rules(self):
         response = self.client.get('/')
-        for value in ['no equivale a una reserva confirmada', 'después de verificar el pago', 'enlace privado',
-                      'no invalida automáticamente', 'QR único', '6 accesos individuales', 'capacidad completa',
+        for value in ['únicamente para eventos', 'después de verificar el pago', 'enlace privado',
+                      'aunque asistan menos personas', 'QR único', '6 accesos individuales', 'capacidad completa',
                       'continúan siendo válidas', 'dejan de ser válidas', 'no es automática', '¿Qué es el cover?']:
             self.assertContains(response, value)
 

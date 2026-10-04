@@ -17,8 +17,8 @@ class TableForm(forms.ModelForm):
 
     class Meta:
         model = VenueTable
-        fields = ('name', 'capacity', 'zone', 'layout_shape', 'layout_x', 'layout_y',
-                  'layout_width', 'layout_height', 'reservable_web', 'is_active', 'operational_status')
+        fields = ('name', 'capacity', 'zone', 'level', 'layout_shape', 'layout_x', 'layout_y',
+                  'layout_width', 'layout_height', 'is_active', 'operational_status')
         labels = {'is_active': 'Mostrar mesa en la operación', 'reservable_web': 'Permitir reservas en la web'}
 
     def __init__(self, *args, area, **kwargs):
@@ -31,12 +31,16 @@ class TableForm(forms.ModelForm):
             self.fields[key].widget = forms.NumberInput(attrs={'step': '.01', 'min': '0.01' if key in ('layout_width', 'layout_height') else '0', 'max': '100'})
 
 
-def map_data(area, selected=None):
+def map_data(area, selected=None, level=None):
     from apps.tables.layout import overlaps
     from django.core import signing
-    rows = list(area.tables.all()) if area else []
-    return {'overlaps': overlaps(rows), 'layout_confirmation': signing.dumps({'area': area.pk, 'revisions': {str(t.pk): t.updated_at.isoformat() for t in rows}}, salt='tables.arrange') if area else '', ** {'areas': Area.objects.all(), 'area': area,
-            'tables': area.tables.all() if area else [], 'selected_table': selected}}
+    levels = list(VenueTable._meta.get_field('level').choices)
+    level = selected.level if selected else (level if level in dict(levels) else '')
+    rows = list(area.tables.filter(level=level)) if area else []
+    return {'overlaps': overlaps(rows), 'levels': levels, 'level': level,
+            'layout_confirmation': signing.dumps({'area': area.pk, 'level': level,
+                'revisions': {str(t.pk): t.updated_at.isoformat() for t in rows}}, salt='tables.arrange') if area else '',
+            'areas': Area.objects.all(), 'area': area, 'tables': rows, 'selected_table': selected}
 
 
 @require_GET
@@ -44,7 +48,7 @@ def map_data(area, selected=None):
 def listing(request):
     security.require(request.user, 'tables.view_venuetable')
     area = get_object_or_404(Area, pk=request.GET['area']) if request.GET.get('area', '').isdecimal() else Area.objects.first()
-    return page(request, 'tables', map_data(area), section='mesas')
+    return page(request, 'tables', map_data(area, level=request.GET.get('level')), section='mesas')
 
 
 @require_http_methods(['GET', 'POST'])
@@ -61,13 +65,13 @@ def edit(request, pk=None, area_id=None):
             messages.success(request, 'Mesa guardada. El plano de la operación ya está actualizado.')
             if not pk and request.POST.get('after_save') == 'another':
                 return redirect('management:table-create', area_id=area.pk)
-            return redirect(reverse('management:tables') + f'?area={area.pk}')
+            return redirect(reverse('management:tables') + f"?area={area.pk}&level={form.cleaned_data.get('level', '')}")
         except ValidationError as exc:
             form.add_error(None, ' '.join(exc.messages))
     return page(request, 'table_edit', {**map_data(area, table), 'form': form,
-        'basic_fields': [form[key] for key in ('name', 'capacity', 'zone', 'layout_shape')],
+        'basic_fields': [form[key] for key in ('name', 'capacity', 'zone', 'level', 'layout_shape')],
         'position_fields': [form[key] for key in ('layout_x', 'layout_y', 'layout_width', 'layout_height')],
-        'state_fields': [form[key] for key in ('reservable_web', 'is_active', 'operational_status')],
+        'state_fields': [form[key] for key in ('is_active', 'operational_status')],
         'title': 'Editar mesa' if pk else 'Crear mesa'}, section='mesas', status=400 if form.errors else 200)
 
 
@@ -93,12 +97,12 @@ def arrange(request, area_id):
         try:
             data = signing.loads(request.POST.get('confirmation', ''), salt='tables.arrange', max_age=600)
             if data['area'] != area.pk: raise signing.BadSignature()
-            arrange_tables(area, actor=request.user, revisions=data['revisions'])
+            arrange_tables(area, actor=request.user, revisions=data['revisions'], level=data.get('level', ''))
             messages.success(request, 'Mesas distribuidas sin superposiciones. Puedes ajustar sus posiciones al plano real.')
-            return redirect(reverse('management:tables') + f'?area={area.pk}')
+            return redirect(reverse('management:tables') + f"?area={area.pk}&level={data.get('level', '')}")
         except (signing.BadSignature, ValidationError) as exc:
             error = ' '.join(exc.messages) if isinstance(exc, ValidationError) else 'La propuesta venció. Revisa nuevamente.'
-    data = map_data(area)
+    data = map_data(area, level=request.GET.get('level'))
     for row, position in suggestion(data['tables']):
         for key, value in position.items(): setattr(row, key, value)
     return page(request, 'table_arrange', {**data, 'error': error}, section='mesas', status=400 if error else 200)
