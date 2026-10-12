@@ -77,6 +77,24 @@ class PrivateFiles(SimpleTestCase):
             self.assertEqual(digest_file(destination / name),
                              digest_file(backups.media_roots()[label] / relative))
 
+    def test_utf8_manifest_roundtrip_with_cp1252_default(self):
+        source = self.base / 'media' / 'inauguración.png'
+        source.write_bytes(picture().read())
+        original_read_text = Path.read_text
+
+        def windows_read_text(path, encoding=None, errors=None, **kwargs):
+            return original_read_text(path, encoding=encoding or 'cp1252',
+                                      errors=errors, **kwargs)
+
+        with patch.object(Path, 'read_text', windows_read_text):
+            manifest = backups.backup_media()
+            info = backups.verify(manifest)
+            self.assertIn('public/inauguración.png', info['entries'])
+            destination = self.base / 'restored-cp1252'
+            backups.restore_media(manifest, destination)
+        self.assertEqual(digest_file(source),
+                         digest_file(destination / 'public' / source.name))
+
     def test_existing_restore_requires_both_flags(self):
         manifest=backups.backup_media();destination=self.base/'restored';destination.mkdir()
         (destination/'keep.txt').write_text('keep')
@@ -91,7 +109,11 @@ class PrivateFiles(SimpleTestCase):
         for name in ('public/../../escape','public/C:/escape','public\\..\\escape','/public/escape'):
             with self.subTest(name=name):
                 with zipfile.ZipFile(path,'w') as archive:archive.writestr(name,b'attack')
-                info.update(file_size=path.stat().st_size,sha256=digest_file(path),entries={name:{'size':6,'sha256':hashlib.sha256(b'attack').hexdigest()}})
+                # Use the persisted ZIP name: Windows normalizes backslashes.
+                # Matching inventories ensures this exercises path validation.
+                with zipfile.ZipFile(path, 'r') as archive:
+                    stored_name = archive.namelist()[0]
+                info.update(file_size=path.stat().st_size,sha256=digest_file(path),entries={stored_name:{'size':6,'sha256':hashlib.sha256(b'attack').hexdigest()}})
                 atomic_json(manifest,info)
                 with self.assertRaisesMessage(CommandError,'UNSAFE_ARCHIVE_PATH'):backups.restore_media(manifest,self.base/'output')
         self.assertFalse((self.base/'escape').exists())

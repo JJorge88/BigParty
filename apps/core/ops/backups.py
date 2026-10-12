@@ -221,7 +221,7 @@ def read_manifest(manifest):
     manifest = Path(manifest)
     try:
         if manifest.is_symlink() or manifest.stat().st_size > 64*1024*1024:raise ValueError
-        value = json.loads(manifest.read_text())
+        value = json.loads(manifest.read_text(encoding='utf-8'))
         if not isinstance(value,dict) or value['schema_version'] != FORMAT or value['status'] != 'SUCCESS':raise ValueError
         if value['kind'] not in (*KINDS,'full'):raise ValueError
         if not re.fullmatch(r'[A-Za-z0-9-]{10,150}', value['backup_id']):raise ValueError
@@ -479,7 +479,7 @@ def health():
             result = {'ok': not old, 'message': 'El respaldo está atrasado. Revisa el proceso automático.' if old else 'Respaldo reciente disponible.'}
         else: result['message'] = 'No hay un respaldo completo registrado.'
         try:
-            last = json.loads((Path(settings.BACKUP_ROOT) / 'logs' / 'last-full.json').read_text())
+            last = json.loads((Path(settings.BACKUP_ROOT) / 'logs' / 'last-full.json').read_text(encoding='utf-8'))
             if last.get('status') == 'FAILED': result = {'ok': False, 'message': 'El último respaldo falló. Revisa el almacenamiento y el proceso automático.'}
         except (ValueError, OSError): pass
     cache.set(key, result, 30)
