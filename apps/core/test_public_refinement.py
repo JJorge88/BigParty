@@ -10,6 +10,15 @@ from apps.events.tests.base import EventCase
 
 
 class PublicFormattingTests(SimpleTestCase):
+    def test_invitation_aliases_keep_public_links(self):
+        for spelling in ('inaguracion', 'ignaguracion'):
+            for suffix, target in (('', '/inauguracion'), ('/', '/inauguracion'),
+                                   ('/contador.js', '/inauguracion/contador.js')):
+                with self.subTest(spelling=spelling, suffix=suffix):
+                    self.assertRedirects(self.client.get('/' + spelling + suffix),
+                                         target, status_code=301,
+                                         fetch_redirect_response=False)
+
     @override_settings(TIME_ZONE='America/Guatemala')
     def test_dates_use_local_day_and_24_hour_time(self):
         value = datetime(2026, 10, 5, 2, 5, tzinfo=dt_timezone.utc)
@@ -84,7 +93,8 @@ class PublicComponentTests(EventCase):
         self.assertContains(home,'class="mobile-home"')
         self.assertContains(home,'aria-controls="public-nav"')
         self.assertContains(home,'images/invitation/big-party-logo-256.png', count=4)
-        self.assertContains(home,'class="brand brand-logo"', count=2)
+        self.assertContains(home,'class="brand brand-logo"', count=1)
+        self.assertContains(home,'class="brand brand-logo brand-logo--footer"', count=1)
 
     @override_settings(PUBLIC_INVITATION_ENABLED=True, PUBLIC_INVITATION_STARTS_AT='2026-10-22T14:00:00-06:00')
     def test_inauguration_has_official_logo_and_countdown(self):
