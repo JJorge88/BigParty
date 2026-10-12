@@ -29,6 +29,8 @@ export function initMenu({button, nav, body, main, footer, document, viewport}) 
     }
   });
   nav.addEventListener('click', event => { if(event.target.closest('a')) close(); });
-  viewport.addEventListener('change', () => { if(!viewport.matches) close(); });
+  const viewportChange = () => { if(!viewport.matches) close(); };
+  if(viewport.addEventListener) viewport.addEventListener('change', viewportChange);
+  else viewport.addListener?.(viewportChange);
   return {close};
 }

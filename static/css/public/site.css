@@ -25,7 +25,9 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /* Shared public chrome. No operational/admin styles are imported. */
 .site-header{height:90px;max-width:1600px;margin:auto;padding:0 5%;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:20}
 .brand{font-size:24px;font-weight:800;letter-spacing:-1.3px;white-space:nowrap}
-.brand-dot{color:var(--gold);font-size:7px;display:inline-block;vertical-align:top;margin:5px 0 0 5px}
+.brand-logo{display:block;width:52px;height:52px;flex:none}
+.brand-logo img{width:100%;height:100%;object-fit:contain}
+.brand-logo--footer{width:78px;height:78px}
 .site-header nav{display:flex;align-items:center;gap:36px;font-size:13px}
 .site-header .mobile-home,.menu-toggle{display:none}
 .site-header nav>a:not(.button),.site-footer nav>a{transition:color .2s}
@@ -52,6 +54,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .site-footer .footer-experiences{color:var(--ink);font-size:14px;margin-top:24px}
 .site-footer nav{display:flex;gap:40px;font-size:13px;padding-top:8px}
 .footer-note{flex-basis:100%;font-size:11px;color:var(--muted);padding-top:30px}
+.site-credit{flex-basis:100%;width:max-content;color:var(--muted);font-size:10px;letter-spacing:.04em;margin-top:-25px;transition:color .2s}
+.site-credit:hover{color:var(--gold)}
 
 /* Hero: the conceptual photograph belongs to this section only. */
 .hero{position:relative;min-height:710px;height:calc(100svh - 90px);max-height:1000px;isolation:isolate;display:flex;align-items:center;overflow:hidden}
@@ -293,20 +297,16 @@ input[type=radio]{width:20px;min-height:20px;accent-color:var(--gold)}
 .hero-bottom>a span{margin:0 7px}
 }
 
-@media(max-width:700px){.site-header{height:76px;padding:0 6%}
-.brand{font-size:22px}
-.menu-toggle{display:flex;gap:12px;align-items:center;border:0;background:transparent;color:var(--ink);padding:12px 0 12px 14px;font-size:12px;min-height:44px}
-.menu-toggle>span{font-size:21px;transition:transform .2s}
-.menu-toggle[aria-expanded=true]>span{transform:rotate(45deg)}
-.site-header nav{position:absolute;left:0;right:0;top:76px;background:var(--bg);padding:40px 6%;flex-direction:column;align-items:stretch;gap:28px}
-.site-header .mobile-home{display:block}
-.js .site-header nav:not(.is-open){display:none}
-.js .site-header nav.is-open{position:fixed;top:76px;bottom:0;overflow:auto;justify-content:center;padding-bottom:100px}
-.site-header nav>a:not(.button){font-size:42px;letter-spacing:-.05em}
-.site-header nav .header-cta{margin-top:25px;justify-content:space-between}
-.menu-open{overflow:hidden}
-.menu-open .site-header{position:sticky;top:0;background:var(--bg)}
-html:not(.js) .site-header{margin-bottom:390px}
+@media(max-width:700px){.site-header{height:76px;padding:0 6%;z-index:30}
+.brand-logo{width:44px;height:44px}
+.brand-logo--footer{width:72px;height:72px}
+.menu-toggle{display:none}
+.site-header nav,.js .site-header nav:not(.is-open),.js .site-header nav.is-open{position:static;display:flex;flex-direction:row;align-items:center;width:auto;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none;gap:8px;overflow:visible}
+.site-header .mobile-home{display:none}
+.site-header nav>a:not(.button){font-size:12px;letter-spacing:.01em;padding:11px 8px;white-space:nowrap}
+.site-header nav .header-cta{min-height:40px;margin:0;padding:10px 12px;gap:8px;border-radius:2px;font-size:11px;white-space:nowrap}
+.menu-open{overflow:auto}
+html:not(.js) .site-header{margin-bottom:0}
 .hero{height:calc(100svh - 76px);min-height:690px;max-height:870px}
 .hero-image{object-position:62% center}
 .hero:after{background:linear-gradient(90deg,#101110b0,#10111020),linear-gradient(0deg,#101110,transparent 65%)}

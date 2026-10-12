@@ -1,7 +1,8 @@
 import logging
 import uuid
+from urllib.parse import urlsplit
 from django.conf import settings
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponsePermanentRedirect
 from . import recovery,throttle
 
 logger=logging.getLogger('apps.hardening')
@@ -10,6 +11,10 @@ class OperationsSecurityMiddleware:
     def __init__(self,get_response):self.get_response=get_response
     def __call__(self,request):
         request.support_reference=uuid.uuid4().hex[:12]
+        canonical = urlsplit(settings.PUBLIC_BASE_URL)
+        if canonical.hostname and request.get_host().split(':', 1)[0].lower() == 'www.' + canonical.hostname.lower():
+            target = settings.PUBLIC_BASE_URL + request.get_full_path()
+            return self.headers(HttpResponsePermanentRedirect(target), request)
         path=request.path_info
         active=recovery.status()['active']
         management=path.startswith('/gerencia/')

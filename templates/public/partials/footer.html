@@ -1,5 +1,6 @@
 <footer class="site-footer">
-  <div><a class="brand" href="{% url 'core:home' %}">BIG PARTY<span class="brand-dot">●</span></a><p class="footer-experiences">Sport Bar · Discoteca · Premium</p><p>Tres espacios. Una misma noche.</p></div>
+  {% load static %}<div><a class="brand brand-logo brand-logo--footer" href="{% url 'core:home' %}" aria-label="BIG PARTY Discotec · Inicio"><img src="{% static 'images/invitation/big-party-logo-256.png' %}" width="78" height="78" style="width:78px;height:78px;object-fit:contain" alt="BIG PARTY Discotec" loading="lazy"></a><p class="footer-experiences">Sport Bar · Discoteca · Premium</p><p>Tres espacios. Una misma noche.</p></div>
   <nav aria-label="Enlaces del pie"><a href="{% url 'core:home' %}#encuentranos">Visítanos ↗</a><a href="{% url 'core:home' %}#preguntas">Preguntas frecuentes ↗</a><a href="{% url 'core:events' %}">Eventos ↗</a><a href="{% url 'core:events' %}">Entradas y mesas ↗</a></nav>
   <span class="footer-note">{{ brand.business_name|default:'BIG PARTY' }} · {% now 'Y' %}</span>
+  <a class="site-credit" href="https://cosmoscompany.net" target="_blank" rel="noopener noreferrer">Página realizada por CosmosCompany.net ↗</a>
 </footer>

@@ -2,11 +2,13 @@
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101110"><meta name="referrer" content="same-origin">
 <title>{{ page_title|default:'Vive la noche' }} · {{ brand.business_name|default:'BIG PARTY' }}</title>
 <meta name="description" content="{{ meta_description|default:'Eventos, entradas y reservas en BIG PARTY.' }}">
+<link rel="icon" type="image/png" href="{% static 'images/invitation/big-party-logo-256.png' %}">
+<link rel="apple-touch-icon" href="{% static 'images/invitation/big-party-logo-256.png' %}">
 {% if private_page %}<meta name="robots" content="noindex,nofollow,noarchive">{% else %}<link rel="canonical" href="{{ canonical }}"><meta property="og:type" content="website"><meta property="og:title" content="{{ page_title }} · {{ brand.business_name }}"><meta property="og:description" content="{{ meta_description }}"><meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ og_image }}"><meta property="og:locale" content="es_GT">{% endif %}
 <link rel="preload" href="{% static 'fonts/InterVariable.woff2' %}" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{% static 'css/public/site.css' %}?v=event-map-1">{% block head %}{% endblock %}</head>
+<link rel="stylesheet" href="{% static 'css/public/site.css' %}?v=cosmos-credit-1">{% block head %}{% endblock %}</head>
 <body data-server-now="{{ server_now }}"><a class="skip-link" href="#main">Ir al contenido</a>
 {% include 'public/partials/header.html' %}
 <main id="main">{% block content %}{% endblock %}</main>
 {% include 'public/partials/footer.html' %}
-<script type="module" src="{% static 'js/public/site.js' %}?v=event-map-1"></script>{% block scripts %}{% endblock %}</body></html>
+<script type="module" src="{% static 'js/public/site.js' %}?v=mobile-checkout-2"></script>{% block scripts %}{% endblock %}</body></html>

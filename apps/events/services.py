@@ -233,6 +233,21 @@ def publish_event(event, user):
 
 @sync_atomic('cloud')
 @transaction.atomic
+def unpublish_event(event, user):
+    require(user, 'publish_event')
+    event = locked(event)
+    if event.status not in LIVE_STATUSES:
+        raise ValidationError('El evento no está publicado.')
+    if event.purchases.filter(status__in=('PENDING_PAYMENT', 'PAYMENT_REVIEW', 'CONFIRMED')).exists():
+        raise ValidationError('No puedes hacer privado un evento con compras activas o confirmadas.')
+    event.status, event.published_at = 'DRAFT', None
+    save(event)
+    audit('unpublished', event, user)
+    return event
+
+
+@sync_atomic('cloud')
+@transaction.atomic
 def duplicate_event(event, user):
     require(user, 'duplicate_event')
     source = locked(event)

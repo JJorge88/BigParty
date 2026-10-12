@@ -119,8 +119,12 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-MEDIA_URL = "/media/"
+MEDIA_URL = "/archivos-publicos/"
 MEDIA_ROOT = BASE_DIR / "media"
+# MEDIA_ROOT contiene únicamente imágenes públicas. Django aplica estos permisos
+# después de guardar aunque el servicio use una umask restrictiva para datos privados.
+FILE_UPLOAD_PERMISSIONS = 0o644
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Acceso de tablets: valores centrales compartidos por backend e interfaz.

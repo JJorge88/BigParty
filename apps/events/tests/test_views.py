@@ -49,6 +49,22 @@ class ViewTests(EventCase):
         s.cancel_event(self.event,self.manager,'Cancelado')
         self.assertEqual(self.client.get(reverse('event-public:event',args=[self.event.slug])).status_code,404)
 
+    def test_published_event_can_return_to_draft_without_committed_purchases(self):
+        self.login(); url=reverse('events:detail',args=[self.event.pk])
+        page=self.client.get(url)
+        self.assertContains(page,'Hacer evento privado')
+        response=self.client.post(url,{'action':'unpublish','confirmed':'yes'})
+        self.assertEqual(response.status_code,302)
+        self.event.refresh_from_db();self.assertEqual(self.event.status,'DRAFT')
+        self.assertEqual(self.client.get(reverse('event-public:event',args=[self.event.slug])).status_code,404)
+
+    def test_event_with_active_purchase_cannot_return_to_draft(self):
+        self.buy();self.login();url=reverse('events:detail',args=[self.event.pk])
+        response=self.client.post(url,{'action':'unpublish','confirmed':'yes'})
+        self.assertEqual(response.status_code,200)
+        self.assertContains(response,'compras activas o confirmadas')
+        self.event.refresh_from_db();self.assertEqual(self.event.status,'PUBLISHED')
+
     def test_public_mixed_purchase_post(self):
         response=self.client.post(reverse('event-public:event',args=[self.event.slug]),{f'qty_{self.general.pk}':'2',f'qty_{self.vip.pk}':'1','customer_name':'Ana','customer_phone':'55555555'})
         self.assertEqual(response.status_code,302);row=EventPurchase.objects.get();self.assertEqual(row.amount,350)
@@ -77,7 +93,7 @@ class ViewTests(EventCase):
         self.assertEqual(row.tickets.count(),0)
         response=self.client.post(url,{'action':'confirm','confirmed':'yes','confirmation':page.context['confirm_token']})
         self.assertEqual(response.status_code,302);self.assertEqual(row.tickets.count(),2)
-        self.assertContains(self.client.get(url),'Enviar WhatsApp')
+        self.assertContains(self.client.get(url),'Enviar entradas por WhatsApp')
 
     def test_tickets_portal_pdf_and_qr_no_portal_grant(self):
         tickets=self.confirm();row=tickets[0].purchase
