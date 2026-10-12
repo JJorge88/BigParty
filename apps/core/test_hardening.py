@@ -51,6 +51,32 @@ class PrivateFiles(SimpleTestCase):
         (self.base/'backups/media'/info['file_name']).write_bytes(b'not the backup')
         with self.assertRaisesMessage(CommandError,'CHECKSUM'):backups.verify(manifest)
 
+    def test_windows_zip_original_names_roundtrip(self):
+        nested = self.base / 'media' / 'eventos' / 'inauguración.png'
+        nested.parent.mkdir()
+        nested.write_bytes(picture().read())
+        original = zipfile.ZipInfo.from_file
+
+        def windows_info(*args, **kwargs):
+            info = original(*args, **kwargs)
+            # Windows normalizes filesystem paths before ZipInfo construction;
+            # filename is portable, but orig_filename keeps native separators.
+            info.orig_filename = info.filename.replace('/', '\\')
+            return info
+
+        with patch.object(zipfile.ZipInfo, 'from_file', side_effect=windows_info):
+            manifest = backups.backup_media()
+        info = backups.verify(manifest)
+        self.assertEqual(set(info['entries']), {
+            'public/banner.png', 'public/eventos/inauguración.png',
+            'reservation-proofs/proof.png'})
+        destination = self.base / 'restored-windows'
+        backups.restore_media(manifest, destination)
+        for name in info['entries']:
+            label, relative = name.split('/', 1)
+            self.assertEqual(digest_file(destination / name),
+                             digest_file(backups.media_roots()[label] / relative))
+
     def test_existing_restore_requires_both_flags(self):
         manifest=backups.backup_media();destination=self.base/'restored';destination.mkdir()
         (destination/'keep.txt').write_text('keep')

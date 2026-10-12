@@ -188,12 +188,17 @@ def backup_media():
             for name, item in files:
                 before = item.stat()
                 archive.write(item, name)
-                with archive.open(name) as stream:
-                    digest = hashlib.file_digest(stream, 'sha256').hexdigest()
                 after = item.stat()
                 if (before.st_size,before.st_mtime_ns) != (after.st_size,after.st_mtime_ns):
                     raise CommandError('MEDIA_CHANGED_DURING_BACKUP')
-                inventory[name] = {'size':after.st_size,'sha256':digest}
+                inventory[name] = {'size':after.st_size}
+        # Re-read persisted ZIP metadata: on Windows, from_file() can retain
+        # backslashes in orig_filename while writing forward slashes on disk.
+        # Reading through the writer then compares these different names.
+        with zipfile.ZipFile(partial, 'r') as archive:
+            for name, entry in inventory.items():
+                with archive.open(name) as stream:
+                    entry['sha256'] = hashlib.file_digest(stream, 'sha256').hexdigest()
         partial.chmod(0o600); os.replace(partial, path)
         info = metadata()
         if settings.DEPLOYMENT_MODE == 'local_node':
