@@ -101,6 +101,14 @@ class MapTests(OperationsTestCase):
         self.assertTrue(self.data()["has_open_day"])
         self.assertContains(self.client.get("/operacion/mesas/"), self.table.name)
 
+    def test_default_map_includes_first_and_second_level(self):
+        self.table.level = "LEVEL_1"; self.table.save(update_fields=["level"])
+        self.destination.level = "LEVEL_2"; self.destination.save(update_fields=["level"])
+        self.enter()
+        self.assertCountEqual([tile["id"] for tile in self.tiles()], [self.table.pk, self.destination.pk])
+        response = self.client.get("/operacion/mesas/?level=LEVEL_1", HTTP_ACCEPT="application/json")
+        self.assertEqual([tile["id"] for group in response.json()["groups"] for tile in group["tables"]], [self.table.pk])
+
 
 class OpenTableTests(OperationsTestCase):
     def test_single_uses_operational_identity_and_business_day(self):

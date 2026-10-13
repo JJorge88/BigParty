@@ -48,7 +48,7 @@ def _has_layout(tables):
 def get_operational_map(area, level=''):
     query = VenueTable.objects.filter(area=area, is_active=True)
     levels = list(query.exclude(level='').values_list('level', flat=True).distinct().order_by('level'))
-    if level in dict(VenueTable._meta.get_field('level').choices):
+    if level and level in dict(VenueTable._meta.get_field('level').choices):
         query = query.filter(level=level)
     else:
         level = ''
