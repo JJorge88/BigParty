@@ -374,6 +374,7 @@
   color:#dcc7a3;
   font-weight:500
 }
+.admin-base-price>span small,.admin-base-price>strong small{display:block;color:#8f958d;font-size:10px;font-weight:500;margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px}
 .admin-price-row {
   display:flex;
   align-items:center;

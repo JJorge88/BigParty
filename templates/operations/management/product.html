@@ -44,8 +44,9 @@
 <div class="admin-section-title">
 <h2>Precios por área</h2>{% if perms.catalog.change_product_price %}<a class="admin-text-link" href="{% url 'management:product-price' product.pk %}">Cambiar precio ↗</a>{% endif %}</div>
 <div class="admin-base-price">
-<span>Precio general</span>
-<strong>Q{{ product.base_price|floatformat:2 }}</strong>
+<span><small>Costo estimado</small>Q{{ purchase_cost|floatformat:2 }}</span>
+<span><small>Ganancia bruta</small>Q{{ estimated_margin|floatformat:2 }}</span>
+<strong><small>Precio de venta</small>Q{{ product.base_price|floatformat:2 }}</strong>
 </div>{% for row in areas %}<div class="admin-price-row">
 <span>{{ row.area.name }}<small>{% if row.special %}Precio especial{% else %}Usar precio general{% endif %}</small>
 </span>

@@ -32,7 +32,7 @@ class ProductForm(AutomaticSlugForm):
 
     class Meta:
         model = Product
-        fields = ('inventory_unit', 'purchase_size', 'purchase_label', 'uses_recipe', 'name', 'slug', 'category', 'base_price', 'is_active', 'visible_in_pos', 'track_inventory',
+        fields = ('inventory_unit', 'purchase_size', 'purchase_label', 'last_unit_cost', 'uses_recipe', 'name', 'slug', 'category', 'base_price', 'is_active', 'visible_in_pos', 'track_inventory',
                   'minimum_stock', 'preparation_route', 'image', 'is_combo')
 
     def __init__(self, *args, user, **kwargs):
@@ -40,7 +40,7 @@ class ProductForm(AutomaticSlugForm):
             data = args[0].copy()
             obj = kwargs.get('instance')
             for key, default in [('inventory_unit', 'unit'), ('purchase_size', 1), ('purchase_label', 'unidad'),
-                                 ('minimum_stock', 0), ('preparation_route', 'NONE')]:
+                                 ('last_unit_cost', None), ('minimum_stock', 0), ('preparation_route', 'NONE')]:
                 data.setdefault(key, getattr(obj, key, default))
             args = (data, *args[1:])
         super().__init__(*args, **kwargs)
@@ -54,6 +54,9 @@ class ProductForm(AutomaticSlugForm):
         self.fields['name'].widget.attrs['placeholder'] = 'Ej. Mojito clásico'
         self.fields['category'].label = '¿En qué categoría va?'
         self.fields['base_price'].label = 'Precio de venta (Q)'
+        self.fields['last_unit_cost'].label = 'Costo de compra o preparación (Q)'
+        self.fields['last_unit_cost'].help_text = 'Costo de una unidad. En un combo lo calculamos con los productos incluidos.'
+        self.fields['last_unit_cost'].required = False
         self.fields['preparation_route'].label = '¿Dónde se prepara?'
         self.fields['track_inventory'].label = 'Llevar conteo de las unidades disponibles'
         self.fields['track_inventory'].help_text = 'Descuenta unidades con las ventas. Déjalo desactivado si no llevas conteo de este producto.'
@@ -82,6 +85,10 @@ class ProductForm(AutomaticSlugForm):
                 'is_combo': sale_type == 'COMBO',
                 'preparation_route': 'AREA_BAR' if sale_type == 'DRINK' else 'KITCHEN' if sale_type == 'FOOD' else 'NONE',
             })
+            if sale_type == 'COMBO':
+                data['last_unit_cost'] = 0
+            elif data.get('last_unit_cost') is None:
+                self.add_error('last_unit_cost', 'Escribe el costo de compra o preparación de una unidad.')
         if data.get('initial_stock') and (not data.get('track_inventory') or data.get('is_combo')):
             self.add_error('initial_stock', 'Las existencias iniciales requieren control de inventario y un producto que no sea combo.')
         return data
@@ -175,11 +182,15 @@ class StockEntryForm(StockForm):
 class ProductQuickForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ('base_price', 'image', 'is_active', 'visible_in_pos')
-        labels = {'base_price': 'Precio de venta (Q)', 'image': 'Foto del producto',
+        fields = ('last_unit_cost', 'base_price', 'image', 'is_active', 'visible_in_pos')
+        labels = {'last_unit_cost': 'Costo de compra o preparación (Q)', 'base_price': 'Precio de venta (Q)', 'image': 'Foto del producto',
                   'is_active': 'Producto activo', 'visible_in_pos': 'Mostrar en el menú de ventas'}
 
     def __init__(self, *args, user, **kwargs):
+        if args and args[0] is not None:
+            data = args[0].copy()
+            data.setdefault('last_unit_cost', kwargs.get('instance').last_unit_cost)
+            args = (data, *args[1:])
         super().__init__(*args, **kwargs)
         if not user.has_perm('catalog.change_product_price'):
             del self.fields['base_price']

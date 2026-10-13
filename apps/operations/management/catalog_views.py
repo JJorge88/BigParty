@@ -16,6 +16,14 @@ from . import security, catalog_forms as forms
 from .views import page
 
 
+def product_cost(product):
+    if product.is_combo:
+        return sum((row.quantity * row.component.last_unit_cost for row in product.combo_components.all()), 0)
+    if product.uses_recipe:
+        return sum((row.quantity * row.ingredient.last_unit_cost for row in product.recipe_ingredients.all()), 0)
+    return product.last_unit_cost
+
+
 def stock_state(product):
     if product.uses_recipe:
         return ('recipe', 'Descuenta ingredientes')
@@ -85,7 +93,7 @@ def paginate(request, rows):
 @security.required
 def inventory(request):
     security.require(request.user, 'inventory.view_inventory')
-    products = Product.objects.select_related('category')
+    products = Product.objects.select_related('category').prefetch_related('combo_components__component', 'recipe_ingredients__ingredient')
     active = products.filter(is_active=True)
     low = Q(track_inventory=True, stock_quantity__gt=0, stock_quantity__lte=F('minimum_stock'))
     out = Q(track_inventory=True, stock_quantity=0)
@@ -105,6 +113,7 @@ def inventory(request):
     data.update(paginate(request, products))
     for obj in [*data['rows'], *data['attention']]:
         obj.state_code, obj.state_label = stock_state(obj)
+        obj.purchase_cost_display = product_cost(obj)
     return page(request, 'inventory', data, section='inventario')
 
 
@@ -114,6 +123,7 @@ def product(request, pk):
     security.require(request.user, 'inventory.view_inventory')
     obj = get_object_or_404(services.catalog_products().prefetch_related('modifier_groups__options'), pk=pk)
     obj.state_code, obj.state_label = stock_state(obj)
+    purchase_cost = product_cost(obj)
     overrides = {row.area_id: row.price for row in obj.area_prices.all()}
     maximum = services.get_combo_max_available(obj) if obj.is_combo else None
     inventory_explanation = ('Descuenta los ingredientes de su receta.' if obj.uses_recipe else
@@ -124,7 +134,8 @@ def product(request, pk):
         'history': obj.price_history.select_related('area', 'changed_by')[:15],
         'movements': obj.inventory_movements.select_related('user')[:10],
         'maximum': maximum, 'combo_available': maximum is None or maximum > 0,
-        'inventory_explanation': inventory_explanation}, section='inventario')
+        'inventory_explanation': inventory_explanation, 'purchase_cost': purchase_cost,
+        'estimated_margin': obj.base_price - purchase_cost}, section='inventario')
 
 
 @require_http_methods(['GET', 'POST'])
@@ -153,7 +164,7 @@ def product_edit(request, pk=None):
         'subtitle': 'Escribe el nombre, elige la categoría y coloca el precio.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
-        'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'base_price', 'sale_type', 'initial_stock') if key in form.fields])],
+        'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'last_unit_cost', 'base_price', 'sale_type', 'initial_stock') if key in form.fields])],
         'advanced_fields': [form[key] for key in ((('preparation_route', 'track_inventory', 'is_combo', 'uses_recipe') if pk else ()) +
             ('minimum_stock', 'inventory_unit', 'purchase_size', 'purchase_label',
              'image', 'is_active', 'visible_in_pos', 'slug')) if key in form.fields],

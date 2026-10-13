@@ -118,7 +118,7 @@ class ManagerWorkflowTests(AdministrationCase):
 
     def test_short_product_form_and_actionable_inventory_task(self):
         response = self.client.get(self.url('product-create'))
-        self.assertEqual([f.name for f in response.context['fieldsets'][0][1]], ['name', 'category', 'base_price', 'sale_type', 'initial_stock'])
+        self.assertEqual([f.name for f in response.context['fieldsets'][0][1]], ['name', 'category', 'last_unit_cost', 'base_price', 'sale_type', 'initial_stock'])
         self.assertContains(response, 'Solo cuatro decisiones')
         self.assertContains(response, 'Opciones avanzadas: inventario, preparación y foto')
         self.assertNotContains(response, '¿Qué vas a vender?')
@@ -129,13 +129,14 @@ class ManagerWorkflowTests(AdministrationCase):
         self.assertNotContains(self.client.get(self.url('home')), '?state=low')
 
     def test_product_type_applies_simple_inventory_rules(self):
-        common = {'category': self.category.pk, 'base_price': '25', 'name': 'Cerveza', 'sale_type': 'UNIT',
+        common = {'category': self.category.pk, 'last_unit_cost': '10', 'base_price': '25', 'name': 'Cerveza', 'sale_type': 'UNIT',
                   'is_active': 'on', 'visible_in_pos': 'on'}
         response = self.client.post(self.url('product-create'), common)
         self.assertEqual(response.status_code, 302, response.context['form'].errors if response.context else None)
         unit = Product.objects.get(name='Cerveza')
         self.assertTrue(unit.track_inventory)
         self.assertFalse(unit.uses_recipe)
+        self.assertEqual(unit.last_unit_cost, 10)
         response = self.client.post(self.url('product-create'), {**common, 'name': 'Mojito', 'sale_type': 'DRINK'})
         drink = Product.objects.get(name='Mojito')
         self.assertRedirects(response, self.url('product-recipe', drink.pk))

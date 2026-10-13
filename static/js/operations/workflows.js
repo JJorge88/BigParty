@@ -41,6 +41,7 @@ if(productSetup){
   const saleType=productSetup.querySelector('[name="sale_type"]:checked')||productSetup.querySelector('#id_sale_type');
   const tracked=tracking?tracking.checked:saleType?.value==='UNIT';
   for(const name of ['initial_stock','minimum_stock','inventory_unit','purchase_size','purchase_label']){const box=productSetup.querySelector(`[data-field="${name}"]`);if(box)box.hidden=!tracked;}
+  const costBox=productSetup.querySelector('[data-field="last_unit_cost"]');if(costBox){const combo=saleType?.value==='COMBO';costBox.hidden=combo;costBox.querySelector('input').disabled=combo;}
   const help=productSetup.querySelector('[data-product-type-help]');if(help)help.textContent=typeHelp[saleType?.value]||'';
   const comboBuilder=productSetup.querySelector('[data-combo-builder]');
   if(comboBuilder){const combo=saleType?.value==='COMBO';comboBuilder.hidden=!combo;comboBuilder.querySelectorAll('select,input').forEach(field=>field.disabled=!combo);const firstSelect=comboBuilder.querySelector('select');if(firstSelect)firstSelect.required=combo;}
@@ -70,7 +71,7 @@ for(const form of document.querySelectorAll('[data-reservation-setup]')){
  form.addEventListener('submit',event=>{
   if(approved){approved=false;return;}
   event.preventDefault();submitter=event.submitter;summary.replaceChildren();
-  const names=form.matches('[data-product-setup]')?['name','category','base_price','preparation_route','track_inventory','initial_stock','uses_recipe','inventory_unit','purchase_size','purchase_label','visible_in_pos']:['date','time','duration','party_size','table','customer_name','customer_phone','payment_required','payment_type','payment_value','payment_application'];
+  const names=form.matches('[data-product-setup]')?['name','category','last_unit_cost','base_price','preparation_route','track_inventory','initial_stock','uses_recipe','inventory_unit','purchase_size','purchase_label','visible_in_pos']:['date','time','duration','party_size','table','customer_name','customer_phone','payment_required','payment_type','payment_value','payment_application'];
   for(const name of names){
    const field=form.querySelector(`[name="${name}"]`);if(!field)continue;
    if(name.startsWith('payment_')&&name!=='payment_required'&&!form.querySelector('[name="payment_required"]').checked)continue;

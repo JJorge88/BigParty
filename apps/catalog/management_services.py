@@ -6,7 +6,7 @@ from apps.audit.models import AuditLog
 from .models import Category, Product, ModifierGroup, ModifierOption, ComboComponent
 from .services import update_base_price
 
-PRODUCT_FIELDS = ('inventory_unit', 'purchase_size', 'purchase_label', 'uses_recipe', 'barcode', 'name', 'slug', 'category', 'is_active', 'visible_in_pos', 'track_inventory',
+PRODUCT_FIELDS = ('inventory_unit', 'purchase_size', 'purchase_label', 'last_unit_cost', 'uses_recipe', 'barcode', 'name', 'slug', 'category', 'is_active', 'visible_in_pos', 'track_inventory',
                   'minimum_stock', 'preparation_route', 'image', 'is_combo')
 FIELDS = {
     Category: ('name', 'slug', 'description', 'sort_order', 'is_active'),

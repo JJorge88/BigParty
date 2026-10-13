@@ -49,7 +49,7 @@ class AdministrationCase(TestCase):
         self.manager = User.objects.get(pk=self.manager.pk)
 
     def product_data(self, **extra):
-        return {'name': 'Gallo', 'slug': 'gallo', 'category': self.category.pk, 'base_price': '25',
+        return {'name': 'Gallo', 'slug': 'gallo', 'category': self.category.pk, 'last_unit_cost': '12', 'base_price': '25',
                 'minimum_stock': 6, 'preparation_route': 'NONE', 'track_inventory': 'on', 'is_active': 'on',
                 'visible_in_pos': 'on', **extra}
 
