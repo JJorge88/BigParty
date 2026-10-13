@@ -3,6 +3,7 @@ from . import views
 app_name = 'printing'
 urlpatterns = [
     path('',views.printers,name='printers'),
+    path('nueva/',views.configure,name='create'),
     path('<int:pk>/',views.configure,name='configure'),
     path('<int:pk>/prueba/',views.test,name='test'),
     path('trabajos/',views.jobs,name='jobs'),

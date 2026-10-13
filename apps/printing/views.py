@@ -9,6 +9,7 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils.text import slugify
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from apps.orders.models import TableOrder
@@ -36,11 +37,9 @@ def verify_token(value, user, kind, target):
 
 def technical(view):
     @wraps(view)
-    @login_required(login_url='admin:login')
+    @login_required(login_url='management:login')
     @never_cache
     def wrapped(request,*args,**kwargs):
-        if not request.user.is_staff:
-            raise PermissionDenied
         services.require(request.user,'manage_printers')
         return view(request,*args,**kwargs)
     return wrapped
@@ -50,20 +49,28 @@ def technical(view):
 @technical
 def printers(request):
     rows = [{'printer':p,'state':services.get_printer_status(p)} for p in Printer.objects.all()]
-    return render(request,'printing/printers.html',{'rows':rows,'can_test':request.user.has_perm('printing.test_printer')})
+    return render(request,'printing/printers.html',{'rows':rows,'can_test':request.user.has_perm('printing.test_printer'),
+        'network_enabled': settings.PRINTER_BACKEND == 'network'})
 
 
 @require_http_methods(['GET','POST'])
 @technical
-def configure(request, pk):
-    printer = get_object_or_404(Printer,pk=pk)
+def configure(request, pk=None):
+    printer = get_object_or_404(Printer,pk=pk) if pk else Printer(port=9100,encoding='ascii',transliterate=True,is_active=True)
     form = PrinterForm(request.POST or None,instance=printer)
     if request.method == 'POST' and form.is_valid():
         with transaction.atomic():
-            form.save()
+            printer = form.save(commit=False)
+            if not printer.pk:
+                base = slugify(printer.name)[:32] or 'impresora'
+                code, number = base, 2
+                while Printer.objects.filter(code=code).exists():
+                    code, number = f'{base}-{number}', number + 1
+                printer.code = code
+            printer.save()
             from apps.audit.models import AuditLog
             AuditLog.objects.create(user=request.user,action='printing.printer_configured',entity='printing.printer',entity_id=str(printer.pk),data={'changed_fields':form.changed_data})
-        messages.success(request,'Configuración guardada.')
+        messages.success(request,'Impresora guardada. Ahora imprime una prueba.')
         return redirect('printing:printers')
     return render(request,'printing/configure.html',{'form':form,'printer':printer})
 

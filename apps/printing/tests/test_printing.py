@@ -239,7 +239,7 @@ class PrinterAndRoutingTests(OrdersTestCase):
         orders.update_sent_line_note(food,'Sin sal',self.user)
         original.refresh_from_db(); self.assertEqual(original.payload_snapshot,snapshot)
 
-    def test_configuration_and_test_require_staff_permission_and_post(self):
+    def test_configuration_uses_business_permission_and_test_requires_post(self):
         self.client.force_login(self.user)
         self.assertEqual(self.client.get('/impresoras/').status_code,200)
         self.assertEqual(self.client.get(f'/impresoras/{self.bar.pk}/prueba/').status_code,405)
@@ -248,6 +248,18 @@ class PrinterAndRoutingTests(OrdersTestCase):
         user=get_user_model().objects.create_user(username='staff',is_staff=True,role='CAJERO')
         self.client.force_login(user)
         self.assertEqual(self.client.get('/impresoras/').status_code,403)
+        user.user_permissions.add(Permission.objects.get(codename='manage_printers'))
+        self.assertEqual(self.client.get('/impresoras/').status_code,200)
+
+    def test_manager_can_create_network_printer_without_admin(self):
+        self.client.force_login(self.user)
+        response = self.client.post('/impresoras/nueva/', {
+            'name': 'Disco', 'printer_type': 'BAR', 'area': self.other_area.pk,
+            'host': '192.168.1.80', 'paper_width': '80', 'port': 9100,
+            'encoding': 'ascii', 'transliterate': 'on', 'is_active': 'on'})
+        self.assertRedirects(response, '/impresoras/')
+        printer = Printer.objects.get(name='Disco')
+        self.assertEqual((printer.area, printer.host, printer.code), (self.other_area, '192.168.1.80', 'disco'))
 
     def test_csrf_enforced_on_test_action(self):
         from django.test import Client
