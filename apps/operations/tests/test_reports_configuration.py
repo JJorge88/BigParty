@@ -123,6 +123,18 @@ class ReportsConfigurationTests(CashTestCase):
         for url in ['/gerencia/reportes/','/gerencia/configuracion/','/gerencia/auditoria/'] + [f'/gerencia/reportes/{kind}/' for kind in reports.REPORTS]:
             with self.subTest(url=url): self.assertEqual(self.client.get(url).status_code,200)
 
+    def test_report_hub_groups_choices_and_contextual_help(self):
+        hub = self.client.get('/gerencia/reportes/')
+        self.assertEqual([group['title'] for group in hub.context['report_groups']],
+            ['Ventas y operación', 'Control', 'Clientes y eventos'])
+        self.assertContains(hub, 'Operación actual')
+        self.assertContains(hub, 'Elige las fechas una vez')
+        summary = self.client.get('/gerencia/reportes/jornada/')
+        self.assertContains(summary, 'Para leer correctamente el resumen')
+        self.assertContains(summary, 'Todos los reportes')
+        products = self.client.get('/gerencia/reportes/productos/')
+        self.assertNotContains(products, 'Los pagos por verificar ya forman parte')
+
     def test_explicit_permissions_even_manager(self):
         self.manager.user_permissions.clear()
         for url in ['/gerencia/reportes/','/gerencia/reportes/jornada/','/gerencia/reportes/jornada/pdf/','/gerencia/auditoria/','/gerencia/configuracion/','/gerencia/configuracion/bank/']:

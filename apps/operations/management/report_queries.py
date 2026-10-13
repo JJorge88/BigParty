@@ -30,10 +30,15 @@ REPORTS = {'jornada': ('Resumen de ventas', 'Ventas, cobros y resultados de la o
            'ajustes': ('Descuentos y cortesías', 'Ajustes autorizados sobre el consumo.'),
            'reservas': ('Reservas', 'Solicitudes, llegadas y anticipos por aplicación.'),
            'eventos': ('Eventos', 'Entradas, accesos e ingresos confirmados.')}
+REPORT_GROUPS = (
+    ('Ventas y operación', 'Lo principal para revisar cómo trabajó el negocio.', ('jornada', 'productos', 'areas', 'meseros', 'cajas', 'pagos')),
+    ('Control', 'Movimientos que requieren explicación o seguimiento.', ('cancelaciones', 'ajustes')),
+    ('Clientes y eventos', 'Reservas, anticipos, entradas y accesos.', ('reservas', 'eventos')),
+)
 
 
 class PeriodForm(forms.Form):
-    period = forms.ChoiceField(label='Periodo', choices=[('current', 'Período en curso'), ('day', 'Período por fecha de inicio'), ('range', 'Rango de fechas de inicio')])
+    period = forms.ChoiceField(label='¿Qué fechas quieres ver?', choices=[('current', 'Operación actual'), ('day', 'Un día específico'), ('range', 'Varias fechas')])
     start = forms.DateField(label='Desde', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
     end = forms.DateField(label='Hasta', required=False, widget=forms.DateInput(attrs={'type': 'date'}))
 

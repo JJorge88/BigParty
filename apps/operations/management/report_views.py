@@ -23,7 +23,11 @@ def hub(request):
     valid = form.is_valid()
     period = queries.Period(form.cleaned_data) if valid else None
     params = request.GET.copy(); params.pop('page', None)
-    return page(request, 'reports', dict(form=form, period=period, report_cards=[dict(code=code, title=title, description=description) for code,(title,description) in queries.REPORTS.items()], filter_query=params.urlencode()), section='reportes')
+    groups = [dict(title=title, description=description,
+        cards=[dict(code=code, title=queries.REPORTS[code][0], description=queries.REPORTS[code][1]) for code in codes])
+        for title, description, codes in queries.REPORT_GROUPS]
+    return page(request, 'reports', dict(form=form, period=period, report_groups=groups,
+        filter_query=params.urlencode()), section='reportes')
 
 
 @require_GET

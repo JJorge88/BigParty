@@ -1,2 +1,2 @@
-<form method="get" class="admin-panel admin-context report-filters" aria-label="Periodo del reporte">{{ form.as_div }}<button class="admin-button admin-button--primary">Consultar</button></form>
-{% if period %}<p class="admin-help">{{ period.label }} · Las ventas conservan su fecha comercial incluso después de medianoche.</p>{% endif %}
+<form method="get" class="admin-panel admin-context report-filters" aria-label="Fechas del reporte" data-report-period>{{ form.as_div }}<button class="admin-button admin-button--primary">Actualizar</button></form>
+{% if period %}<p class="report-period-label"><span class="status-dot"></span><strong>{{ period.label }}</strong><span>Las ventas conservan su fecha de operación aunque terminen después de medianoche.</span></p>{% endif %}

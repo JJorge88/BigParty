@@ -8,5 +8,4 @@
 
 {% block admin_content %}{% endblock %}
 {% endblock %}
-{% block scripts %}{{ block.super }}<script type="module" src="{% static 'js/operations/administration.js' %}?v=waiter-area-1">
-</script>{% endblock %}
+{% block scripts %}{{ block.super }}<script type="module" src="{% static 'js/operations/administration.js' %}?v=waiter-area-1"></script><script type="module" src="{% static 'js/operations/reports.js' %}?v=reports-simple-1"></script>{% endblock %}
