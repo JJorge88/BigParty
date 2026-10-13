@@ -10,8 +10,18 @@ from .locking import file_lock
 def limit_for(path):
     if path.startswith('/api/sync/v1/'):return 'sync',settings.RATE_LIMIT_SYNC
     if path == '/ingresar/':return 'login-router',settings.RATE_LIMIT_LOGIN
-    if path in ('/gerencia/acceso/','/acceso/ingresar/','/caja/acceso/','/operacion/acceso/','/tablet/','/admin/login/'):
-        return 'login',settings.RATE_LIMIT_LOGIN
+    # Cada puerta conserva su propia protección. Un PIN equivocado en tablets o
+    # caja nunca debe impedir que el gerente entre desde la misma conexión.
+    login_scopes = {
+        '/gerencia/acceso/': 'management-login',
+        '/admin/login/': 'django-admin-login',
+        '/acceso/ingresar/': 'unified-login',
+        '/caja/acceso/': 'cash-login',
+        '/operacion/acceso/': 'tablet-login',
+        '/tablet/': 'tablet-router',
+    }
+    if path in login_scopes:
+        return login_scopes[path],settings.RATE_LIMIT_LOGIN
     if path.startswith(('/eventos/compra/','/reservas/r/')):return 'upload',settings.RATE_LIMIT_UPLOAD
     if path.startswith('/reservas/') or path.startswith('/eventos/'):
         return 'public',settings.RATE_LIMIT_PUBLIC

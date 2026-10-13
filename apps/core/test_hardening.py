@@ -201,6 +201,15 @@ class PrivateFiles(SimpleTestCase):
             self.assertEqual(middleware(factory.post('/gerencia/acceso/',REMOTE_ADDR='10.0.0.1')).status_code,200)
         for path in (self.base/'state/rate-limits').glob('*.json'):self.assertNotIn('10.0.0.',path.read_text())
 
+    @override_settings(RATE_LIMIT_ENABLED=True,RATE_LIMIT_LOGIN=1,RATE_LIMIT_WINDOW_SECONDS=300)
+    def test_tablet_failures_do_not_block_management_login(self):
+        middleware=OperationsSecurityMiddleware(lambda request:HttpResponse('ok'))
+        factory=RequestFactory()
+        address='10.0.0.8'
+        self.assertEqual(middleware(factory.post('/tablet/',REMOTE_ADDR=address)).status_code,200)
+        self.assertEqual(middleware(factory.post('/tablet/',REMOTE_ADDR=address)).status_code,429)
+        self.assertEqual(middleware(factory.post('/gerencia/acceso/',REMOTE_ADDR=address)).status_code,200)
+
     def test_all_abuse_routes_scoped(self):
         for path in ('/ingresar/','/tablet/','/gerencia/acceso/','/operacion/acceso/','/caja/acceso/','/acceso/ingresar/','/reservas/datos/','/eventos/night/comprar/','/reservas/r/token/','/eventos/compra/token/','/api/sync/v1/push/'):
             self.assertIsNotNone(throttle.limit_for(path),path)
