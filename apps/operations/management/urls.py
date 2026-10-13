@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, catalog_views as catalog, user_views as users, table_views as tables, workflows
+from . import views, catalog_views as catalog, user_views as users, table_views as tables, workflows, register_views as registers
 app_name = 'management'
 urlpatterns = [
     path('agregar/', workflows.hub, name='add'),
@@ -54,6 +54,9 @@ urlpatterns += [
     path('usuarios/<int:pk>/password/', users.credential, {'kind': 'password'}, name='user-password'),
     path('usuarios/<int:pk>/estado/', users.user_state, name='user-state'),
     path('usuarios/<int:pk>/permisos/', users.user_permissions, name='user-permissions'),
+    path('cajas/', registers.listing, name='registers'),
+    path('cajas/crear/', registers.edit, name='register-create'),
+    path('cajas/<int:pk>/editar/', registers.edit, name='register-edit'),
 ]
 
 from . import configuration_views as configuration, report_views as reports, audit_views as audit

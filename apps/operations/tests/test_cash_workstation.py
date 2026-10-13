@@ -75,14 +75,28 @@ class CashWorkstationTests(CashTestCase):
         self.assertContains(response, "Esta computadora aún no está configurada como caja.")
         self.assertNotContains(response, "Venta rápida")
 
-    def test_configure_requires_staff_permission(self):
+    def test_configure_requires_business_permission_not_staff_status(self):
         self.assertEqual(Client().post("/caja/configurar/", {}).status_code, 302)
         self.client.force_login(self.cashier)
         self.assertEqual(self.client.get("/caja/configurar/").status_code, 403)
-        self.cashier.is_staff = True; self.cashier.save()
         self.assertEqual(self.client.post("/caja/configurar/", {"register": self.station.pk}).status_code, 403)
         self.cashier.user_permissions.add(Permission.objects.get(codename="configure_cash_register_device"))
         self.assertEqual(self.client.post("/caja/configurar/", {"register": self.station.pk}).status_code, 302)
+
+    def test_two_browsers_bind_to_different_registers_and_open_session_blocks_change(self):
+        second = self.register("PREMIUM", self.other_area)
+        first_client, second_client = Client(), Client()
+        self.configure(first_client, self.station)
+        self.configure(second_client, second)
+        first_binding = signing.loads(first_client.cookies[security.REGISTER_COOKIE].value, salt=security.REGISTER_SALT)
+        second_binding = signing.loads(second_client.cookies[security.REGISTER_COOKIE].value, salt=security.REGISTER_SALT)
+        self.assertEqual(first_binding['register'], self.station.pk)
+        self.assertEqual(second_binding['register'], second.pk)
+        self.login(first_client); self.open_cash(client=first_client)
+        first_client.force_login(self.user)
+        response = first_client.post('/caja/configurar/', {'register': second.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'Cierra la sesión abierta')
 
     def test_binding_cookie_signed_scoped_and_private(self):
         self.client.force_login(self.user)

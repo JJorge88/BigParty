@@ -859,3 +859,10 @@
 .opening-hours-form .admin-fields{grid-template-columns:repeat(4,minmax(0,1fr))}
 .opening-hours-form .admin-form-section{padding-bottom:20px;margin-bottom:20px}
 @media(max-width:760px){.opening-hours-form .admin-fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.register-setup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px}
+.register-setup-card{display:flex;align-items:center;justify-content:space-between;gap:20px;border:1px solid #393a38;border-radius:10px;padding:20px;background:#171819}
+.register-setup-card h3{margin:12px 0 5px}.register-setup-card p{margin:0;color:#a9aaa9}
+.admin-empty-state{grid-column:1/-1;text-align:center;border:1px dashed #4a4b48;border-radius:10px;padding:38px 22px}
+.admin-empty-state h3{margin-top:0}.admin-empty-state .admin-button{margin-top:12px}
+@media(max-width:700px){.register-setup-grid{grid-template-columns:1fr}.register-setup-card{align-items:flex-start;flex-direction:column}}

@@ -4,7 +4,7 @@
 {% block management_content %}
 <div class="admin-breadcrumb">
 <a href="{% url 'management:home' %}">Inicio</a>
-<span> / </span>{% if section == 'agregar' %}<a href="{% url 'management:add' %}">Agregar</a>{% elif section == 'mesas' %}<a href="{% url 'management:tables' %}">Mesas</a>{% elif section == 'inventario' %}<a href="{% url 'management:inventory' %}">Inventario</a>{% elif section == 'reportes' %}<a href="{% url 'management:reports' %}">Reportes</a>{% elif section == 'auditoria' %}<a href="{% url 'management:audit' %}">Auditoría</a>{% elif section == 'configuracion' %}<a href="{% url 'management:configuration' %}">Configuración</a>{% else %}<a href="{% url 'management:users' %}">Usuarios</a>{% endif %}</div>
+<span> / </span>{% if section == 'agregar' %}<a href="{% url 'management:add' %}">Agregar</a>{% elif section == 'mesas' %}<a href="{% url 'management:tables' %}">Mesas</a>{% elif section == 'inventario' %}<a href="{% url 'management:inventory' %}">Inventario</a>{% elif section == 'cajas' %}<a href="{% url 'management:registers' %}">Cajas y computadoras</a>{% elif section == 'reportes' %}<a href="{% url 'management:reports' %}">Reportes</a>{% elif section == 'auditoria' %}<a href="{% url 'management:audit' %}">Auditoría</a>{% elif section == 'configuracion' %}<a href="{% url 'management:configuration' %}">Configuración</a>{% else %}<a href="{% url 'management:users' %}">Usuarios</a>{% endif %}</div>
 
 {% block admin_content %}{% endblock %}
 {% endblock %}

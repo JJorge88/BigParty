@@ -110,7 +110,7 @@ def access_context(request, message=None):
     binding = security.identity(request)
     return {"register_name": binding[0].name if binding else None,
         "candidates": security.candidates() if binding else [], "error": message,
-        "can_configure": request.user.is_authenticated and request.user.is_staff and request.user.has_perm("cash.configure_cash_register_device")}
+        "can_configure": request.user.is_authenticated and request.user.is_active and request.user.has_perm("cash.configure_cash_register_device")}
 
 
 @never_cache
@@ -133,24 +133,32 @@ def access(request):
 
 
 @never_cache
-@login_required(login_url="admin:login")
+@login_required(login_url="management:login")
 @require_http_methods(["GET", "POST"])
 @transaction.atomic
 def configure(request):
-    if not request.user.is_active or not request.user.is_staff or not request.user.has_perm("cash.configure_cash_register_device"):
+    if not request.user.is_active or not request.user.has_perm("cash.configure_cash_register_device"):
         raise PermissionDenied
     # Misma puerta que desactivar estaciones: no emitir una vinculación obsoleta.
     security.lock_operation_gate()
     form = ConfigurationForm(request.POST or None)
+    current = security.identity(request)
     if request.method == "POST" and form.is_valid():
         register = form.cleaned_data["register"]
-        security.revoke(request)
-        response = redirect("cash_operations:access")
-        security.set_register(response, register)
-        security.delete_access(response)
-        security.audit(request.user, register, "browser_configured")
-        return response
-    return render(request, "operations/cash/configure.html", {"form": form})
+        current_register = current[0] if current else None
+        if current_register and current_register.pk != register.pk and current_register.sessions.filter(status="OPEN").exists():
+            form.add_error("register", "Cierra la sesión abierta de la caja actual antes de cambiar esta computadora.")
+        elif register.sessions.filter(status="OPEN").exists() and (not current_register or current_register.pk != register.pk):
+            form.add_error("register", "Esta caja tiene una sesión abierta en otra computadora. Ciérrala antes de vincular este navegador.")
+        else:
+            security.revoke(request)
+            response = redirect("cash_operations:access")
+            security.set_register(response, register)
+            security.delete_access(response)
+            security.audit(request.user, register, "browser_configured")
+            return response
+    return render(request, "operations/cash/configure.html", {"form": form,
+        "registers": form.fields["register"].queryset, "current_register": current[0] if current else None})
 
 
 @never_cache

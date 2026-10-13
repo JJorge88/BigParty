@@ -206,8 +206,8 @@ class UserInterfaceTests(AdministrationCase):
         self.assertEqual(self.client.get(self.url('users'), {'role': 'inactive'}).context['rows'].paginator.count, 1)
         self.revoke('view_user'); self.assertEqual(self.client.get(self.url('users')).status_code, 403)
 
-    def test_create_each_role_credentials_hashed_and_no_auto_permissions(self):
-        for role in User.Role.values:
+    def test_create_daily_roles_hashes_credentials_and_applies_role_permissions(self):
+        for role in ('GERENTE', 'CAJERO', 'PROPIETARIO'):
             with self.subTest(role=role):
                 value = PASSWORD if role in ('GERENTE', 'PROPIETARIO') else '0523'
                 response = self.client.post(self.url('user-create'), {'username': 'new_' + role, 'first_name': 'Nueva',
@@ -216,7 +216,8 @@ class UserInterfaceTests(AdministrationCase):
                     'is_staff': 'on', 'is_superuser': 'on'})
                 self.assertEqual(response.status_code, 302)
                 row = User.objects.get(username='new_' + role)
-                self.assertFalse(row.is_staff); self.assertFalse(row.is_superuser); self.assertEqual(row.user_permissions.count(), 0)
+                self.assertFalse(row.is_staff); self.assertFalse(row.is_superuser)
+                self.assertEqual(users.codes(row), permissions.suggested(role))
                 self.assertTrue(row.check_password(value) if role in ('GERENTE', 'PROPIETARIO') else row.check_pin(value))
                 self.assertNotIn(value, json.dumps(list(AuditLog.objects.filter(entity_id=str(row.pk), entity='accounts.user').values('data'))))
 
@@ -225,6 +226,13 @@ class UserInterfaceTests(AdministrationCase):
                      dict(role='GERENTE', password='12345678', confirm='12345678'), dict(role='GUARDIA', pin='1234', confirm='1111')]:
             self.assertEqual(self.client.post(self.url('user-create'), {'username': 'invalid', 'is_active': 'on', **data}).status_code, 400)
         self.assertFalse(User.objects.filter(username='invalid').exists())
+
+    def test_creation_form_hides_technical_roles_and_explains_cashier(self):
+        response = self.client.get(self.url('user-create'), {'role': 'CAJERO'})
+        self.assertContains(response, 'Cajero')
+        self.assertContains(response, 'El cajero es la persona')
+        self.assertNotContains(response, '<option value="MESERO"')
+        self.assertNotContains(response, '<option value="GUARDIA"')
 
     def test_reset_pin_hash_secret_free_and_post_only(self):
         url = self.url('user-pin', self.worker.pk)

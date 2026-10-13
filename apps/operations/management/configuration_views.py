@@ -94,7 +94,7 @@ def hub(request):
     card('Eventos', f'Retención {event.purchase_hold_minutes} min · ventana de pago {event.payment_window_minutes} min', 'events.change_event', 'events:settings')
     card('Mesas', 'Crea mesas y organiza su ubicación, forma y capacidad por área.', 'tables.view_venuetable', 'management:tables')
     card('Impresoras', f'{Printer.objects.count()} registradas · {Printer.objects.exclude(host="").count()} configuradas en red · {PrintJob.objects.filter(status="FAILED", printer__isnull=False, created_at__gte=timezone.now()-timedelta(days=7)).values("printer_id").distinct().count()} con fallos recientes (7 días)', 'printing.manage_printers', 'printing:printers')
-    card('Dispositivos', f'{OperationalDevice.objects.count()} dispositivos operativos · {CashRegister.objects.count()} cajas registradas. La vinculación de navegadores conserva sus controles actuales.')
+    card('Cajas y computadoras', f'{CashRegister.objects.count()} cajas registradas. Crea cajas y configura el navegador de cada computadora.', 'cash.view_cashregister', 'management:registers')
     card('Seguridad y accesos', 'Usuarios, credenciales y permisos individuales.', 'accounts.view_user', 'management:users')
     if request.user.is_staff:
         if request.user.has_perm('operations.view_operationaldevice'):

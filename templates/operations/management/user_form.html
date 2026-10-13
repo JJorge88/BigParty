@@ -3,13 +3,13 @@
 <div>
 <span class="eyebrow">EQUIPO Y ACCESOS</span>
 <h1>{{ title }}</h1>
-<p>Información de la persona y su rol en la operación.</p>
+<p>Información de la persona y su función en la operación.</p>
 </div>
 <a class="admin-button" href="{{ back }}">← Volver</a>
 </header>
 <div class="admin-form-layout">
 <section class="admin-panel admin-form-panel">
-<div class="flow-form-guide"><span><strong>1.</strong> Datos de la persona</span><span><strong>2.</strong> Acceso según su rol</span><span><strong>3.</strong> Revisar permisos al terminar</span></div><form method="post" data-user-form data-flow-form>{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">{% include 'operations/management/partials/admin_fields.html' %}<div class="admin-form-footer">
+<div class="flow-form-guide"><span><strong>1.</strong> Datos de la persona</span><span><strong>2.</strong> Elige su función</span><span><strong>3.</strong> Define su acceso privado</span></div><form method="post" data-user-form data-flow-form>{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">{% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}{% include 'operations/management/partials/admin_fields.html' %}<div class="admin-form-footer">
 <a href="{{ back }}">Cancelar</a>
 <button class="admin-button admin-button--primary">Guardar usuario</button>
 </div>
@@ -18,12 +18,10 @@
 <aside class="admin-panel admin-context">
 <span class="eyebrow">ACCESO SEGURO</span>
 <h2>Cada persona, su acceso</h2>
-<p>Meseros, cajeros y guardias ingresan con un PIN de 4 a 6 dígitos.</p>
+<p>El cajero es la persona. La caja es la computadora o puesto donde trabaja.</p><p>El PIN del cajero se escribe en privado y nunca se vuelve a mostrar.</p>
 <p>Gerentes y propietarios necesitan una contraseña segura para entrar a Gerencia.</p>
 <div class="admin-divider">
 </div>
-<h3>Permisos individuales</h3>
-<p>Después de crear el usuario, configura sus permisos o aplica las sugerencias de su rol.</p>
-<p>Cambiar el rol conserva los permisos existentes.</p>
+<h3>Acceso según su función</h3><p>Al crear el usuario se aplican los permisos habituales de su función. El propietario conserva acceso limitado a sus gráficas.</p>
 </aside>
 </div>{% endblock %}

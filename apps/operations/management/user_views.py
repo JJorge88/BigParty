@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.hashers import is_password_usable
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db.models import Q, OuterRef, Subquery
 from django.db.models.functions import Greatest
 from django.shortcuts import get_object_or_404, redirect
@@ -74,11 +75,15 @@ def user(request, pk):
 @sensitive_post_parameters('pin', 'password', 'confirm')
 @require_http_methods(['GET', 'POST'])
 @security.required
+@transaction.atomic
 def user_edit(request, pk=None):
     security.require(request.user, 'accounts.view_user')
     security.require(request.user, 'accounts.change_user' if pk else 'accounts.add_user')
     target = get_object_or_404(User, pk=pk) if pk else None
-    form = forms.UserForm(request.POST or None, instance=target, actor=request.user)
+    allowed_next = {reverse('management:registers'), reverse('cash_operations:access')}
+    next_url = request.GET.get('next') if request.GET.get('next') in allowed_next else ''
+    initial = {'role': request.GET.get('role')} if not pk and request.GET.get('role') in ('GERENTE', 'CAJERO', 'PROPIETARIO') else None
+    form = forms.UserForm(request.POST or None, instance=target, actor=request.user, initial=initial)
     # Capturar antes de que ModelForm modifique la instancia en memoria.
     revision = services.revision(target) if target else ''
     if request.method == 'POST' and form.is_valid():
@@ -86,12 +91,19 @@ def user_edit(request, pk=None):
             if pk and not request.POST.get('revision'):
                 raise ValidationError('Actualiza la pantalla antes de guardar.')
             target = services.save_user(form.cleaned_data, actor=request.user, pk=pk, expected=request.POST.get('revision') if pk else None)
-            messages.success(request, 'Usuario actualizado.' if pk else 'Usuario creado. Revisa sus permisos antes de que comience a trabajar.')
+            if not pk:
+                services.update_permissions(target.pk, [], actor=request.user,
+                    expected=services.revision(target), preset=True)
+            messages.success(request, 'Usuario actualizado.' if pk else 'Usuario creado con los permisos de su rol.')
+            if not pk:
+                posted_next = request.POST.get('next')
+                return redirect(posted_next if posted_next in allowed_next else reverse('management:users'))
             return redirect(target_url(target))
         except ValidationError as exc:
             error_on(form, exc)
     return page(request, 'user_form', {'form': form, 'target': target, 'revision': revision,
-        'title': 'Editar usuario' if pk else 'Crear usuario', 'back': target_url(target) if target else reverse('management:users')}, section='usuarios', status=400 if form.errors else 200)
+        'title': 'Editar usuario' if pk else 'Crear usuario', 'back': target_url(target) if target else reverse('management:users'),
+        'next_url': next_url}, section='usuarios', status=400 if form.errors else 200)
 
 
 @sensitive_variables()

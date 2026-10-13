@@ -18,7 +18,8 @@ MODULES = {
 EXTRA = {
     'Mesas': ['tables.view_venuetable', 'tables.add_venuetable', 'tables.change_venuetable'],
     'Operación': ['tables.view_venuetable', 'orders.view_tableorder', 'payments.view_payment'],
-    'Caja': ['cash.view_cashmovement'],
+    'Caja': ['cash.view_cashmovement', 'cash.view_cashregister', 'cash.add_cashregister',
+             'cash.change_cashregister', 'cash.configure_cash_register_device'],
     'Inventario': ['catalog.' + action + '_' + model for model in
         ('product', 'category', 'modifiergroup', 'modifieroption', 'combocomponent') for action in ('add', 'change')]
         + ['catalog.delete_combocomponent'],
@@ -30,6 +31,9 @@ LABELS = {
     'accounts.view_user': 'Ver usuarios', 'accounts.add_user': 'Crear usuarios', 'accounts.change_user': 'Editar identidad de usuarios',
     'tables.view_venuetable': 'Consultar mesas', 'orders.view_tableorder': 'Consultar cuentas',
     'payments.view_payment': 'Consultar pagos', 'cash.view_cashmovement': 'Consultar movimientos de caja',
+    'cash.view_cashregister': 'Ver cajas y computadoras', 'cash.add_cashregister': 'Crear cajas',
+    'cash.change_cashregister': 'Editar y activar cajas',
+    'cash.configure_cash_register_device': 'Configurar el navegador de una caja',
     'printing.view_printjob': 'Consultar impresiones', 'catalog.delete_combocomponent': 'Retirar componentes de combos',
 }
 for model, name in [('product', 'productos'), ('category', 'categorías'), ('modifiergroup', 'grupos de modificadores'),
@@ -46,7 +50,13 @@ PRESETS = {
                'operations.request_cash_withdrawal', 'payments.record_payment', 'payments.close_order', 'printing.print_customer_receipt'},
     'GUARDIA': GUARD,
     'GERENTE': {'inventory.view_inventory', 'reservations.view_reservations', 'events.view_events',
-                'accounts.view_user', 'cash.view_cash_session_financials', 'printing.view_printjob'},
+                'accounts.view_user', 'cash.view_cash_session_financials', 'printing.view_printjob',
+                'cash.view_cashregister', 'cash.add_cashregister', 'cash.change_cashregister',
+                'cash.configure_cash_register_device', 'core.view_configuration',
+                'core.view_reports',
+                'accounts.add_user', 'accounts.change_user', 'accounts.change_user_role',
+                'accounts.reset_user_pin', 'accounts.change_user_credentials',
+                'accounts.activate_user', 'accounts.manage_user_permissions'},
 }
 
 
