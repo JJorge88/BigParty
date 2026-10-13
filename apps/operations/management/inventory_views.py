@@ -27,10 +27,10 @@ class InventoryProductChoice(forms.ModelChoiceField):
 
 
 class MovementForm(forms.Form):
-    barcode = forms.CharField(label='Escanear código de barras', required=False, max_length=48, help_text='Escanea aquí o selecciona el producto de la lista.')
+    barcode = forms.CharField(label='Escanear código de barras (opcional)', required=False, max_length=48, help_text='Si usas lector, escanea aquí. Si no, selecciona el producto de la lista.')
     product = InventoryProductChoice(required=False, label='1. ¿Qué producto?', queryset=Product.objects.filter(track_inventory=True, is_combo=False).order_by('name'))
     quantity = forms.IntegerField(label='2. ¿Qué cantidad?', min_value=1, help_text='Usa la unidad del producto (unidades, ml o gramos). Al recibir presentaciones, convertimos la cantidad antes de confirmar.')
-    receipt_unit = forms.ChoiceField(label='¿Cómo recibiste la compra?', choices=[('base', 'Unidades de inventario'), ('package', 'Presentaciones de compra (caja, botella, bolsa)')], required=False)
+    receipt_unit = forms.ChoiceField(label='¿Cómo estás contando lo recibido?', choices=[('base', 'Por unidades'), ('package', 'Por cajas, botellas o bolsas')], required=False, initial='base', widget=forms.RadioSelect)
     supplier = forms.CharField(label='Proveedor', required=False, max_length=150)
     invoice = forms.CharField(label='Factura o referencia', required=False, max_length=100)
     total_cost = forms.DecimalField(label='Costo total de esta compra (Q)', required=False, min_value=0, max_digits=12, decimal_places=2)
@@ -69,6 +69,16 @@ class MovementForm(forms.Form):
         if data.get('reason') == 'Otro' and not data.get('note'):
             self.add_error('note', 'Explica el motivo de la salida.')
         return data
+
+
+def movement_form_context(form, kind):
+    if kind != 'receipt':
+        return {}
+    return {
+        'fieldsets': [('1. Producto y cantidad', [form[name] for name in ('product', 'barcode', 'quantity', 'receipt_unit')])],
+        'advanced_fields': [form[name] for name in ('supplier', 'invoice', 'total_cost', 'note')],
+        'advanced_label': 'Agregar proveedor, factura, costo u observación (opcional)',
+    }
 
 
 @sync_atomic('local')
@@ -112,7 +122,9 @@ def move(request, kind):
                 raise signing.BadSignature()
             verified = data
             if request.POST.get('action') == 'edit':
-                return page(request, 'inventory_move', {'form': MovementForm(kind=kind, initial=data['fields']), 'kind': kind, 'title': title}, section='inventario')
+                edit_form = MovementForm(kind=kind, initial=data['fields'])
+                return page(request, 'inventory_move', {'form': edit_form, 'kind': kind, 'title': title,
+                    **movement_form_context(edit_form, kind)}, section='inventario')
             movement = commit_movement(data, request.user)
             messages.success(request, f'{movement.product.name}: movimiento guardado. {movement.stock_before} → {movement.stock_after} unidades.')
             return redirect('management:inventory-movements')
@@ -139,7 +151,7 @@ def move(request, kind):
                 'reason': ' · '.join(filter(None, [form.cleaned_data.get('reason', 'Conteo físico' if kind == 'count' else 'Compra / recepción'), form.cleaned_data.get('note')]))}
             review = {**data, 'after': after, 'name': product.name, 'signed': signing.dumps(data, salt='manager.inventory')}
     return page(request, 'inventory_move', {'form': form, 'review': review, 'kind': kind, 'error': error,
-        'title': title}, section='inventario', status=400 if error or form.errors else 200)
+        'title': title, **movement_form_context(form, kind)}, section='inventario', status=400 if error or form.errors else 200)
 
 
 class BarcodeForm(forms.Form):
