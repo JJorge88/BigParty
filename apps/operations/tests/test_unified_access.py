@@ -1,6 +1,8 @@
 from django.test import Client
 from django.urls import reverse
 
+from apps.operations.models import OperationalDevice
+from apps.operations.security import DEVICE_COOKIE
 from .test_administration import AdministrationCase, PASSWORD
 from .base import OperationsTestCase
 
@@ -33,3 +35,23 @@ class TabletAccessTests(OperationsTestCase):
         response = client.post('/tablet/', {'username': self.waiter.username, 'pin': '2580'})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response['Location'], reverse('operations:tables'))
+
+    def test_tablet_login_creates_internal_device_when_none_exists(self):
+        OperationalDevice.objects.all().delete()
+        client = Client()
+
+        response = client.post('/tablet/', {'username': self.waiter.username, 'pin': '2580'})
+
+        self.assertEqual((response.status_code, response['Location']), (302, reverse('operations:tables')))
+        self.assertIn(DEVICE_COOKIE, response.cookies)
+        self.assertEqual(OperationalDevice.objects.count(), 1)
+        self.assertEqual(OperationalDevice.objects.get().code, 'tablet-web')
+
+    def test_two_new_browsers_do_not_create_duplicate_tablets(self):
+        OperationalDevice.objects.all().delete()
+
+        for _ in range(2):
+            response = Client().post('/tablet/', {'username': self.waiter.username, 'pin': '2580'})
+            self.assertEqual(response.status_code, 302)
+
+        self.assertEqual(OperationalDevice.objects.count(), 1)

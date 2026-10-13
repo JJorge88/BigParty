@@ -12,6 +12,7 @@ from django.utils import timezone
 from django.utils.crypto import constant_time_compare, salted_hmac
 
 from apps.audit.models import AuditLog
+from apps.venues.models import Area
 from .models import OperationalDevice, OperationalSession, PinAttempt
 
 DEVICE_COOKIE = "bigparty_device"
@@ -19,6 +20,7 @@ SESSION_COOKIE = "bigparty_operation"
 DEVICE_SALT = "bigparty.operational-device.v1"
 LOCKED_MESSAGE = "Demasiados intentos. Intenta nuevamente en unos minutos."
 PIN_MESSAGE = "No pudimos ingresar. Revisa tu PIN e intenta nuevamente."
+AUTOMATIC_DEVICE_CODE = "tablet-web"
 
 
 def digest(value):
@@ -84,15 +86,32 @@ def audit(user, device, action, **data):
     AuditLog.objects.create(user=user, action="operations." + action, entity="operations.operationaldevice", entity_id=str(device.pk), data=data)
 
 
+def automatic_device():
+    """Obtiene la identidad técnica compartida; cada navegador conserva su vínculo secreto."""
+    device = OperationalDevice.objects.select_for_update().filter(
+        is_active=True, area__is_active=True).order_by("name", "pk").first()
+    if device:
+        return device
+    area = Area.objects.select_for_update().filter(is_active=True).order_by("name", "pk").first()
+    if area is None:
+        return None
+    device, _ = OperationalDevice.objects.get_or_create(
+        code=AUTOMATIC_DEVICE_CODE,
+        defaults={"name": "Tablets web", "area": area},
+    )
+    if not device.is_active or not device.area.is_active:
+        return None
+    return device
+
+
 @transaction.atomic
 def authenticate_pin(request, user_id, pin):
     identity = device_identity(request, lock=True)
     browser = None
     if identity is None:
-        device = OperationalDevice.objects.select_for_update().filter(
-            is_active=True, area__is_active=True).order_by("name", "pk").first()
+        device = automatic_device()
         if device is None:
-            return {"ok": False, "message": "Todavía no hay tablets activas. Pide al gerente crear una.", "status": 409}
+            return {"ok": False, "message": "Todavía no hay un área activa para mostrar las mesas.", "status": 409}
         browser = secrets.token_urlsafe(32)
         binding_hash = digest(browser)
     else:
