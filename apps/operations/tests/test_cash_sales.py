@@ -316,14 +316,16 @@ class CashSalesTests(CashTestCase):
         self.revoke("record_payment")
         self.assertEqual(self.client.get(f"/caja/orden/{order.pk}/cuenta/").status_code, 403)
 
-    def test_tables_only_same_area_and_occupied_selectable(self):
+    def test_tables_show_all_areas_but_only_own_area_is_selectable(self):
         self.open()
         foreign = VenueTable.objects.create(name="Privada Premium", area=self.other_area, capacity=4)
         orders.open_table_order(foreign, self.user)
         response = self.client.get("/caja/mesas/")
         self.assertContains(response, "Mesa 01")
         self.assertContains(response, "Cargar productos")
-        self.assertNotContains(response, "Premium")
+        self.assertContains(response, "Privada Premium")
+        self.assertContains(response, "Solo consulta")
+        self.assertNotContains(response, f'/caja/orden/{TableOrder.objects.get(primary_table=foreign).pk}/pedido/')
         self.assertNotContains(response, "efectivo esperado")
 
     def test_item_permissions_apply_to_quote_and_addition(self):
@@ -379,7 +381,7 @@ class CashSalesTests(CashTestCase):
 
     def test_empty_table_not_opened_by_cash_flow(self):
         response = self.client.get("/caja/mesas/")
-        self.assertContains(response, "No disponible para cargar")
+        self.assertContains(response, "Sin cuenta abierta")
         self.assertFalse(TableOrder.objects.exists())
 
     def test_table_from_other_area_blocked_in_url(self):
