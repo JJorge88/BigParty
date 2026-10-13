@@ -674,3 +674,146 @@
 }
 
 }
+
+/* Reservas follows the neutral Gerencia workspace instead of the old blue shell. */
+.management .reservation-page-heading {
+  align-items:flex-end
+}
+.management .reservation-kpis {
+  gap:14px;
+  margin:0 0 22px
+}
+.management .reservation-kpi {
+  background:#1a1b1b;
+  border-color:#303131;
+  padding:19px 21px
+}
+.management .reservation-kpi:hover {
+  border-color:#74664f
+}
+.management .reservation-kpi--attention {
+  background:linear-gradient(120deg,#28251e,#1c1d1b);
+  border-color:#5a4f3c
+}
+.management .reservation-kpis span,
+.management .reservation-kpis small {
+  color:#aaa9a5
+}
+.management .reservation-kpis strong {
+  color:#e3cfac
+}
+.management .reservation-list {
+  padding:20px
+}
+.management .reservation-list-heading {
+  align-items:center;
+  padding:0 0 16px
+}
+.management .reservation-list-heading h2 {
+  font-size:19px
+}
+.management .reservation-tabs {
+  border-bottom:1px solid #303131;
+  gap:6px;
+  margin:0 0 16px;
+  padding:0 0 14px
+}
+.management .reservation-tabs a {
+  color:#aaa9a5
+}
+.management .reservation-tabs a:hover {
+  background:#232525;
+  color:#eeece8
+}
+.management .reservation-tabs [aria-current] {
+  background:#332e24;
+  color:#e3cfac
+}
+.management .reservation-table-wrap {
+  border:1px solid #303131;
+  border-radius:8px
+}
+.management .reservation-table th {
+  background:#151717;
+  color:#8f918b;
+  padding:13px 18px
+}
+.management .reservation-table td {
+  border-color:#303131;
+  padding:16px 18px
+}
+.management .reservation-table small {
+  color:#92948f
+}
+.management .reservation-row-link,
+.management .reservation-links a {
+  color:#d5bd95
+}
+.management .reservation-form-page {
+  margin:0 auto;
+  max-width:940px
+}
+.management .reservation-form-page>.page-heading {
+  margin-top:18px
+}
+.management .reservation-form--guided {
+  max-width:none;
+  padding:30px 34px
+}
+.management .reservation-form--guided .flow-section {
+  border-color:#353634;
+  padding:8px 0 30px
+}
+.management .reservation-form--guided .flow-section+.flow-section {
+  padding-top:28px
+}
+.management .reservation-form--guided legend {
+  color:#e3cfac
+}
+.management .flow-section-description {
+  color:#aaa9a5;
+  margin:7px 0 13px
+}
+.management .reservation-form input:not([type=checkbox]),
+.management .reservation-form select,
+.management .reservation-form textarea {
+  background:#141616;
+  border:1px solid #494a46;
+  border-radius:7px;
+  color:#eeece8;
+  min-height:43px;
+  padding:10px 12px
+}
+.management .reservation-availability {
+  background:#20211e;
+  border-color:#494538;
+  color:#c9c3b7;
+  margin-top:18px
+}
+.management .reservation-form-footer {
+  border-top:1px solid #353634;
+  margin-top:4px;
+  padding-top:22px
+}
+
+@media(max-width:700px) {
+  .management .reservation-page-heading {
+    align-items:stretch
+  }
+  .management .reservation-page-heading .reservation-actions,
+  .management .reservation-page-heading .button {
+    width:100%
+  }
+  .management .reservation-list {
+    padding:14px
+  }
+  .management .reservation-table-wrap {
+    border-radius:7px
+  }
+  .management .reservation-table tr:first-child {
+    border-top:0
+  }
+  .management .reservation-form--guided {
+    padding:22px 18px
+  }
+}

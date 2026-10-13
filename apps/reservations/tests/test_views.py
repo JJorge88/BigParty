@@ -37,6 +37,7 @@ class ViewTests(ReservationCase):
         self.assertContains(response,'Ana López'); self.assertEqual(response.context['counts']['pending'],1)
         self.assertEqual(response.context['counts']['review'],1)
         self.assertContains(response,'Necesitan atención')
+        self.assertNotIn('event_purchases', response.context)
         self.assertContains(self.client.get('/gerencia/reservas/?filter=attention'),'Ana López')
         self.assertContains(self.client.get('/gerencia/reservas/?q=BP-R-'),'Ana López')
         self.assertNotContains(self.client.get('/gerencia/reservas/?q=desconocido'),'Ana López')
