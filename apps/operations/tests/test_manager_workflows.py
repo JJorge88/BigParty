@@ -19,15 +19,16 @@ class ManagerWorkflowTests(AdministrationCase):
                 self.assertContains(self.client.get(path), 'Administración')
 
     def test_create_product_generates_identifier_and_initial_stock(self):
-        data=self.product_data(name='Mojito nuevo', slug='', initial_stock='12', after_save='another')
+        data=self.product_data(name='Mojito nuevo', slug='', barcode='7501234567890', initial_stock='12', after_save='another')
         response=self.client.post(self.url('product-create'),data)
         self.assertRedirects(response,self.url('product-create'))
         product=Product.objects.get(slug='mojito-nuevo')
+        self.assertEqual(product.barcode, '7501234567890')
         self.assertEqual(product.stock_quantity,12)
         movement=InventoryMovement.objects.get(product=product)
         self.assertEqual(movement.user,self.manager)
         self.assertEqual(movement.quantity_delta,12)
-        self.client.post(self.url('product-create'),{**data,'initial_stock':'0'})
+        self.client.post(self.url('product-create'),{**data,'barcode':'7501234567891','initial_stock':'0'})
         self.assertTrue(Product.objects.filter(slug='mojito-nuevo-2').exists())
 
     def test_failed_receipt_rolls_back_new_product(self):
@@ -120,7 +121,8 @@ class ManagerWorkflowTests(AdministrationCase):
         response = self.client.get(self.url('product-create'))
         self.assertEqual([f.name for f in response.context['fieldsets'][0][1]], ['name', 'category', 'last_unit_cost', 'base_price', 'sale_type', 'initial_stock'])
         self.assertContains(response, 'Solo lo necesario')
-        self.assertContains(response, 'Agregar una foto (opcional)')
+        self.assertContains(response, 'Agregar código de barras o foto (opcional)')
+        self.assertContains(response, 'Código de barras (opcional)')
         for technical_label in ('Unidad usada para inventario', 'Tamaño de la presentación de compra', 'Nombre de la presentación de compra', 'Stock mínimo'):
             self.assertNotContains(response, technical_label)
         self.assertNotContains(response, '¿Qué vas a vender?')

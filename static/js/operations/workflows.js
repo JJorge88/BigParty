@@ -56,6 +56,22 @@ if(productSetup){
  productSetup.querySelectorAll('[name="combo_component"]').forEach(field=>field.addEventListener('change',()=>{const quantity=field.closest('.combo-builder-row')?.querySelector('[name="combo_quantity"]');if(quantity&&!quantity.value&&field.value)quantity.value='1';}));
 }
 
+// Búsqueda cotidiana de productos al recibir mercadería; el select conserva el valor validado.
+for(const form of document.querySelectorAll('[data-receive-form]')){
+ const select=form.querySelector('#id_product');if(!select)continue;
+ const search=document.createElement('input');search.type='search';search.className='receive-product-search';
+ search.placeholder='Escribe el nombre, por ejemplo: cerveza';search.autocomplete='off';search.setAttribute('aria-label','Buscar producto por nombre');
+ const results=document.createElement('div');results.className='receive-product-results';results.hidden=true;
+ select.before(search,results);select.hidden=true;
+ const options=[...select.options].filter(option=>option.value);
+ const choose=option=>{select.value=option.value;search.value=option.textContent.trim();results.hidden=true;search.setAttribute('data-selected','true');};
+ const render=()=>{const term=search.value.trim().toLocaleLowerCase('es');select.value='';search.removeAttribute('data-selected');results.replaceChildren();if(!term){results.hidden=true;return;}const matches=options.filter(option=>option.textContent.toLocaleLowerCase('es').includes(term)).slice(0,8);for(const option of matches){const button=document.createElement('button');button.type='button';button.textContent=option.textContent.trim();button.addEventListener('click',()=>choose(option));results.append(button);}if(!matches.length){const empty=document.createElement('p');empty.textContent='No encontramos ese producto. Revisa el nombre o usa el código de barras.';results.append(empty);}results.hidden=false;};
+ search.addEventListener('input',render);search.addEventListener('focus',()=>{if(search.value&&!search.dataset.selected)render();});
+ document.addEventListener('click',event=>{if(!results.contains(event.target)&&event.target!==search)results.hidden=true;});
+ const current=options.find(option=>option.selected);if(current)choose(current);
+ form.addEventListener('submit',event=>{if(!select.value&&!form.querySelector('#id_barcode')?.value){event.preventDefault();search.setCustomValidity('Escribe y selecciona un producto de la lista, o escanea su código.');search.reportValidity();}else search.setCustomValidity('');});
+}
+
 // A readable summary before saving products or manual reservations.
 for(const form of document.querySelectorAll('[data-reservation-setup]')){
  let approved=false, submitter;

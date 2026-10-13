@@ -32,7 +32,7 @@ class ProductForm(AutomaticSlugForm):
 
     class Meta:
         model = Product
-        fields = ('inventory_unit', 'purchase_size', 'purchase_label', 'last_unit_cost', 'uses_recipe', 'name', 'slug', 'category', 'base_price', 'is_active', 'visible_in_pos', 'track_inventory',
+        fields = ('inventory_unit', 'purchase_size', 'purchase_label', 'last_unit_cost', 'uses_recipe', 'barcode', 'name', 'slug', 'category', 'base_price', 'is_active', 'visible_in_pos', 'track_inventory',
                   'minimum_stock', 'preparation_route', 'image', 'is_combo')
 
     def __init__(self, *args, user, **kwargs):
@@ -60,6 +60,9 @@ class ProductForm(AutomaticSlugForm):
         self.fields['last_unit_cost'].label = 'Costo de compra o preparación (Q)'
         self.fields['last_unit_cost'].help_text = 'Costo de una unidad. En un combo lo calculamos con los productos incluidos.'
         self.fields['last_unit_cost'].required = False
+        self.fields['barcode'].label = 'Código de barras (opcional)'
+        self.fields['barcode'].help_text = 'Puedes escribirlo o escanearlo. Déjalo vacío si todavía no tiene código.'
+        self.fields['barcode'].widget.attrs.update(inputmode='numeric', autocomplete='off', placeholder='Escanea o escribe el código')
         self.fields['preparation_route'].label = '¿Dónde se prepara?'
         self.fields['track_inventory'].label = 'Llevar conteo de las unidades disponibles'
         self.fields['track_inventory'].help_text = 'Descuenta unidades con las ventas. Déjalo desactivado si no llevas conteo de este producto.'
