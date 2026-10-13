@@ -4,6 +4,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core import signing
+from django.db import transaction
 from django.test import Client, override_settings
 from django.utils import timezone
 
@@ -70,10 +71,31 @@ class CashWorkstationTests(CashTestCase):
             self.assertNotIn(forbidden, content)
         self.assertEqual(response["Cache-Control"], "max-age=0, no-cache, no-store, must-revalidate, private")
 
-    def test_unconfigured_no_operating_options(self):
-        response = Client().get("/caja/", follow=True)
-        self.assertContains(response, "Esta computadora aún no está configurada como caja.")
-        self.assertNotContains(response, "Venta rápida")
+    def test_unconfigured_browser_gets_available_register_when_cashier_logs_in(self):
+        client = Client()
+        response = self.login(client=client)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(security.REGISTER_COOKIE, response.cookies)
+        access = CashAccessSession.objects.get(token_hash=security.digest(
+            response.cookies[security.ACCESS_COOKIE].value))
+        self.assertEqual(access.register, self.station)
+
+    def test_two_unconfigured_browsers_receive_two_available_registers(self):
+        second = self.register("PREMIUM", self.other_area)
+        CashAccessSession.objects.all().delete()
+        first_client, second_client = Client(), Client()
+        self.assertEqual(self.login(client=first_client).status_code, 200)
+        self.assertEqual(self.login(client=second_client, user=self.other_cashier, pin="4632").status_code, 200)
+        assignments = set(CashAccessSession.objects.values_list("register_id", flat=True))
+        self.assertEqual(assignments, {self.station.pk, second.pk})
+
+    def test_unconfigured_login_explains_when_no_register_exists(self):
+        CashAccessSession.objects.all().delete()
+        CashPinAttempt.objects.all().delete()
+        self.station.delete()
+        response = self.login(client=Client())
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("no hay cajas activas", response.json()["message"])
 
     def test_configure_requires_business_permission_not_staff_status(self):
         self.assertEqual(Client().post("/caja/configurar/", {}).status_code, 302)
@@ -122,11 +144,11 @@ class CashWorkstationTests(CashTestCase):
         del self.client.cookies[security.REGISTER_COOKIE]
         self.assertEqual(self.page("activa", True).status_code, 401)
 
-    def test_inactive_station_revokes_and_reactivation_requires_configuration(self):
+    def test_inactive_station_revokes_and_reactivation_allows_automatic_access(self):
         self.station.is_active = False; self.station.save()
         self.assertIsNotNone(CashAccessSession.objects.get().revoked_at)
         self.station.is_active = True; self.station.save()
-        self.assertEqual(self.login().status_code, 403)
+        self.assertEqual(self.login().status_code, 200)
 
     def test_inactive_station_cannot_be_configured(self):
         self.station.is_active = False; self.station.save()
@@ -186,9 +208,11 @@ class CashWorkstationTests(CashTestCase):
 
     def test_lockout_is_station_and_user_scoped(self):
         for _ in range(5): self.login(pin="1111")
-        self.assertEqual(self.login(user=self.other_cashier, pin="4632").status_code, 200)
-        other = self.configure(Client(), self.register("PREMIUM", self.other_area))
-        self.assertEqual(self.login(client=other).status_code, 200)
+        self.assertEqual(self.login(user=self.other_cashier, pin="4632").status_code, 409)
+        second = self.register("PREMIUM", self.other_area)
+        with transaction.atomic():
+            user, error, status = security.verify_pin(second, self.cashier.pk, "2580")
+        self.assertEqual((user, error, status), (self.cashier, None, 200))
 
     def test_idle_timeout_ten_minutes(self):
         CashAccessSession.objects.update(last_activity_at=timezone.now() - timedelta(minutes=9))
@@ -259,10 +283,11 @@ class CashWorkstationTests(CashTestCase):
     def test_only_original_holder_operates_existing_session(self):
         session = self.open_cash()
         self.client.post("/caja/bloquear/")
-        self.login(user=self.other_cashier, pin="4632")
-        self.assertContains(self.page("activa"), "sesión abierta por Carlos Méndez", status_code=409)
-        self.assertEqual(self.post("contar", session, counted_cash="500").status_code, 409)
-        self.assertEqual(self.client.post("/caja/accion/abrir/", {"opening_float": "0"}, HTTP_ACCEPT="application/json").status_code, 409)
+        response = self.login(user=self.other_cashier, pin="4632")
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("Todas las cajas están en uso", response.json()["message"])
+        self.assertEqual(self.post("contar", session, counted_cash="500").status_code, 401)
+        self.assertEqual(self.client.post("/caja/accion/abrir/", {"opening_float": "0"}, HTTP_ACCEPT="application/json").status_code, 401)
         session.refresh_from_db(); self.assertEqual(session.cashier, self.cashier)
 
     def test_handoff_listing_receiving_and_audit(self):

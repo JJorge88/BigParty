@@ -57,11 +57,42 @@ def identity(request, *, lock=False):
     return None
 
 
-def set_register(response, register):
+def set_register(response, register, *, browser=None):
+    browser = browser or secrets.token_urlsafe(32)
     value = signing.dumps({"register": register.pk, "version": str(register.binding_version),
-                           "browser": secrets.token_urlsafe(32)}, salt=REGISTER_SALT)
+                           "browser": browser}, salt=REGISTER_SALT)
     response.set_cookie(REGISTER_COOKIE, value, max_age=settings.CASH_REGISTER_COOKIE_AGE,
                         httponly=True, secure=settings.SESSION_COOKIE_SECURE, samesite="Lax", path="/caja/")
+
+
+def automatic_register(user):
+    """Elige una caja segura sin exigir configuración previa del navegador."""
+    registers = list(CashRegister.objects.select_for_update().filter(
+        is_active=True, area__is_active=True).order_by("code", "pk"))
+    if not registers:
+        return None, "Todavía no hay cajas activas. Pide al gerente crear una caja."
+    day = BusinessDay.objects.filter(status="OPEN").first()
+    if day:
+        own_session = CashSession.objects.filter(
+            register__in=registers, business_day=day, cashier=user, status="OPEN").first()
+        if own_session:
+            return own_session.register, None
+    cutoff = timezone.now() - timedelta(seconds=settings.CASH_IDLE_TIMEOUT_SECONDS)
+    CashAccessSession.objects.filter(
+        revoked_at__isnull=True, last_activity_at__lt=cutoff).update(revoked_at=timezone.now())
+    previous = CashAccessSession.objects.filter(
+        register__in=registers, user=user, revoked_at__isnull=True,
+        cash_session__isnull=True).select_related("register").first()
+    if previous:
+        return previous.register, None
+    occupied = set(CashAccessSession.objects.filter(
+        register__in=registers, revoked_at__isnull=True).values_list("register_id", flat=True))
+    open_registers = set(CashSession.objects.filter(
+        register__in=registers, status="OPEN").values_list("register_id", flat=True))
+    register = next((row for row in registers if row.pk not in occupied | open_registers), None)
+    if register:
+        return register, None
+    return None, "Todas las cajas están en uso. Cierra una sesión o vuelve a intentarlo."
 
 
 def set_access(response, token):
@@ -108,21 +139,29 @@ def verify_pin(register, user_id, pin, *, approval=False):
 
 @transaction.atomic
 def authenticate(request):
-    binding = identity(request, lock=True)
-    if not binding:
-        return {"message": "Esta computadora aún no está configurada como caja.", "status": 403}
-    register, binding_hash = binding
+    lock_operation_gate()
+    try:
+        proposed_user = get_user_model().objects.get(pk=request.POST.get("user_id"))
+    except (get_user_model().DoesNotExist, TypeError, ValueError, OverflowError):
+        return {"message": PIN_MESSAGE, "status": 400}
+    if not eligible(proposed_user):
+        return {"message": PIN_MESSAGE, "status": 403}
+    register, selection_error = automatic_register(proposed_user)
+    if selection_error:
+        return {"message": selection_error, "status": 409}
+    browser = secrets.token_urlsafe(32)
+    binding_hash = digest(browser)
     user, error, status = verify_pin(register, request.POST.get("user_id"), request.POST.get("pin"))
     if error:
         return {"message": error, "status": status}
-    CashAccessSession.objects.filter(register=register, binding_hash=binding_hash, revoked_at__isnull=True).update(revoked_at=timezone.now())
+    CashAccessSession.objects.filter(register=register, revoked_at__isnull=True).update(revoked_at=timezone.now())
     token = secrets.token_urlsafe(32)
     day = BusinessDay.objects.filter(status="OPEN").first()
     cash_session = CashSession.objects.filter(register=register, status="OPEN", business_day=day).first() if day else None
     CashAccessSession.objects.create(register=register, user=user, business_day=day, cash_session=cash_session,
         token_hash=digest(token), binding_hash=binding_hash, auth_hash=user_auth_hash(user))
     audit(user, register, "access_granted")
-    return {"token": token}
+    return {"token": token, "register": register, "browser": browser}
 
 
 def context(request, *, touch=True):

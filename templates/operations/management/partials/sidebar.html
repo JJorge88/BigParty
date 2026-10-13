@@ -14,7 +14,7 @@
 <a href="{% url 'reservations:list' %}" {% if section == 'reservas' %}aria-current="page"{% endif %}>Reservas</a>
 <a href="{% url 'events:list' %}" {% if section == 'eventos' %}aria-current="page"{% endif %}>Eventos</a>
 <a href="{% url 'management:closures' %}" {% if section == 'cierres' %}aria-current="page"{% endif %}>Caja y cierres</a>
-{% if perms.cash.view_cashregister or perms.cash.add_cashregister or perms.cash.change_cashregister or perms.cash.configure_cash_register_device %}<a href="{% url 'management:registers' %}" {% if section == 'cajas' %}aria-current="page"{% endif %}>Cajas y computadoras</a>{% endif %}
+{% if perms.cash.view_cashregister or perms.cash.add_cashregister or perms.cash.change_cashregister or perms.cash.configure_cash_register_device %}<a href="{% url 'management:registers' %}" {% if section == 'cajas' %}aria-current="page"{% endif %}>Cajas</a>{% endif %}
 <details class="sidebar-admin" {% if section == 'usuarios' or section == 'reportes' or section == 'auditoria' or section == 'impresiones' or section == 'configuracion' %}open{% endif %}><summary>Administración</summary><div>
 {% if perms.accounts.view_user %}<a href="{% url 'management:users' %}" {% if section == 'usuarios' %}aria-current="page"{% endif %}>Usuarios y permisos</a>{% endif %}
 {% if perms.core.view_reports %}<a href="{% url 'management:reports' %}" {% if section == 'reportes' %}aria-current="page"{% endif %}>Reportes</a>{% endif %}

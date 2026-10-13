@@ -122,9 +122,7 @@ def access(request):
         with transaction.atomic():
             if security.context(request, touch=False):
                 return redirect("cash_operations:index")
-        binding = security.identity(request)
-        return render(request, "operations/unified_access.html", {
-            "error": None if binding else "Esta computadora aún no está configurada como caja."})
+        return render(request, "operations/unified_access.html")
     if not request.POST.get("user_id") and request.POST.get("username"):
         user = get_user_model().objects.filter(username__iexact=request.POST.get("username", "").strip()[:150]).first()
         if user:
@@ -140,6 +138,8 @@ def access(request):
                     "error": result["message"], "username": request.POST.get("username", "")}, status=result["status"]))
     rotate_token(request)
     response = JsonResponse({"next": reverse("cash_operations:index")}) if json_request(request) else redirect("cash_operations:index")
+    if result["browser"]:
+        security.set_register(response, result["register"], browser=result["browser"])
     security.set_access(response, result["token"])
     return response
 
