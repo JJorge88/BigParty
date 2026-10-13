@@ -3,6 +3,7 @@ from django.test import override_settings
 from apps.catalog.models import Product, Category
 from apps.catalog.management_services import save_product
 from apps.inventory.models import InventoryMovement
+from apps.tables.models import VenueTable
 from .test_administration import AdministrationCase
 
 
@@ -69,9 +70,20 @@ class ManagerWorkflowTests(AdministrationCase):
         response=self.client.post(self.url('table-create',self.area.pk),{'name':'Nueva mesa','capacity':4,
             'layout_shape':'RECTANGLE','layout_x':10,'layout_y':10,'layout_width':15,'layout_height':15,
             'operational_status':'ACTIVE','is_active':'on','after_save':'another'})
-        self.assertRedirects(response,self.url('table-create',self.area.pk))
+        self.assertRedirects(response,self.url('table-create',self.area.pk) + '?level=LEVEL_1')
         response=self.client.post(self.url('category-create'),{'name':'Nueva categoría','slug':'','sort_order':0,'is_active':'on','after_save':'another'})
         self.assertRedirects(response,self.url('category-create'))
+
+    def test_new_table_keeps_level_and_existing_tables_visible_in_editor(self):
+        lower = VenueTable.objects.create(area=self.area, name='Abajo', capacity=4, level='LEVEL_1')
+        upper = VenueTable.objects.create(area=self.area, name='Arriba', capacity=4, level='LEVEL_2')
+        listing = self.client.get(self.url('tables'), {'area':self.area.pk, 'level':'LEVEL_2'})
+        self.assertContains(listing, self.url('table-create', self.area.pk) + '?level=LEVEL_2')
+        editor = self.client.get(self.url('table-create', self.area.pk), {'level':'LEVEL_2'})
+        self.assertEqual(editor.context['form'].initial['level'], 'LEVEL_2')
+        self.assertCountEqual([table.pk for table in editor.context['tables']], [lower.pk, upper.pk])
+        self.assertContains(editor, 'data-level="LEVEL_1"')
+        self.assertContains(editor, 'data-level="LEVEL_2"')
 
     @override_settings(SYNC_ENABLED=True,DEPLOYMENT_MODE='cloud')
     def test_hub_respects_sync_authority(self):

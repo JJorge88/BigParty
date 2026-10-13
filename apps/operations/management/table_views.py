@@ -62,17 +62,26 @@ def edit(request, pk=None, area_id=None):
     security.require(request.user, 'tables.change_venuetable' if pk else 'tables.add_venuetable')
     table = get_object_or_404(VenueTable, pk=pk) if pk else None
     area = table.area if table else get_object_or_404(Area, pk=area_id)
-    form = TableForm(request.POST if request.method == 'POST' else None, instance=table, area=area)
+    valid_levels = dict(VenueTable._meta.get_field('level').choices)
+    requested_level = request.POST.get('level', '') if request.method == 'POST' else request.GET.get('level', '')
+    requested_level = requested_level if requested_level and requested_level in valid_levels else 'LEVEL_1'
+    form_data = request.POST.copy() if request.method == 'POST' else None
+    if form_data is not None and not form_data.get('level'):
+        form_data['level'] = requested_level
+    form = TableForm(form_data, instance=table, area=area,
+                     initial={'level': requested_level} if not table else None)
     if request.method == 'POST' and form.is_valid():
         try:
             save_table(area, form.cleaned_data, actor=request.user, pk=pk)
             messages.success(request, 'Mesa guardada. El plano de la operación ya está actualizado.')
             if not pk and request.POST.get('after_save') == 'another':
-                return redirect('management:table-create', area_id=area.pk)
+                return redirect(reverse('management:table-create', args=[area.pk]) + f'?level={form.cleaned_data["level"]}')
             return redirect(reverse('management:tables') + f"?area={area.pk}&level={form.cleaned_data.get('level', '')}")
         except ValidationError as exc:
             form.add_error(None, ' '.join(exc.messages))
-    return page(request, 'table_edit', {**map_data(area, table), 'form': form,
+    data = map_data(area, table, level=table.level if table else requested_level)
+    data['tables'] = list(area.tables.all().order_by('level', 'zone__sort_order', 'sort_order', 'name', 'pk'))
+    return page(request, 'table_edit', {**data, 'form': form,
         'basic_fields': [form[key] for key in ('name', 'capacity', 'level')],
         'advanced_fields': [form[key] for key in ('zone', 'layout_shape', 'layout_x', 'layout_y',
                                                   'layout_width', 'layout_height', 'is_active', 'operational_status')],

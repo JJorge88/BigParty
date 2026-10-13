@@ -4,6 +4,7 @@ const table = document.querySelector('#floor-selected');
 const field = name => form.elements.namedItem(name);
 const number = name => Number(field(name).value) || 0;
 const status = document.querySelector('#floor-status');
+const levelName = document.querySelector('#floor-level-name');
 let dirty = false;
 function draw() {
   const width = Math.min(100, Math.max(.01, number('layout_width')));
@@ -12,6 +13,9 @@ function draw() {
   table.classList.toggle('floor-table--circle', field('layout_shape').value === 'CIRCLE');
   table.querySelector('strong').textContent = field('name').value || 'Nueva mesa';
   table.querySelector('small').textContent = `${number('capacity')} pers.`;
+  const selectedLevel = field('level').value;
+  board.querySelectorAll('.floor-table[data-level]').forEach(existing => { existing.hidden = existing.dataset.level !== selectedLevel; });
+  if(levelName) levelName.textContent = field('level').selectedOptions?.[0]?.textContent || '';
   table.hidden = false;
 }
 function changed() { dirty = true; status.textContent = 'Cambios sin guardar'; draw(); }
