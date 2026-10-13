@@ -67,10 +67,13 @@ def set_register(response, register, *, browser=None):
 
 def automatic_register(user):
     """Elige una caja segura sin exigir configuración previa del navegador."""
-    registers = list(CashRegister.objects.select_for_update().filter(
-        is_active=True, area__is_active=True).order_by("code", "pk"))
+    register_query = CashRegister.objects.select_for_update().filter(is_active=True, area__is_active=True)
+    if user.work_area_id:
+        register_query = register_query.filter(area_id=user.work_area_id)
+    registers = list(register_query.order_by("code", "pk"))
     if not registers:
-        return None, "Todavía no hay cajas activas. Pide al gerente crear una caja."
+        return None, (f"Todavía no hay una caja activa en {user.work_area.name}. Pide al gerente crearla o cambiar tu área."
+                      if user.work_area_id else "Todavía no hay cajas activas. Pide al gerente crear una caja.")
     day = BusinessDay.objects.filter(status="OPEN").first()
     if day:
         own_session = CashSession.objects.filter(
@@ -179,6 +182,7 @@ def context(request, *, touch=True):
     day = BusinessDay.objects.filter(status="OPEN").first()
     if (now - access.last_activity_at >= timedelta(seconds=settings.CASH_IDLE_TIMEOUT_SECONDS)
         or not eligible(user) or not constant_time_compare(access.auth_hash, user_auth_hash(user))
+        or (user.work_area_id and register.area_id != user.work_area_id)
         or (access.cash_session_id and access.business_day_id != (day.pk if day else None))):
         access.revoked_at = now
         access.save(update_fields=["revoked_at"])

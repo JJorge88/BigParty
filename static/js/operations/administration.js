@@ -7,7 +7,7 @@ if (userForm) {
     const manager = ['GERENTE', 'PROPIETARIO'].includes(role.value);
     const area = userForm.querySelector('[data-field="work_area"]');
     if (area) {
-      area.hidden = role.value !== 'MESERO';
+      area.hidden = !['MESERO', 'CAJERO'].includes(role.value);
       area.querySelector('select').disabled = area.hidden;
     }
     for (const key of ['pin', 'password']) {

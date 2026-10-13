@@ -34,15 +34,15 @@ class UserForm(forms.ModelForm):
         current_area = self.instance.work_area_id if self.instance.pk else None
         self.fields['work_area'].queryset = self.fields['work_area'].queryset.filter(
             Q(is_active=True) | Q(pk=current_area)).order_by('sort_order', 'name')
-        self.fields['work_area'].label = 'Área del mesero'
-        self.fields['work_area'].help_text = 'Por ejemplo: Discoteca, Barra o Segundo nivel. Solo se usa para meseros.'
+        self.fields['work_area'].label = 'Área de trabajo'
+        self.fields['work_area'].help_text = 'Por ejemplo: Discoteca, Barra o Segundo nivel. Se usa para meseros y cajeros.'
         self.fields['work_area'].required = False
         if 'is_active' in self.fields:
             self.fields['is_active'].help_text = ''
 
     def clean(self):
         data = super().clean()
-        if data.get('role') != User.Role.MESERO:
+        if data.get('role') not in (User.Role.MESERO, User.Role.CAJERO):
             data['work_area'] = None
         if not self.instance.pk:
             key = 'password' if data.get('role') in ('GERENTE', 'PROPIETARIO') else 'pin'

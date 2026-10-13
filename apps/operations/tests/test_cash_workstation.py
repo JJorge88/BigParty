@@ -89,6 +89,25 @@ class CashWorkstationTests(CashTestCase):
         assignments = set(CashAccessSession.objects.values_list("register_id", flat=True))
         self.assertEqual(assignments, {self.station.pk, second.pk})
 
+    def test_cashier_assignment_selects_register_from_own_area(self):
+        premium = self.register("PREMIUM", self.other_area)
+        CashAccessSession.objects.all().delete()
+        self.cashier.work_area = self.other_area
+        self.cashier.save(update_fields=['work_area'])
+        client = Client()
+        response = self.login(client=client)
+        self.assertEqual(response.status_code, 200)
+        access = CashAccessSession.objects.get(token_hash=security.digest(response.cookies[security.ACCESS_COOKIE].value))
+        self.assertEqual(access.register, premium)
+
+    def test_cashier_assignment_explains_when_area_has_no_register(self):
+        CashAccessSession.objects.all().delete()
+        self.cashier.work_area = self.other_area
+        self.cashier.save(update_fields=['work_area'])
+        response = self.login(client=Client())
+        self.assertEqual(response.status_code, 409)
+        self.assertIn(self.other_area.name, response.json()['message'])
+
     def test_unconfigured_login_explains_when_no_register_exists(self):
         CashAccessSession.objects.all().delete()
         CashPinAttempt.objects.all().delete()

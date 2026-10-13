@@ -231,8 +231,8 @@ class UserInterfaceTests(AdministrationCase):
         response = self.client.get(self.url('user-create'), {'role': 'CAJERO'})
         self.assertContains(response, 'Cajero')
         self.assertContains(response, 'Mesero')
-        self.assertContains(response, 'Área del mesero')
-        self.assertContains(response, 'El cajero es la persona')
+        self.assertContains(response, 'Área de trabajo')
+        self.assertContains(response, 'El cajero entrará automáticamente')
         self.assertNotContains(response, '<option value="GUARDIA"')
 
     def test_create_waiter_with_area_and_show_it_in_users(self):
@@ -243,6 +243,14 @@ class UserInterfaceTests(AdministrationCase):
         self.assertEqual(waiter.work_area, self.area)
         self.assertContains(self.client.get(self.url('users'), {'role': 'MESERO'}), self.area.name)
         self.assertContains(self.client.get(self.url('user', waiter.pk)), 'Área asignada')
+
+    def test_create_cashier_with_area(self):
+        response = self.client.post(self.url('user-create'), {'username': 'caja.barra', 'first_name': 'Andrea',
+            'role': 'CAJERO', 'work_area': self.area.pk, 'is_active': 'on', 'pin': '3690', 'confirm': '3690'})
+        self.assertEqual(response.status_code, 302)
+        cashier = User.objects.get(username='caja.barra')
+        self.assertEqual(cashier.work_area, self.area)
+        self.assertContains(self.client.get(self.url('user', cashier.pk)), self.area.name)
 
     def test_reset_pin_hash_secret_free_and_post_only(self):
         url = self.url('user-pin', self.worker.pk)
@@ -275,7 +283,7 @@ class UserInterfaceTests(AdministrationCase):
             'first_name': 'Carlos', 'last_name': 'Méndez', 'role': 'CAJERO', 'work_area': self.area.pk,
             'revision': users.revision(self.worker)})
         self.assertEqual(response.status_code, 302)
-        self.worker.refresh_from_db(); self.assertEqual(self.worker.role, 'CAJERO'); self.assertIsNone(self.worker.work_area)
+        self.worker.refresh_from_db(); self.assertEqual(self.worker.role, 'CAJERO'); self.assertEqual(self.worker.work_area, self.area)
         self.assertEqual(users.codes(self.worker), before)
         self.assertTrue(AuditLog.objects.filter(action='accounts.role_changed').exists())
 

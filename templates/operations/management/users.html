@@ -36,7 +36,7 @@
 </a>
 </td>
 <td>{{ row.username }}</td>
-<td>{{ row.get_role_display }}</td><td>{% if row.role == 'MESERO' %}{{ row.work_area.name|default:'Sin asignar' }}{% else %}—{% endif %}</td>
+<td>{{ row.get_role_display }}</td><td>{% if row.role == 'MESERO' or row.role == 'CAJERO' %}{{ row.work_area.name|default:'Sin asignar' }}{% else %}—{% endif %}</td>
 <td>
 <span class="admin-badge {% if row.is_active %}available{% endif %}">{{ row.is_active|yesno:'Activo,Inactivo' }}</span>
 </td>

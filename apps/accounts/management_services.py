@@ -93,7 +93,7 @@ def save_user(data, *, actor, pk=None, expected=None):
         raise ValidationError('Retira explícitamente los permisos incompatibles antes de cambiar a Guardia.')
     if 'work_area' in data:
         data['work_area_id'] = data['work_area'].pk if data['work_area'] else None
-    if new_role != User.Role.MESERO:
+    if new_role not in (User.Role.MESERO, User.Role.CAJERO):
         data['work_area_id'] = None
     for field in old:
         if field in data:

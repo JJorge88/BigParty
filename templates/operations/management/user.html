@@ -31,7 +31,7 @@
 <dt>Rol base</dt>
 <dd>{{ target.get_role_display }}</dd>
 </div>
-{% if target.role == 'MESERO' %}<div>
+{% if target.role == 'MESERO' or target.role == 'CAJERO' %}<div>
 <dt>Área asignada</dt>
 <dd>{{ target.work_area.name|default:'Sin asignar' }}</dd>
 </div>{% endif %}
