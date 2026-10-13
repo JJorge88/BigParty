@@ -9,7 +9,8 @@ from .locking import file_lock
 
 def limit_for(path):
     if path.startswith('/api/sync/v1/'):return 'sync',settings.RATE_LIMIT_SYNC
-    if path in ('/gerencia/acceso/','/acceso/ingresar/','/caja/acceso/','/operacion/acceso/','/admin/login/'):
+    if path == '/ingresar/':return 'login-router',settings.RATE_LIMIT_LOGIN
+    if path in ('/gerencia/acceso/','/acceso/ingresar/','/caja/acceso/','/operacion/acceso/','/tablet/','/admin/login/'):
         return 'login',settings.RATE_LIMIT_LOGIN
     if path.startswith(('/eventos/compra/','/reservas/r/')):return 'upload',settings.RATE_LIMIT_UPLOAD
     if path.startswith('/reservas/') or path.startswith('/eventos/'):

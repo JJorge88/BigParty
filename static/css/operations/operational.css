@@ -605,3 +605,4 @@
     padding-right:20px;
   }
 }
+.tablet-login{max-width:480px;margin:30px auto;padding:28px}.tablet-login form{display:grid;gap:12px}.tablet-login input{width:100%;box-sizing:border-box;background:#171b1c;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:16px}.tablet-login .button{margin-top:10px}

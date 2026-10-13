@@ -112,8 +112,8 @@ class PinAccessTests(OperationsTestCase):
             get_user_model().objects.create_user(username=role.lower(), first_name=role, role=role)
         self.bind()
         response = self.client.get("/operacion/acceso/")
-        self.assertContains(response, "Carlos Méndez")
-        self.assertContains(response, "Ana López")
+        self.assertContains(response, 'name="username"')
+        self.assertContains(response, 'name="pin"')
         for hidden in ("Oculto Inactivo", "Sin permiso", "GUARDIA", "PROPIETARIO", "GERENTE", "CAJERO", self.waiter.pin_hash):
             self.assertNotContains(response, hidden)
 

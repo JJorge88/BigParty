@@ -2,6 +2,7 @@ from functools import wraps
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import JsonResponse
@@ -31,7 +32,8 @@ def _access_context(request, error=None):
     identity = security.device_identity(request)
     return {"device": identity[0] if identity else None,
             "waiters": security.visible_waiters() if identity else [], "error": error,
-            "can_configure": request.user.is_authenticated and request.user.is_staff and request.user.has_perm("operations.configure_operational_device")}
+            "can_configure": request.user.is_authenticated and request.user.is_staff and request.user.has_perm("operations.configure_operational_device"),
+            "access_url": request.path}
 
 
 def operational_required(view):
@@ -66,7 +68,11 @@ def access(request):
             if security.operational_context(request):
                 return redirect("operations:tables")
         return render(request, "operations/access.html", _access_context(request))
-    result = security.authenticate_pin(request, request.POST.get("user_id"), request.POST.get("pin"))
+    user_id = request.POST.get("user_id")
+    if not user_id and request.POST.get("username"):
+        user = get_user_model().objects.filter(username__iexact=request.POST.get("username", "").strip()[:150]).first()
+        user_id = user.pk if user else None
+    result = security.authenticate_pin(request, user_id, request.POST.get("pin"))
     if not result["ok"]:
         if _json(request):
             return JsonResponse({"message": result["message"]}, status=result["status"])

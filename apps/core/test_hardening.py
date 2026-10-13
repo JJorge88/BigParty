@@ -202,7 +202,7 @@ class PrivateFiles(SimpleTestCase):
         for path in (self.base/'state/rate-limits').glob('*.json'):self.assertNotIn('10.0.0.',path.read_text())
 
     def test_all_abuse_routes_scoped(self):
-        for path in ('/gerencia/acceso/','/operacion/acceso/','/caja/acceso/','/acceso/ingresar/','/reservas/datos/','/eventos/night/comprar/','/reservas/r/token/','/eventos/compra/token/','/api/sync/v1/push/'):
+        for path in ('/ingresar/','/tablet/','/gerencia/acceso/','/operacion/acceso/','/caja/acceso/','/acceso/ingresar/','/reservas/datos/','/eventos/night/comprar/','/reservas/r/token/','/eventos/compra/token/','/api/sync/v1/push/'):
             self.assertIsNotNone(throttle.limit_for(path),path)
         self.assertIsNone(throttle.limit_for('/operacion/mesas/'))
 

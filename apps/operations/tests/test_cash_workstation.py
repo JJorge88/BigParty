@@ -142,11 +142,11 @@ class CashWorkstationTests(CashTestCase):
     def test_candidates_only_active_cash_roles_and_permissions(self):
         get_user_model().objects.create_user(username="sin-permiso", role="CAJERO")
         self.client.post("/caja/bloquear/")
-        response = self.client.get("/caja/acceso/")
-        self.assertContains(response, "Carlos Méndez")
-        self.assertContains(response, "Lucía")
-        self.assertNotContains(response, "orders-admin")
-        self.assertNotContains(response, "sin-permiso")
+        names = [row["name"] for row in security.candidates()]
+        self.assertIn("Carlos Méndez", names)
+        self.assertIn("Lucía", names)
+        self.assertNotIn("orders-admin", names)
+        self.assertNotIn("sin-permiso", names)
 
     def test_operational_login_does_not_login_admin_or_tablet(self):
         self.assertNotIn("_auth_user_id", self.client.session)

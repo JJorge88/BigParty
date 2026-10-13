@@ -17,12 +17,17 @@ def page(request, template, context=None, *, section='inicio', status=200):
         **queries.base(request,section), **(context or {})},status=status)
 
 @never_cache
-@sensitive_post_parameters('password')
+@sensitive_post_parameters('password', 'credential')
 @require_http_methods(['GET','POST'])
 def login(request):
+    if request.method == 'GET':
+        return render(request, 'operations/unified_access.html')
     if request.method == 'GET' and request.user.is_authenticated and security.touch(request):
         return redirect('management:home')
-    form = security.ManagementAuthenticationForm(request,data=request.POST if request.method=='POST' else None)
+    data = request.POST.copy() if request.method == 'POST' else None
+    if data is not None and not data.get('password'):
+        data['password'] = data.get('credential', '')
+    form = security.ManagementAuthenticationForm(request,data=data)
     form.fields['username'].widget.attrs.update(autocomplete='username',placeholder='Tu usuario')
     form.fields['password'].widget.attrs.update(autocomplete='current-password',placeholder='Tu contraseña')
     if request.method=='POST' and form.is_valid():
@@ -30,7 +35,10 @@ def login(request):
         security.start(request)
         AuditLog.objects.create(user=request.user,action='management.login',entity='accounts.user',entity_id=str(request.user.pk))
         return redirect('management:home')
-    return render(request,'operations/management/login.html',{'form':form},status=400 if request.method=='POST' else 200)
+    return render(request, 'operations/unified_access.html', {
+        'error': 'No pudimos ingresar. Revisa tu usuario y contraseña.',
+        'username': request.POST.get('username', ''),
+    }, status=400)
 
 @never_cache
 @require_POST
@@ -38,7 +46,7 @@ def logout(request):
     if request.user.is_authenticated:
         AuditLog.objects.create(user=request.user,action='management.logout',entity='accounts.user',entity_id=str(request.user.pk))
     auth_logout(request)
-    return redirect('management:login')
+    return redirect('unified-access')
 
 @require_POST
 @security.required

@@ -11,6 +11,7 @@ urlpatterns = [
     path("operacion/orden/<int:order_id>/cuenta/<str:action>/", account_views.account_action, name="account-action"),
     path("dispositivo/configurar/", views.configure_device, name="configure-device"),
     path("operacion/", views.index, name="index"),
+    path("tablet/", views.access, name="tablet"),
     path("operacion/acceso/", views.access, name="access"),
     path("operacion/bloquear/", views.lock, name="lock"),
     path("operacion/actividad/", views.activity, name="activity"),

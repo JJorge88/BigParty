@@ -4,6 +4,7 @@ from functools import wraps
 from django import forms
 from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -114,18 +115,29 @@ def access_context(request, message=None):
 
 
 @never_cache
-@sensitive_post_parameters("pin")
+@sensitive_post_parameters("pin", "credential")
 @require_http_methods(["GET", "POST"])
 def access(request):
     if request.method == "GET":
         with transaction.atomic():
             if security.context(request, touch=False):
                 return redirect("cash_operations:index")
-        return render(request, "operations/cash/access.html", access_context(request))
+        binding = security.identity(request)
+        return render(request, "operations/unified_access.html", {
+            "error": None if binding else "Esta computadora aún no está configurada como caja."})
+    if not request.POST.get("user_id") and request.POST.get("username"):
+        user = get_user_model().objects.filter(username__iexact=request.POST.get("username", "").strip()[:150]).first()
+        if user:
+            request.POST = request.POST.copy()
+            request.POST["user_id"] = str(user.pk)
+    if not request.POST.get("pin") and request.POST.get("credential"):
+        request.POST = request.POST.copy()
+        request.POST["pin"] = request.POST.get("credential", "")
     result = security.authenticate(request)
     if "token" not in result:
         return (JsonResponse({"message": result["message"]}, status=result["status"]) if json_request(request)
-                else render(request, "operations/cash/access.html", access_context(request, result["message"]), status=result["status"]))
+                else render(request, "operations/unified_access.html", {
+                    "error": result["message"], "username": request.POST.get("username", "")}, status=result["status"]))
     rotate_token(request)
     response = JsonResponse({"next": reverse("cash_operations:index")}) if json_request(request) else redirect("cash_operations:index")
     security.set_access(response, result["token"])

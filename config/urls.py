@@ -5,12 +5,14 @@ from django.urls import include, path
 from apps.core.public_media import serve as public_media
 from apps.sync import views as sync_views
 from apps.core.ops.views import backup_status
+from apps.operations.access_views import unified as unified_access
 
 admin.site.site_header = "Administración de BIG PARTY"
 admin.site.site_title = "BIG PARTY"
 admin.site.index_title = "Administración"
 
 urlpatterns = [
+    path("ingresar/", unified_access, name="unified-access"),
     path("archivos-publicos/<path:path>", public_media, name="public-media"),
     path("gerencia/configuracion/backups/",backup_status,name="backup-status"),
     path("gerencia/configuracion/sincronizacion/",sync_views.status,name="sync-status"),
