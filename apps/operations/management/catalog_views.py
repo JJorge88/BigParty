@@ -165,10 +165,10 @@ def product_edit(request, pk=None):
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
         'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'last_unit_cost', 'base_price', 'sale_type', 'initial_stock') if key in form.fields])],
-        'advanced_fields': [form[key] for key in ((('preparation_route', 'track_inventory', 'is_combo', 'uses_recipe') if pk else ()) +
-            ('minimum_stock', 'inventory_unit', 'purchase_size', 'purchase_label',
-             'image', 'is_active', 'visible_in_pos', 'slug')) if key in form.fields],
-        'advanced_label': 'Opciones avanzadas: inventario, preparación y foto',
+        'advanced_fields': ([form['image']] if not pk else [form[key] for key in (
+            'preparation_route', 'track_inventory', 'is_combo', 'uses_recipe', 'minimum_stock', 'inventory_unit',
+            'purchase_size', 'purchase_label', 'image', 'is_active', 'visible_in_pos', 'slug') if key in form.fields]),
+        'advanced_label': 'Agregar una foto (opcional)' if not pk else 'Opciones avanzadas de producto e inventario',
         'is_product_form': True, 'combo_products': combo_products, 'combo_rows': combo_rows}, section='inventario', status=400 if form.errors else 200)
 
 

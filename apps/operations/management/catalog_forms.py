@@ -42,6 +42,9 @@ class ProductForm(AutomaticSlugForm):
             for key, default in [('inventory_unit', 'unit'), ('purchase_size', 1), ('purchase_label', 'unidad'),
                                  ('last_unit_cost', None), ('minimum_stock', 0), ('preparation_route', 'NONE')]:
                 data.setdefault(key, getattr(obj, key, default))
+            if obj is None:
+                data.setdefault('is_active', 'on')
+                data.setdefault('visible_in_pos', 'on')
             args = (data, *args[1:])
         super().__init__(*args, **kwargs)
         if not user.has_perm('catalog.change_product_price'):
