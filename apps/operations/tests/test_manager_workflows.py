@@ -132,6 +132,12 @@ class ManagerWorkflowTests(AdministrationCase):
         food = Product.objects.get(name='Hamburguesa')
         self.assertFalse(food.track_inventory)
         self.assertFalse(food.uses_recipe)
+        response = self.client.post(self.url('product-create'), {**common, 'name': 'Cubetazo', 'sale_type': 'COMBO'})
+        combo = Product.objects.get(name='Cubetazo')
+        self.assertRedirects(response, self.url('component-create', combo.pk))
+        component_page = self.client.get(response['Location'])
+        self.assertContains(component_page, '¿Qué producto deseas agregar?')
+        self.assertContains(component_page, 'Cerveza')
 
     def test_reservation_tasks_exclude_expired_requests_and_respect_permission(self):
         from datetime import timedelta

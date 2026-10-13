@@ -122,6 +122,20 @@ class ComponentForm(forms.ModelForm):
         model = ComboComponent
         fields = ('component', 'quantity', 'sort_order')
 
+    def __init__(self, *args, **kwargs):
+        if args and args[0] is not None:
+            data = args[0].copy()
+            data.setdefault('sort_order', 0)
+            args = (data, *args[1:])
+        super().__init__(*args, **kwargs)
+        combo = self.instance.combo if self.instance and self.instance.combo_id else None
+        self.fields['component'].queryset = Product.objects.filter(
+            is_active=True, is_combo=False).exclude(pk=combo.pk if combo else None).order_by('category__name', 'name')
+        self.fields['component'].label = '¿Qué producto deseas agregar?'
+        self.fields['component'].empty_label = 'Selecciona un producto existente'
+        self.fields['quantity'].label = '¿Cuántos incluye el combo?'
+        self.fields['sort_order'].widget = forms.HiddenInput()
+
 
 class StockForm(forms.Form):
     direction = forms.ChoiceField(label='Tipo', choices=[('plus', 'Aumentar'), ('minus', 'Reducir')])

@@ -95,6 +95,9 @@ def product_edit(request, pk=None):
             if not pk and form.cleaned_data.get('sale_type') == 'DRINK':
                 messages.info(request, 'Ahora agrega los ingredientes y la cantidad que usa cada trago.')
                 return redirect('management:product-recipe', obj.pk)
+            if not pk and form.cleaned_data.get('sale_type') == 'COMBO':
+                messages.info(request, 'Ahora elige los productos que incluye el combo.')
+                return redirect('management:component-create', obj.pk)
             if not pk and request.POST.get('after_save') == 'another':
                 return redirect('management:product-create')
             return redirect(product_url(obj))
@@ -208,8 +211,12 @@ def catalog_edit(request, kind, pk=None, product_id=None, group_id=None):
             return redirect(back)
         except ValidationError as exc:
             error_on(form, exc)
-    return page(request, 'catalog_form', {'form': form, 'title': ('Editar ' if pk else 'Crear ') + label,
-        'subtitle': 'Los cambios se aplican al catálogo operativo.', 'product': product, 'back': back, 'submit': 'Guardar cambios', 'can_add_another': pk is None}, section='inventario', status=400 if form.errors else 200)
+    component_title = 'Editar producto del combo' if pk else 'Agregar producto al combo'
+    return page(request, 'catalog_form', {'form': form,
+        'title': component_title if kind == 'component' else ('Editar ' if pk else 'Crear ') + label,
+        'subtitle': f'Elige un producto ya creado y cuántos incluye {product.name}.' if kind == 'component' else 'Los cambios se aplican al catálogo operativo.',
+        'product': product, 'back': back, 'submit': 'Agregar al combo' if kind == 'component' else 'Guardar cambios',
+        'can_add_another': pk is None}, section='inventario', status=400 if form.errors else 200)
 
 
 @require_POST
