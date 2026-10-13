@@ -107,6 +107,9 @@ class ManagerWorkflowTests(AdministrationCase):
     def test_short_product_form_and_actionable_inventory_task(self):
         response = self.client.get(self.url('product-create'))
         self.assertEqual([f.name for f in response.context['fieldsets'][0][1]], ['name', 'category', 'base_price'])
+        self.assertContains(response, 'Solo necesitas nombre, categoría y precio')
+        self.assertContains(response, 'Opciones avanzadas: inventario, preparación y foto')
+        self.assertNotContains(response, '¿Qué vas a vender?')
         response = self.client.get(self.url('home'))
         self.assertContains(response, '?state=low')
         self.assertContains(response, 'Pendientes para revisar')

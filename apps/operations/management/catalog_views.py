@@ -98,13 +98,14 @@ def product_edit(request, pk=None):
         except ValidationError as exc:
             error_on(form, exc)
     return page(request, 'catalog_form', {'form': form, 'title': 'Editar producto' if pk else 'Crear producto',
-        'subtitle': 'Elige qué vas a vender y revisa dónde se prepara y cómo se cuentan sus existencias.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
+        'subtitle': 'Escribe el nombre, elige la categoría y coloca el precio.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
-        'fieldsets': [(title, [form[key] for key in keys if key in form.fields]) for title, keys in (
-            ('Lo que vas a vender', ('name', 'category', 'base_price')),
-            ('Cómo se entrega y se cuenta', ('preparation_route', 'track_inventory', 'initial_stock', 'minimum_stock', 'is_combo', 'uses_recipe', 'inventory_unit', 'purchase_size', 'purchase_label')),)],
-        'advanced_fields': [form[key] for key in ('image', 'is_active', 'visible_in_pos', 'slug') if key in form.fields],
+        'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'base_price') if key in form.fields])],
+        'advanced_fields': [form[key] for key in ('preparation_route', 'track_inventory', 'initial_stock',
+            'minimum_stock', 'is_combo', 'uses_recipe', 'inventory_unit', 'purchase_size',
+            'purchase_label', 'image', 'is_active', 'visible_in_pos', 'slug') if key in form.fields],
+        'advanced_label': 'Opciones avanzadas: inventario, preparación y foto',
         'is_product_form': True}, section='inventario', status=400 if form.errors else 200)
 
 

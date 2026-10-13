@@ -35,7 +35,6 @@ if (sidebar) {
 
 const productSetup=document.querySelector('[data-product-setup]');
 if(productSetup){
- const kind=productSetup.querySelector('#product-kind');
  const adaptStock=()=>{
   const tracked=productSetup.querySelector('#id_track_inventory').checked;
   for(const name of ['initial_stock','minimum_stock','inventory_unit','purchase_size','purchase_label']){const box=productSetup.querySelector(`[data-field="${name}"]`);if(box)box.hidden=!tracked;}
@@ -46,20 +45,10 @@ if(productSetup){
   adaptStock();
  });
  adaptStock();
- kind?.addEventListener('change',()=>{
-  const route=productSetup.querySelector('#id_preparation_route'), track=productSetup.querySelector('#id_track_inventory'), combo=productSetup.querySelector('#id_is_combo');
-  if(!kind.value)return;
-  route.value=kind.value==='food'?'KITCHEN':kind.value==='drink'?'AREA_BAR':'NONE';
-  track.checked=['unit','ingredient'].includes(kind.value);combo.checked=kind.value==='combo';
-  productSetup.querySelector('#id_uses_recipe').checked=['food','drink'].includes(kind.value);
-  productSetup.querySelector('#id_visible_in_pos').checked=kind.value!=='ingredient';
-  adaptStock();
- });
-
 }
 
 // A readable summary before saving products or manual reservations.
-for(const form of document.querySelectorAll('[data-product-setup], [data-reservation-setup]')){
+for(const form of document.querySelectorAll('[data-reservation-setup]')){
  let approved=false, submitter;
  const dialog=document.createElement('dialog');dialog.className='dialog';
  const title=document.createElement('h2');title.textContent='Revisa antes de guardar';
