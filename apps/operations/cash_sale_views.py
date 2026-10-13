@@ -12,7 +12,6 @@ from apps.orders import services as orders
 from apps.orders.models import TableOrder, ACTIVE_STATUSES
 from apps.payments import services as payments
 from apps.payments.queries import get_financial_summary
-from apps.venues.models import Area
 from . import cash_ordering as ops, ordering, accounting
 from .cash_views import required, safe_context, error, json_request
 from .catalog_actions import apply_action
@@ -62,18 +61,14 @@ def tables(request):
         ops.operating(request.cash, "orders.add_products_from_cash_register")
     except (ValidationError, PermissionDenied) as exc:
         return fail(request, exc)
-    register_area = request.cash["register"].area
-    area_maps = []
-    for area in Area.objects.filter(is_active=True).order_by("sort_order", "name", "pk"):
-        data = get_operational_map(area)
-        own_area = area.pk == register_area.pk
-        for group in data["groups"]:
-            for table in group["tables"]:
-                table["url"] = (reverse("cash_operations:sale-order", args=[table["order_id"]])
-                    if own_area and table["order_id"] and table["state"] != "OUT_OF_SERVICE" else "")
-        area_maps.append({"area": area, "map": data, "own_area": own_area})
+    area = request.cash["register"].area
+    data = get_operational_map(area)
+    for group in data["groups"]:
+        for table in group["tables"]:
+            table["url"] = (reverse("cash_operations:sale-order", args=[table["order_id"]])
+                if table["order_id"] and table["state"] != "OUT_OF_SERVICE" else "")
     return render(request, "operations/cash/tables.html", {
-        **safe_context(request.cash), "area_maps": area_maps, "register_area": register_area})
+        **safe_context(request.cash), "map": data, "area": area})
 
 
 @require_GET

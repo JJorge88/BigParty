@@ -316,16 +316,16 @@ class CashSalesTests(CashTestCase):
         self.revoke("record_payment")
         self.assertEqual(self.client.get(f"/caja/orden/{order.pk}/cuenta/").status_code, 403)
 
-    def test_tables_show_all_areas_but_only_own_area_is_selectable(self):
-        self.open()
+    def test_tables_only_show_assigned_area_as_visual_map(self):
+        local_order = self.open()
         foreign = VenueTable.objects.create(name="Privada Premium", area=self.other_area, capacity=4)
         orders.open_table_order(foreign, self.user)
         response = self.client.get("/caja/mesas/")
         self.assertContains(response, "Mesa 01")
-        self.assertContains(response, "Cargar productos")
-        self.assertContains(response, "Privada Premium")
-        self.assertContains(response, "Solo consulta")
-        self.assertNotContains(response, f'/caja/orden/{TableOrder.objects.get(primary_table=foreign).pk}/pedido/')
+        self.assertContains(response, "Mesas de Sport Bar")
+        self.assertContains(response, "table-tile")
+        self.assertContains(response, f'/caja/orden/{local_order.pk}/pedido/')
+        self.assertNotContains(response, "Privada Premium")
         self.assertNotContains(response, "efectivo esperado")
 
     def test_item_permissions_apply_to_quote_and_addition(self):
