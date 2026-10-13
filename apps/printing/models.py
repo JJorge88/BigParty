@@ -1,11 +1,41 @@
 import ipaddress
 import re
 import uuid
+import hashlib
+import secrets
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
+from django.utils import timezone
+
+
+class PrintBridge(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    token_digest = models.CharField(max_length=64, unique=True, editable=False)
+    is_active = models.BooleanField(default=True)
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('name',)
+
+    @staticmethod
+    def digest(token):
+        return hashlib.sha256(token.encode('ascii')).hexdigest()
+
+    @classmethod
+    def issue(cls, name):
+        token = secrets.token_urlsafe(32)
+        return cls.objects.create(name=name, token_digest=cls.digest(token)), token
+
+    def touch(self):
+        self.last_seen_at = timezone.now()
+        self.save(update_fields=['last_seen_at'])
+
+    def __str__(self):
+        return self.name
 
 
 def validate_host(value):
@@ -37,6 +67,8 @@ class Printer(models.Model):
     code = models.SlugField(max_length=40, unique=True)
     printer_type = models.CharField(max_length=7, choices=Type.choices)
     area = models.ForeignKey('venues.Area', on_delete=models.PROTECT, null=True, blank=True)
+    bridge = models.ForeignKey(PrintBridge, on_delete=models.PROTECT, null=True, blank=True, related_name='printers')
+    queue_name = models.CharField(max_length=200, blank=True)
     host = models.CharField(max_length=253, blank=True, validators=[validate_host])
     port = models.PositiveIntegerField(default=9100, validators=[MinValueValidator(1), MaxValueValidator(65535)])
     paper_width = models.CharField(max_length=2, choices=PaperWidth.choices, default=PaperWidth.MM80)
@@ -57,7 +89,16 @@ class Printer(models.Model):
             models.UniqueConstraint(fields=['printer_type'], condition=models.Q(is_active=True, printer_type='KITCHEN'), name='printing_active_kitchen'),
             models.CheckConstraint(condition=models.Q(port__gte=1, port__lte=65535), name='printing_port_range'),
             models.CheckConstraint(condition=models.Q(paper_width__in=['58', '80']), name='printing_paper_width'),
+            models.CheckConstraint(condition=(models.Q(bridge__isnull=True, queue_name='') |
+                (models.Q(bridge__isnull=False) & ~models.Q(queue_name='') & models.Q(host=''))), name='printing_bridge_configuration'),
         ]
+
+    def clean(self):
+        super().clean()
+        if self.bridge_id and (not self.queue_name.strip() or self.host):
+            raise ValidationError('La mini app necesita el nombre de la impresora en Windows y no usa la IP del servidor.')
+        if not self.bridge_id and self.queue_name:
+            raise ValidationError('Selecciona una computadora para usar una impresora de Windows.')
 
     def save(self, *args, **kwargs):
         self.full_clean()

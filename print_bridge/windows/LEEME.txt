@@ -1,0 +1,11 @@
+MINI APP DE IMPRESION - BIG PARTY
+
+1. Instala en Windows todas las impresoras y realiza una pagina de prueba.
+   Pueden estar conectadas por USB o por la red local.
+2. Ejecuta Instalar.cmd como el usuario que usara esta PC.
+3. Pega la direccion del sistema y la clave mostrada por BIG PARTY.
+4. En BIG PARTY escribe exactamente el nombre de cada impresora de Windows.
+5. Pulsa Imprimir prueba.
+
+La PC debe permanecer encendida y con Internet. No abras puertos en el router.
+El registro tecnico queda en %LOCALAPPDATA%\BigPartyPrintBridge\bridge.log.

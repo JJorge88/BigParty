@@ -1,4 +1,10 @@
 import uuid
+import base64
+import json
+import secrets
+from io import BytesIO
+from pathlib import Path
+from zipfile import ZipFile, ZIP_DEFLATED
 from functools import wraps
 from django.conf import settings
 from django.contrib import messages
@@ -7,16 +13,20 @@ from django.core import signing
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import JsonResponse
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils.text import slugify
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from apps.orders.models import TableOrder
 from apps.operations.cash_views import required, safe_context
 from apps.operations.cash_ordering import operating
 from apps.operations.views import operational_required
-from .models import Printer, PrintJob
+from .models import Printer, PrintJob, PrintBridge
+from .backends import escpos_payload
 from .forms import PrinterForm
 from . import services
 
@@ -50,7 +60,100 @@ def technical(view):
 def printers(request):
     rows = [{'printer':p,'state':services.get_printer_status(p)} for p in Printer.objects.all()]
     return render(request,'printing/printers.html',{'rows':rows,'can_test':request.user.has_perm('printing.test_printer'),
-        'network_enabled': settings.PRINTER_BACKEND == 'network'})
+        'network_enabled': settings.PRINTER_BACKEND == 'network', 'bridges': PrintBridge.objects.all()})
+
+
+@require_http_methods(['GET','POST'])
+@technical
+def create_bridge(request):
+    if request.method == 'POST':
+        name = request.POST.get('name','').strip()
+        if not name:
+            messages.error(request, 'Escribe un nombre para la computadora.')
+        elif PrintBridge.objects.filter(name__iexact=name).exists():
+            messages.error(request, 'Ya existe una computadora con ese nombre.')
+        else:
+            bridge, secret = PrintBridge.issue(name)
+            return render(request, 'printing/bridge_ready.html', {'bridge':bridge, 'secret':secret,
+                'server_url':request.build_absolute_uri('/').rstrip('/')})
+    return render(request, 'printing/bridge_create.html')
+
+
+@require_GET
+@technical
+def bridge_download(request):
+    root = Path(settings.BASE_DIR) / 'print_bridge' / 'windows'
+    stream = BytesIO()
+    with ZipFile(stream, 'w', ZIP_DEFLATED) as archive:
+        for name in ('BigPartyPrintBridge.ps1','Instalar.cmd','Desinstalar.cmd','LEEME.txt'):
+            archive.write(root / name, name)
+    response = HttpResponse(stream.getvalue(), content_type='application/zip')
+    response['Content-Disposition'] = 'attachment; filename="MiniApp-Impresion-BIG-PARTY.zip"'
+    return response
+
+
+def _bridge_from_request(request):
+    value = request.headers.get('Authorization','')
+    if not value.startswith('Bearer '):
+        return None
+    digest = PrintBridge.digest(value[7:].strip())
+    bridge = next((row for row in PrintBridge.objects.filter(is_active=True) if secrets.compare_digest(row.token_digest,digest)), None)
+    if bridge:
+        PrintBridge.objects.filter(pk=bridge.pk).update(last_seen_at=timezone.now())
+    return bridge
+
+
+@csrf_exempt
+@require_POST
+def bridge_next(request):
+    bridge = _bridge_from_request(request)
+    if not bridge:
+        return JsonResponse({'error':'Clave del puente inválida.'}, status=401)
+    with transaction.atomic():
+        job = (PrintJob.objects.select_for_update(skip_locked=True).select_related('printer')
+               .filter(status='PENDING', printer__bridge=bridge, printer__is_active=True)
+               .order_by('pk').first())
+        if not job:
+            return JsonResponse({'job':None})
+        job.status = 'PRINTING'
+        job.claim_token = uuid.uuid4()
+        job.printing_started_at = timezone.now()
+        job.attempt_count += 1
+        job.last_error = ''
+        job.delivery_uncertain = False
+        job.backend_used = 'windows_bridge'
+        job.save()
+        services.audit(job, job.created_by, 'attempt_started', attempt=job.attempt_count, backend='windows_bridge')
+        payload = base64.b64encode(escpos_payload(job)).decode('ascii')
+        return JsonResponse({'job':{'id':job.pk, 'claim':str(job.claim_token),
+            'queue':job.printer.queue_name, 'printer':job.printer.name, 'payload':payload}})
+
+
+@csrf_exempt
+@require_POST
+def bridge_complete(request, pk):
+    bridge = _bridge_from_request(request)
+    if not bridge:
+        return JsonResponse({'error':'Clave del puente inválida.'}, status=401)
+    try:
+        data = json.loads(request.body or b'{}')
+        claim = uuid.UUID(data.get('claim',''))
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return JsonResponse({'error':'Confirmación inválida.'}, status=400)
+    with transaction.atomic():
+        job = get_object_or_404(PrintJob.objects.select_for_update().select_related('printer'), pk=pk, printer__bridge=bridge)
+        if job.status != 'PRINTING' or job.claim_token != claim:
+            return JsonResponse({'error':'El trabajo ya no está asignado a esta mini app.'}, status=409)
+        error = str(data.get('error','')).strip()[:2000]
+        ok = data.get('ok') is True and not error
+        job.status = 'PRINTED' if ok else 'FAILED'
+        job.printed_at = timezone.now() if ok else None
+        job.last_error = '' if ok else (error or 'Windows no pudo imprimir el trabajo.')
+        job.delivery_uncertain = bool(data.get('uncertain', not ok))
+        job.save()
+        services.audit(job, job.created_by, 'printed' if ok else 'failed', attempt=job.attempt_count,
+                       uncertain=job.delivery_uncertain, backend='windows_bridge')
+    return JsonResponse({'ok':True})
 
 
 @require_http_methods(['GET','POST'])

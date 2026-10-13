@@ -45,7 +45,7 @@ def resolve_printer(destination):
 
 def schedule(job):
     # Los callbacks no se ejecutan si se revierte el pedido/pago que originó el trabajo.
-    if job.status == 'PENDING':
+    if job.status == 'PENDING' and not (job.printer_id and job.printer.bridge_id):
         transaction.on_commit(partial(print_job, job.pk), robust=True)
 
 
@@ -105,6 +105,9 @@ def print_job(job):
         with transaction.atomic():
             current = PrintJob.objects.select_for_update(of=('self',)).select_related('printer').get(pk=job_id)
             if current.status != 'PENDING':
+                return current
+            # Los trabajos del puente los reclama exclusivamente la PC autorizada.
+            if current.printer_id and current.printer.bridge_id:
                 return current
             current.status = 'PRINTING'
             current.claim_token = uuid.uuid4()
@@ -219,7 +222,7 @@ def print_test_page(printer, user):
 
 def get_printer_status(printer):
     last = printer.jobs.order_by('-pk').first()
-    return {'active':printer.is_active, 'configured':bool(printer.host), 'backend':settings.PRINTER_BACKEND,
+    return {'active':printer.is_active, 'configured':bool((printer.bridge_id and printer.queue_name) or printer.host), 'backend':'bridge' if printer.bridge_id else settings.PRINTER_BACKEND,
             'last_status':last.status if last else None, 'last_status_label':last.get_status_display() if last else '', 'last_error':last.last_error if last else '',
             'last_success':printer.jobs.filter(status='PRINTED').order_by('-printed_at').values_list('printed_at',flat=True).first()}
 

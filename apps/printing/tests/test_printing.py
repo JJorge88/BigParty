@@ -8,6 +8,7 @@ from threading import Barrier, Event
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 import uuid
+import json
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
@@ -26,7 +27,7 @@ from apps.orders.models import PreparationTicketItem
 from apps.payments import services as payments
 from apps.tables.models import VenueTable
 from apps.venues.models import Area
-from apps.printing.models import Printer, PrintJob
+from apps.printing.models import Printer, PrintJob, PrintBridge
 from apps.printing import services, rendering, backends
 
 
@@ -260,6 +261,39 @@ class PrinterAndRoutingTests(OrdersTestCase):
         self.assertRedirects(response, '/impresoras/')
         printer = Printer.objects.get(name='Disco')
         self.assertEqual((printer.area, printer.host, printer.code), (self.other_area, '192.168.1.80', 'disco'))
+
+    def test_windows_bridge_claims_and_completes_job_once(self):
+        bridge, secret = PrintBridge.issue('PC local')
+        self.bar.bridge = bridge
+        self.bar.queue_name = 'Barra USB'
+        self.bar.host = ''
+        self.bar.save()
+        with patch.object(services, 'schedule'):
+            job = services.print_test_page(self.bar, self.user)
+        headers = {'HTTP_AUTHORIZATION':f'Bearer {secret}'}
+        response = self.client.post('/impresoras/puente/api/trabajo/', data='{}', content_type='application/json', **headers)
+        self.assertEqual(response.status_code, 200)
+        claimed = response.json()['job']
+        self.assertEqual((claimed['id'],claimed['queue']),(job.pk,'Barra USB'))
+        self.assertIsNone(self.client.post('/impresoras/puente/api/trabajo/', data='{}', content_type='application/json', **headers).json()['job'])
+        response = self.client.post(f'/impresoras/puente/api/trabajo/{job.pk}/completar/',
+            data=json.dumps({'claim':claimed['claim'],'ok':True}), content_type='application/json', **headers)
+        self.assertEqual(response.status_code, 200)
+        job.refresh_from_db()
+        self.assertEqual((job.status,job.attempt_count,job.backend_used),('PRINTED',1,'windows_bridge'))
+
+    def test_windows_bridge_rejects_bad_secret_and_claim(self):
+        bridge, secret = PrintBridge.issue('PC local')
+        self.bar.bridge, self.bar.queue_name = bridge, 'Barra USB'
+        self.bar.save()
+        with patch.object(services, 'schedule'):
+            job = services.print_test_page(self.bar, self.user)
+        self.assertEqual(self.client.post('/impresoras/puente/api/trabajo/', HTTP_AUTHORIZATION='Bearer bad').status_code,401)
+        claimed = self.client.post('/impresoras/puente/api/trabajo/', HTTP_AUTHORIZATION=f'Bearer {secret}').json()['job']
+        response = self.client.post(f'/impresoras/puente/api/trabajo/{job.pk}/completar/',
+            data=json.dumps({'claim':str(uuid.uuid4()),'ok':True}), content_type='application/json', HTTP_AUTHORIZATION=f'Bearer {secret}')
+        self.assertEqual(response.status_code,409)
+        job.refresh_from_db(); self.assertEqual(job.status,'PRINTING')
 
     def test_csrf_enforced_on_test_action(self):
         from django.test import Client
