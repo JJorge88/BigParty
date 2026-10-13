@@ -1,7 +1,7 @@
-<section class="panel">
+<section class="panel cash-session-panel">
 <div class="panel-heading">
-<h2>Resultados de cajas
-</h2><span class="muted small">Todas las sesiones del período</span>
+<h2>Todos los turnos
+</h2><span class="muted small">{{ session_rows|length }} registrado{{ session_rows|length|pluralize }}</span>
 </div>
 <div class="table-scroll">
 <table>
@@ -10,11 +10,11 @@
 </tr>
 </thead>
 <tbody>{% for row in session_rows %}
-<tr><td><strong>{{ row.session.register.name }}</strong><small>{{ row.session.cashier.get_full_name|default:row.session.cashier.username }} · #{{ row.session.pk }}</small></td><td>{{ row.session.get_status_display }}</td>{% if can_financial %}<td class="numeric">Q{{ row.financial.expected_cash|floatformat:2 }}</td><td class="numeric">{% if row.session.status == 'CLOSED' %}Q{{ row.financial.counted_cash|floatformat:2 }}{% else %}—{% endif %}</td><td class="numeric">{% if row.session.status == 'CLOSED' %}Q{{ row.financial.difference|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}<td><a class="text-link" href="{% url 'management:cash-detail' day.pk row.session.pk %}">Ver →</a></td>
+<tr><td data-label="Caja"><strong>{{ row.session.register.name }}</strong><small>{{ row.session.cashier.get_full_name|default:row.session.cashier.username }} · Turno #{{ row.session.pk }}</small></td><td data-label="Estado"><span class="cash-table-state cash-table-state--{{ row.session.status|lower }}">{{ row.session.get_status_display }}</span></td>{% if can_financial %}<td data-label="Esperado" class="numeric">Q{{ row.financial.expected_cash|floatformat:2 }}</td><td data-label="Contado" class="numeric">{% if row.session.status == 'CLOSED' %}Q{{ row.financial.counted_cash|floatformat:2 }}{% else %}—{% endif %}</td><td data-label="Diferencia" class="numeric">{% if row.session.status == 'CLOSED' %}Q{{ row.financial.difference|floatformat:2 }}{% else %}—{% endif %}</td>{% endif %}<td class="cash-table-action"><a class="text-link" href="{% url 'management:cash-detail' day.pk row.session.pk %}">Revisar →</a></td>
 </tr>{% empty %}
 <tr><td>No se registraron aperturas de caja.</td>
 </tr>{% endfor %}{% for card in registers %}{% if not card.session %}
-<tr><td>{{ card.name }}</td><td>Sin apertura</td>{% if can_financial %}<td class="numeric">—</td><td class="numeric">—</td><td class="numeric">—</td>{% endif %}<td></td>
+<tr><td data-label="Caja">{{ card.name }}</td><td data-label="Estado">Sin apertura</td>{% if can_financial %}<td data-label="Esperado" class="numeric">—</td><td data-label="Contado" class="numeric">—</td><td data-label="Diferencia" class="numeric">—</td>{% endif %}<td></td>
 </tr>{% endif %}{% endfor %}
 </tbody>
 </table>

@@ -1,8 +1,8 @@
 <div class="register-grid">{% for card in registers %}
-<article class="panel register-card">
-<div class="panel-heading"><span class="eyebrow">{{ card.area }}</span><span class="pill">{% if card.session %}{{ card.session.get_status_display }}{% else %}Sin apertura{% endif %}</span>
+<article class="panel register-card {% if card.session.status == 'OPEN' %}register-card--open{% elif card.session.status == 'CLOSED' %}register-card--closed{% endif %}">
+<div class="panel-heading"><span class="eyebrow">{{ card.area }}</span><span class="pill register-state">{% if card.session %}{{ card.session.get_status_display }}{% else %}Sin apertura{% endif %}</span>
 </div>
 <h2>{{ card.name }}
-</h2>{% if card.session %}<p class="register-cashier">{{ card.session.cashier.get_full_name|default:card.session.cashier.username }}</p><p class="muted small">Apertura {{ card.session.opened_at|date:'d/m H:i' }}</p>{% else %}<p class="muted">Sin sesión en este período.</p>{% endif %}<p class="help">Último cierre: {{ card.last_close|date:'d/m/Y H:i'|default:'Sin cierres' }}</p>{% if card.url %}<a class="button button--ghost" href="{{ card.url }}">{% if card.session.status == 'OPEN' %}Ver caja abierta{% else %}Ver cierre{% endif %}<span>→</span></a>{% endif %}
+</h2>{% if card.session %}<p class="register-cashier">{{ card.session.cashier.get_full_name|default:card.session.cashier.username }}</p><p class="muted small">Abrió {{ card.session.opened_at|date:'d/m · H:i' }}</p>{% else %}<p class="muted">No se abrió en este período.</p>{% endif %}<p class="help">Último cierre: {{ card.last_close|date:'d/m/Y · H:i'|default:'Todavía no tiene cierres' }}</p>{% if card.url %}<a class="button button--ghost" href="{{ card.url }}">{% if card.session.status == 'OPEN' %}Revisar caja abierta{% else %}Ver resultado del cierre{% endif %}<span>→</span></a>{% endif %}
 </article>{% endfor %}
 </div>

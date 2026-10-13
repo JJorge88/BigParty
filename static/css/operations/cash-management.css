@@ -1,0 +1,274 @@
+.cash-management-page {
+  --cash-accent:#d5bd95;
+  --cash-line:#353731;
+  --cash-panel:#191b1c;
+}
+.cash-management-heading {
+  align-items:flex-end;
+}
+.cash-period {
+  align-items:flex-end;
+  display:flex;
+  gap:8px;
+}
+.management .cash-period label {
+  margin:0 4px 10px 0;
+}
+.cash-period select {
+  min-width:150px;
+}
+.cash-operation-note {
+  align-items:center;
+  background:#1b1d1b;
+  border:1px solid var(--cash-line);
+  border-radius:10px;
+  display:flex;
+  gap:14px;
+  margin-bottom:18px;
+  padding:15px 18px;
+}
+.cash-operation-note p {
+  color:#aaa9a5;
+  font-size:12px;
+  line-height:1.6;
+}
+.cash-operation-note strong {
+  color:#ddd8cd;
+}
+.cash-operation-icon {
+  align-items:center;
+  background:#292b25;
+  border:1px solid #575645;
+  border-radius:50%;
+  color:#cfd0ad;
+  display:flex;
+  flex:0 0 30px;
+  height:30px;
+  justify-content:center;
+}
+.cash-summary-grid {
+  display:grid;
+  gap:14px;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  margin-bottom:30px;
+}
+.cash-summary-card {
+  background:var(--cash-panel);
+  border:1px solid #303131;
+  border-radius:10px;
+  color:inherit;
+  min-height:112px;
+  padding:19px 21px;
+  text-decoration:none;
+  transition:border-color .15s ease,transform .15s ease;
+}
+.cash-summary-card:hover {
+  border-color:#74664f;
+  transform:translateY(-2px);
+}
+.cash-summary-card--featured {
+  background:linear-gradient(120deg,#28251e,#1c1d1b);
+  border-color:#5a4f3c;
+}
+.cash-summary-card--warning {
+  border-color:#65553c;
+}
+.cash-summary-card span,.cash-summary-card small {
+  color:#aaa9a5;
+  display:block;
+  font-size:11px;
+}
+.cash-summary-card strong {
+  color:#e3cfac;
+  display:block;
+  font-size:30px;
+  font-weight:500;
+  line-height:1;
+  margin:15px 0 10px;
+}
+.cash-management-section {
+  margin:0 0 30px;
+  scroll-margin-top:95px;
+}
+.cash-section-heading {
+  align-items:flex-end;
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  margin-bottom:14px;
+}
+.cash-section-heading h2 {
+  font-size:20px;
+  margin-top:5px;
+}
+.cash-section-heading p {
+  color:#92948e;
+  font-size:11px;
+}
+.cash-management-page .register-grid {
+  gap:14px;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+}
+.cash-management-page .register-card {
+  margin:0;
+  padding:20px;
+}
+.cash-management-page .register-card--open {
+  border-color:#5d5949;
+}
+.cash-management-page .register-card h2 {
+  font-size:19px;
+  margin:16px 0 10px;
+}
+.cash-management-page .register-card .help {
+  min-height:17px;
+}
+.cash-management-page .register-state {
+  background:#242625;
+  border:1px solid #41433f;
+}
+.cash-management-page .register-card--open .register-state {
+  background:#302d24;
+  border-color:#665a44;
+  color:#e1cda8;
+}
+.cash-management-page .cash-session-panel {
+  margin:0;
+  padding:20px;
+}
+.cash-management-page .cash-session-panel .table-scroll {
+  border:1px solid #303131;
+  border-radius:8px;
+  margin-top:14px;
+}
+.cash-management-page .cash-session-panel th {
+  background:#151717;
+  padding:13px 15px;
+}
+.cash-management-page .cash-session-panel td {
+  padding:15px;
+}
+.cash-table-state {
+  background:#252726;
+  border-radius:6px;
+  color:#aaa9a5;
+  display:inline-block;
+  padding:6px 9px;
+}
+.cash-table-state--open {
+  background:#302d24;
+  color:#e1cda8;
+}
+.cash-review-grid {
+  display:grid;
+  gap:16px;
+  grid-template-columns:1fr 1fr;
+}
+.cash-review-grid>div {
+  min-width:0;
+  scroll-margin-top:95px;
+}
+.cash-review-grid .panel {
+  height:100%;
+  margin:0;
+}
+.cash-empty-state {
+  margin-top:20px;
+  padding:70px 24px;
+}
+.cash-empty-state h2 {
+  color:#e1ded5;
+  font-size:22px;
+}
+
+@media(max-width:1000px) {
+  .cash-summary-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:700px) {
+  .cash-management-heading,.cash-section-heading {
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .cash-period {
+    width:100%;
+  }
+  .cash-period select {
+    flex:1;
+    min-width:0;
+  }
+  .cash-operation-note {
+    align-items:flex-start;
+  }
+  .cash-review-grid {
+    grid-template-columns:1fr;
+  }
+  .cash-management-page .register-grid {
+    gap:12px;
+  }
+  .cash-management-page .register-card .button {
+    max-width:none;
+  }
+  .cash-management-page .cash-session-panel {
+    padding:14px;
+  }
+  .cash-management-page .cash-session-panel thead {
+    display:none;
+  }
+  .cash-management-page .cash-session-panel table,
+  .cash-management-page .cash-session-panel tbody,
+  .cash-management-page .cash-session-panel tr,
+  .cash-management-page .cash-session-panel td {
+    box-sizing:border-box;
+    display:block;
+    width:100%;
+  }
+  .cash-management-page .cash-session-panel tr {
+    border-bottom:1px solid #353731;
+    padding:13px 14px;
+  }
+  .cash-management-page .cash-session-panel tr:last-child {
+    border-bottom:0;
+  }
+  .cash-management-page .cash-session-panel td {
+    border:0;
+    min-height:29px;
+    padding:5px 0 5px 105px;
+    position:relative;
+    text-align:left;
+    white-space:normal;
+  }
+  .cash-management-page .cash-session-panel td::before {
+    color:#858880;
+    content:attr(data-label);
+    font-size:10px;
+    left:0;
+    position:absolute;
+    text-transform:uppercase;
+    top:8px;
+  }
+  .cash-management-page .cash-session-panel .cash-table-action {
+    padding:12px 0 2px;
+  }
+  .cash-management-page .cash-session-panel .cash-table-action a {
+    background:#272824;
+    border-radius:6px;
+    display:block;
+    padding:10px;
+    text-align:center;
+  }
+}
+@media(max-width:430px) {
+  .cash-summary-grid {
+    gap:10px;
+  }
+  .cash-summary-card {
+    min-height:100px;
+    padding:16px;
+  }
+  .cash-summary-card strong {
+    font-size:26px;
+    margin:12px 0 8px;
+  }
+}

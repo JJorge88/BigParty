@@ -94,6 +94,8 @@ def closures(request):
     data = queries.day_data(day,request.user) if day else {'day':None,'registers':queries.register_cards(None,[])}
     data['days'] = BusinessDay.objects.all()[:30]
     data['current_day'] = queries.current_day()
+    data['difference_count'] = sum(1 for row in data.get('session_rows', [])
+        if row['session'].status == 'CLOSED' and row['session'].difference)
     return page(request,'closures',data,section='cierres')
 
 @require_GET
