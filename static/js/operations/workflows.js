@@ -36,7 +36,9 @@ if (sidebar) {
 const productSetup=document.querySelector('[data-product-setup]');
 if(productSetup){
  const adaptStock=()=>{
-  const tracked=productSetup.querySelector('#id_track_inventory').checked;
+  const tracking=productSetup.querySelector('#id_track_inventory');
+  const saleType=productSetup.querySelector('#id_sale_type');
+  const tracked=tracking?tracking.checked:saleType?.value==='UNIT';
   for(const name of ['initial_stock','minimum_stock','inventory_unit','purchase_size','purchase_label']){const box=productSetup.querySelector(`[data-field="${name}"]`);if(box)box.hidden=!tracked;}
  };
  for(const name of ['track_inventory','uses_recipe','is_combo']) productSetup.querySelector(`[name="${name}"]`)?.addEventListener('change',event=>{
@@ -45,6 +47,7 @@ if(productSetup){
   adaptStock();
  });
  adaptStock();
+ productSetup.querySelector('#id_sale_type')?.addEventListener('change',adaptStock);
 }
 
 // A readable summary before saving products or manual reservations.

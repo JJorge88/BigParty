@@ -21,6 +21,12 @@ class AutomaticSlugForm(forms.ModelForm):
 
 
 class ProductForm(AutomaticSlugForm):
+    sale_type = forms.ChoiceField(label='¿Qué tipo de producto es?', required=False, initial='UNIT', choices=(
+        ('UNIT', 'Producto por unidad · cerveza, botella, agua'),
+        ('DRINK', 'Trago preparado · descuenta sus ingredientes'),
+        ('FOOD', 'Comida · no descuenta inventario'),
+        ('COMBO', 'Combo · descuenta los productos que incluye'),
+    ))
     initial_stock = forms.IntegerField(label='¿Cuántas unidades tienes ahora?', min_value=0, required=False, initial=0,
         help_text='Si activaste el conteo, escribe la cantidad disponible. Si aún no tienes, deja 0.')
 
@@ -33,7 +39,8 @@ class ProductForm(AutomaticSlugForm):
         if args and args[0] is not None:
             data = args[0].copy()
             obj = kwargs.get('instance')
-            for key, default in [('inventory_unit', 'unit'), ('purchase_size', 1), ('purchase_label', 'unidad')]:
+            for key, default in [('inventory_unit', 'unit'), ('purchase_size', 1), ('purchase_label', 'unidad'),
+                                 ('minimum_stock', 0), ('preparation_route', 'NONE')]:
                 data.setdefault(key, getattr(obj, key, default))
             args = (data, *args[1:])
         super().__init__(*args, **kwargs)
@@ -56,9 +63,22 @@ class ProductForm(AutomaticSlugForm):
             del self.fields['initial_stock']
         self.fields['visible_in_pos'].label = 'Visible en punto de venta'
         self.fields['image'].help_text = 'JPEG, PNG o WebP. Máximo 5 MB.'
+        if self.instance.pk:
+            del self.fields['sale_type']
 
     def clean(self):
         data = super().clean()
+        if not self.instance.pk:
+            sale_type = data.get('sale_type')
+            if not sale_type:
+                sale_type = ('DRINK' if self.data.get('uses_recipe') else 'COMBO' if self.data.get('is_combo')
+                             else 'UNIT' if self.data.get('track_inventory') else 'FOOD')
+            data.update({
+                'track_inventory': sale_type == 'UNIT',
+                'uses_recipe': sale_type == 'DRINK',
+                'is_combo': sale_type == 'COMBO',
+                'preparation_route': 'AREA_BAR' if sale_type == 'DRINK' else 'KITCHEN' if sale_type == 'FOOD' else 'NONE',
+            })
         if data.get('initial_stock') and (not data.get('track_inventory') or data.get('is_combo')):
             self.add_error('initial_stock', 'Las existencias iniciales requieren control de inventario y un producto que no sea combo.')
         return data

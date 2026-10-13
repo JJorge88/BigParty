@@ -106,7 +106,7 @@ class ManagerWorkflowTests(AdministrationCase):
 
     def test_short_product_form_and_actionable_inventory_task(self):
         response = self.client.get(self.url('product-create'))
-        self.assertEqual([f.name for f in response.context['fieldsets'][0][1]], ['name', 'category', 'base_price'])
+        self.assertEqual([f.name for f in response.context['fieldsets'][0][1]], ['name', 'category', 'base_price', 'sale_type'])
         self.assertContains(response, 'Solo necesitas nombre, categoría y precio')
         self.assertContains(response, 'Opciones avanzadas: inventario, preparación y foto')
         self.assertNotContains(response, '¿Qué vas a vender?')
@@ -115,6 +115,23 @@ class ManagerWorkflowTests(AdministrationCase):
         self.assertContains(response, 'Pendientes para revisar')
         self.revoke('view_inventory')
         self.assertNotContains(self.client.get(self.url('home')), '?state=low')
+
+    def test_product_type_applies_simple_inventory_rules(self):
+        common = {'category': self.category.pk, 'base_price': '25', 'name': 'Cerveza', 'sale_type': 'UNIT'}
+        response = self.client.post(self.url('product-create'), common)
+        self.assertEqual(response.status_code, 302, response.context['form'].errors if response.context else None)
+        unit = Product.objects.get(name='Cerveza')
+        self.assertTrue(unit.track_inventory)
+        self.assertFalse(unit.uses_recipe)
+        response = self.client.post(self.url('product-create'), {**common, 'name': 'Mojito', 'sale_type': 'DRINK'})
+        drink = Product.objects.get(name='Mojito')
+        self.assertRedirects(response, self.url('product-recipe', drink.pk))
+        self.assertTrue(drink.uses_recipe)
+        self.assertFalse(drink.track_inventory)
+        self.client.post(self.url('product-create'), {**common, 'name': 'Hamburguesa', 'sale_type': 'FOOD'})
+        food = Product.objects.get(name='Hamburguesa')
+        self.assertFalse(food.track_inventory)
+        self.assertFalse(food.uses_recipe)
 
     def test_reservation_tasks_exclude_expired_requests_and_respect_permission(self):
         from datetime import timedelta

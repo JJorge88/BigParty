@@ -92,6 +92,9 @@ def product_edit(request, pk=None):
         try:
             obj = writes.save_product(form.cleaned_data, user=request.user, pk=pk)
             messages.success(request, 'Producto actualizado.' if pk else ('Producto creado con sus existencias iniciales.' if form.cleaned_data.get('initial_stock') else 'Producto creado. Ya puedes revisar sus datos y registrar entradas.'))
+            if not pk and form.cleaned_data.get('sale_type') == 'DRINK':
+                messages.info(request, 'Ahora agrega los ingredientes y la cantidad que usa cada trago.')
+                return redirect('management:product-recipe', obj.pk)
             if not pk and request.POST.get('after_save') == 'another':
                 return redirect('management:product-create')
             return redirect(product_url(obj))
@@ -101,10 +104,10 @@ def product_edit(request, pk=None):
         'subtitle': 'Escribe el nombre, elige la categoría y coloca el precio.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
-        'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'base_price') if key in form.fields])],
-        'advanced_fields': [form[key] for key in ('preparation_route', 'track_inventory', 'initial_stock',
-            'minimum_stock', 'is_combo', 'uses_recipe', 'inventory_unit', 'purchase_size',
-            'purchase_label', 'image', 'is_active', 'visible_in_pos', 'slug') if key in form.fields],
+        'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'base_price', 'sale_type') if key in form.fields])],
+        'advanced_fields': [form[key] for key in ((('preparation_route', 'track_inventory', 'is_combo', 'uses_recipe') if pk else ()) +
+            ('initial_stock', 'minimum_stock', 'inventory_unit', 'purchase_size', 'purchase_label',
+             'image', 'is_active', 'visible_in_pos', 'slug')) if key in form.fields],
         'advanced_label': 'Opciones avanzadas: inventario, preparación y foto',
         'is_product_form': True}, section='inventario', status=400 if form.errors else 200)
 
