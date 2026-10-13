@@ -26,6 +26,10 @@ class TableForm(forms.ModelForm):
         self.instance.area = area
         self.fields['zone'].queryset = Zone.objects.filter(area=area)
         self.fields['revision'].initial = self.instance.updated_at.isoformat() if self.instance.pk else ''
+        self.fields['level'].label = '¿En qué nivel está?'
+        self.fields['level'].help_text = 'Usa Nivel 1 para la planta principal y Nivel 2 para el segundo piso.'
+        if not self.instance.pk:
+            self.fields['level'].initial = 'LEVEL_1'
         for key in ('layout_x', 'layout_y', 'layout_width', 'layout_height'):
             self.fields[key].localize = False
             self.fields[key].widget = forms.NumberInput(attrs={'step': '.01', 'min': '0.01' if key in ('layout_width', 'layout_height') else '0', 'max': '100'})
@@ -69,9 +73,9 @@ def edit(request, pk=None, area_id=None):
         except ValidationError as exc:
             form.add_error(None, ' '.join(exc.messages))
     return page(request, 'table_edit', {**map_data(area, table), 'form': form,
-        'basic_fields': [form[key] for key in ('name', 'capacity', 'zone', 'level', 'layout_shape')],
-        'position_fields': [form[key] for key in ('layout_x', 'layout_y', 'layout_width', 'layout_height')],
-        'state_fields': [form[key] for key in ('is_active', 'operational_status')],
+        'basic_fields': [form[key] for key in ('name', 'capacity', 'level')],
+        'advanced_fields': [form[key] for key in ('zone', 'layout_shape', 'layout_x', 'layout_y',
+                                                  'layout_width', 'layout_height', 'is_active', 'operational_status')],
         'title': 'Editar mesa' if pk else 'Crear mesa'}, section='mesas', status=400 if form.errors else 200)
 
 
