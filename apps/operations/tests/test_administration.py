@@ -250,6 +250,10 @@ class UserInterfaceTests(AdministrationCase):
         self.assertEqual(response.status_code, 302)
         cashier = User.objects.get(username='caja.barra')
         self.assertEqual(cashier.work_area, self.area)
+        self.assertTrue(cashier.has_perm('orders.create_quick_sale'))
+        self.assertTrue(cashier.has_perm('orders.add_products_from_cash_register'))
+        self.assertTrue(cashier.has_perm('orders.add_order_line'))
+        self.assertTrue(cashier.has_perm('orders.send_order'))
         self.assertContains(self.client.get(self.url('user', cashier.pk)), self.area.name)
 
     def test_reset_pin_hash_secret_free_and_post_only(self):

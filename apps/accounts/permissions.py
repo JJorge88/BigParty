@@ -46,6 +46,7 @@ PRESETS = {
                'orders.send_order', 'orders.manage_subaccounts', 'payments.record_payment', 'payments.close_order',
                'printing.print_customer_receipt'},
     'CAJERO': {'orders.view_tableorder', 'orders.create_quick_sale', 'orders.add_products_from_cash_register',
+               'orders.add_order_line', 'orders.send_order',
                'cash.open_cash_session', 'cash.receive_waiter_cash', 'cash.close_cash_session', 'cash.view_cashmovement',
                'operations.request_cash_withdrawal', 'payments.record_payment', 'payments.close_order', 'printing.print_customer_receipt'},
     'GUARDIA': GUARD,
