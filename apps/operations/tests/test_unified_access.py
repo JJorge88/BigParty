@@ -9,10 +9,17 @@ class UnifiedAccessTests(AdministrationCase):
     def test_access_page_routes_pin_to_cash_and_password_to_management(self):
         client = Client()
         self.assertContains(client.get('/ingresar/'), 'PIN o contraseña')
-        pin = client.post('/ingresar/', {'username': 'cashier', 'credential': '2580'})
+        self.worker.role = 'CAJERO'
+        self.worker.save(update_fields=['role'])
+        pin = client.post('/ingresar/', {'username': self.worker.username, 'credential': PASSWORD})
         self.assertEqual((pin.status_code, pin['Location']), (307, '/caja/acceso/'))
-        password = client.post('/ingresar/', {'username': self.manager.username, 'credential': PASSWORD})
+        password = client.post('/ingresar/', {'username': self.manager.username, 'credential': '2580'})
         self.assertEqual((password.status_code, password['Location']), (307, '/gerencia/acceso/'))
+
+    def test_unknown_or_non_daily_role_gets_generic_error(self):
+        response = Client().post('/ingresar/', {'username': 'no-existe', 'credential': '2580'})
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, 'Revisa tu usuario y credencial', status_code=400)
 
     def test_management_accepts_unified_credential_and_uses_role_redirect(self):
         client = Client()
