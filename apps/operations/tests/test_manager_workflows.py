@@ -1,6 +1,6 @@
 from django.core.exceptions import PermissionDenied
 from django.test import override_settings
-from apps.catalog.models import Product, Category
+from apps.catalog.models import Product, Category, ComboComponent
 from apps.catalog.management_services import save_product
 from apps.inventory.models import InventoryMovement
 from apps.tables.models import VenueTable
@@ -129,7 +129,8 @@ class ManagerWorkflowTests(AdministrationCase):
         self.assertNotContains(self.client.get(self.url('home')), '?state=low')
 
     def test_product_type_applies_simple_inventory_rules(self):
-        common = {'category': self.category.pk, 'base_price': '25', 'name': 'Cerveza', 'sale_type': 'UNIT'}
+        common = {'category': self.category.pk, 'base_price': '25', 'name': 'Cerveza', 'sale_type': 'UNIT',
+                  'is_active': 'on', 'visible_in_pos': 'on'}
         response = self.client.post(self.url('product-create'), common)
         self.assertEqual(response.status_code, 302, response.context['form'].errors if response.context else None)
         unit = Product.objects.get(name='Cerveza')
@@ -144,12 +145,28 @@ class ManagerWorkflowTests(AdministrationCase):
         food = Product.objects.get(name='Hamburguesa')
         self.assertFalse(food.track_inventory)
         self.assertFalse(food.uses_recipe)
-        response = self.client.post(self.url('product-create'), {**common, 'name': 'Cubetazo', 'sale_type': 'COMBO'})
+        combo_page = self.client.get(self.url('product-create'))
+        self.assertContains(combo_page, '¿Qué incluye este combo?')
+        response = self.client.post(self.url('product-create'), {**common, 'name': 'Cubetazo', 'sale_type': 'COMBO',
+            'combo_component': [str(unit.pk)], 'combo_quantity': ['7']})
+        self.assertEqual(response.status_code, 302, response.context['form'].errors if response.context else None)
         combo = Product.objects.get(name='Cubetazo')
-        self.assertRedirects(response, self.url('component-create', combo.pk))
-        component_page = self.client.get(response['Location'])
-        self.assertContains(component_page, '¿Qué producto deseas agregar?')
-        self.assertContains(component_page, 'Cerveza')
+        self.assertRedirects(response, self.url('product', combo.pk))
+        component = ComboComponent.objects.get(combo=combo)
+        self.assertEqual((component.component, component.quantity), (unit, 7))
+
+    def test_combo_requires_components_and_rejects_duplicates(self):
+        common = {'category': self.category.pk, 'base_price': '100', 'name': 'Combo vacío', 'sale_type': 'COMBO'}
+        response = self.client.post(self.url('product-create'), common)
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, 'Elige al menos un producto', status_code=400)
+        self.assertFalse(Product.objects.filter(name='Combo vacío').exists())
+
+        response = self.client.post(self.url('product-create'), {**common, 'name': 'Combo repetido',
+            'combo_component': [str(self.product.pk), str(self.product.pk)], 'combo_quantity': ['2', '3']})
+        self.assertEqual(response.status_code, 400)
+        self.assertContains(response, 'una sola vez', status_code=400)
+        self.assertFalse(Product.objects.filter(name='Combo repetido').exists())
 
     def test_reservation_tasks_exclude_expired_requests_and_respect_permission(self):
         from datetime import timedelta

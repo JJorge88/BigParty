@@ -49,6 +49,23 @@ def save_product(data, *, user, pk=None):
 
 @sync_atomic('local')
 @transaction.atomic
+def create_product_with_components(data, components, *, user):
+    """Crea un combo y sus productos en una sola operación auditable."""
+    obj = save_product(data, user=user)
+    if not obj.is_combo:
+        if components:
+            raise ValidationError('Los productos incluidos solo se permiten al crear un combo.')
+        return obj
+    if not components:
+        raise ValidationError('Elige al menos un producto para el combo.')
+    for position, (component, quantity) in enumerate(components):
+        save_catalog(ComboComponent, {'component': component, 'quantity': quantity, 'sort_order': position},
+                     user=user, parent=obj)
+    return obj
+
+
+@sync_atomic('local')
+@transaction.atomic
 def save_catalog(model, data, *, user, pk=None, parent=None):
     if model not in FIELDS:
         raise ValidationError('Operación de catálogo no disponible.')

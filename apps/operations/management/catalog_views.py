@@ -36,6 +36,45 @@ def error_on(form, exc):
     form.add_error(None, ' '.join(exc.messages))
 
 
+def combo_selection(request, form):
+    products = Product.objects.filter(is_active=True, is_combo=False).select_related('category').order_by('category__name', 'name')
+    ids = request.POST.getlist('combo_component') if request.method == 'POST' else []
+    quantities = request.POST.getlist('combo_quantity') if request.method == 'POST' else []
+    rows = [{'product_id': ids[index] if index < len(ids) else '',
+             'quantity': quantities[index] if index < len(quantities) else ''} for index in range(max(5, len(ids), len(quantities)))]
+    selected = []
+    if request.method == 'POST' and form.is_valid() and form.cleaned_data.get('sale_type') == 'COMBO':
+        if not request.user.has_perm('catalog.add_combocomponent'):
+            form.add_error(None, 'No tienes permiso para configurar productos de un combo.')
+        seen = set()
+        for index, row in enumerate(rows, 1):
+            product_id, raw_quantity = row['product_id'].strip(), row['quantity'].strip()
+            if not product_id and not raw_quantity:
+                continue
+            if not product_id:
+                form.add_error(None, f'Elige el producto de la fila {index} del combo.')
+                continue
+            try:
+                quantity = int(raw_quantity)
+                if quantity < 1 or quantity > 999:
+                    raise ValueError
+            except (TypeError, ValueError):
+                form.add_error(None, f'Escribe una cantidad válida en la fila {index} del combo.')
+                continue
+            if product_id in seen:
+                form.add_error(None, 'Cada producto debe aparecer una sola vez en el combo.')
+                continue
+            component = products.filter(pk=product_id).first()
+            if component is None:
+                form.add_error(None, f'El producto de la fila {index} ya no está disponible.')
+                continue
+            seen.add(product_id)
+            selected.append((component, quantity))
+        if not selected and not form.errors:
+            form.add_error(None, 'Elige al menos un producto y su cantidad para el combo.')
+    return products, rows, selected
+
+
 def paginate(request, rows):
     params = request.GET.copy()
     params.pop('page', None)
@@ -95,16 +134,16 @@ def product_edit(request, pk=None):
     security.require(request.user, 'catalog.change_product' if pk else 'catalog.add_product')
     obj = get_object_or_404(Product, pk=pk) if pk else None
     form = forms.ProductForm(request.POST or None, request.FILES or None, instance=obj, user=request.user)
+    combo_products, combo_rows, components = combo_selection(request, form) if not pk else (Product.objects.none(), [], [])
     if request.method == 'POST' and form.is_valid():
         try:
-            obj = writes.save_product(form.cleaned_data, user=request.user, pk=pk)
+            obj = (writes.create_product_with_components(form.cleaned_data, components, user=request.user)
+                   if not pk and form.cleaned_data.get('sale_type') == 'COMBO'
+                   else writes.save_product(form.cleaned_data, user=request.user, pk=pk))
             messages.success(request, 'Producto actualizado.' if pk else ('Producto creado con sus existencias iniciales.' if form.cleaned_data.get('initial_stock') else 'Producto creado. Ya puedes revisar sus datos y registrar entradas.'))
             if not pk and form.cleaned_data.get('sale_type') == 'DRINK':
                 messages.info(request, 'Ahora agrega los ingredientes y la cantidad que usa cada trago.')
                 return redirect('management:product-recipe', obj.pk)
-            if not pk and form.cleaned_data.get('sale_type') == 'COMBO':
-                messages.info(request, 'Ahora elige los productos que incluye el combo.')
-                return redirect('management:component-create', obj.pk)
             if not pk and request.POST.get('after_save') == 'another':
                 return redirect('management:product-create')
             return redirect(product_url(obj))
@@ -119,7 +158,7 @@ def product_edit(request, pk=None):
             ('minimum_stock', 'inventory_unit', 'purchase_size', 'purchase_label',
              'image', 'is_active', 'visible_in_pos', 'slug')) if key in form.fields],
         'advanced_label': 'Opciones avanzadas: inventario, preparación y foto',
-        'is_product_form': True}, section='inventario', status=400 if form.errors else 200)
+        'is_product_form': True, 'combo_products': combo_products, 'combo_rows': combo_rows}, section='inventario', status=400 if form.errors else 200)
 
 
 @require_http_methods(['GET', 'POST'])

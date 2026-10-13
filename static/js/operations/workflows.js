@@ -35,13 +35,15 @@ if (sidebar) {
 
 const productSetup=document.querySelector('[data-product-setup]');
 if(productSetup){
- const typeHelp={UNIT:'Se contará por unidades. Cada venta descuenta una.',DRINK:'Después de guardar elegirás los ingredientes y cantidades del trago.',FOOD:'Se enviará a Cocina y no exigirá conteo de inventario.',COMBO:'Después de guardar elegirás los productos y cantidades incluidos.'};
+ const typeHelp={UNIT:'Se contará por unidades. Cada venta descuenta una.',DRINK:'Después de guardar elegirás los ingredientes y cantidades del trago.',FOOD:'Se enviará a Cocina y no exigirá conteo de inventario.',COMBO:'Elige abajo los productos y cantidades que se entregan.'};
  const adaptStock=()=>{
   const tracking=productSetup.querySelector('#id_track_inventory');
   const saleType=productSetup.querySelector('[name="sale_type"]:checked')||productSetup.querySelector('#id_sale_type');
   const tracked=tracking?tracking.checked:saleType?.value==='UNIT';
   for(const name of ['initial_stock','minimum_stock','inventory_unit','purchase_size','purchase_label']){const box=productSetup.querySelector(`[data-field="${name}"]`);if(box)box.hidden=!tracked;}
   const help=productSetup.querySelector('[data-product-type-help]');if(help)help.textContent=typeHelp[saleType?.value]||'';
+  const comboBuilder=productSetup.querySelector('[data-combo-builder]');
+  if(comboBuilder){const combo=saleType?.value==='COMBO';comboBuilder.hidden=!combo;comboBuilder.querySelectorAll('select,input').forEach(field=>field.disabled=!combo);const firstSelect=comboBuilder.querySelector('select');if(firstSelect)firstSelect.required=combo;}
  };
  for(const name of ['track_inventory','uses_recipe','is_combo']) productSetup.querySelector(`[name="${name}"]`)?.addEventListener('change',event=>{
   if(event.target.name==='uses_recipe'&&event.target.checked){productSetup.querySelector('#id_track_inventory').checked=false;productSetup.querySelector('#id_is_combo').checked=false;}
@@ -50,6 +52,7 @@ if(productSetup){
  });
  adaptStock();
  productSetup.querySelectorAll('[name="sale_type"]').forEach(field=>field.addEventListener('change',adaptStock));
+ productSetup.querySelectorAll('[name="combo_component"]').forEach(field=>field.addEventListener('change',()=>{const quantity=field.closest('.combo-builder-row')?.querySelector('[name="combo_quantity"]');if(quantity&&!quantity.value&&field.value)quantity.value='1';}));
 }
 
 // A readable summary before saving products or manual reservations.
