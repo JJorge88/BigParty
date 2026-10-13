@@ -42,6 +42,13 @@ class ManualReservationForm(PaymentTermsForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.is_bound:
+            self.fields['table'].queryset = self.fields['table'].queryset.none()
+        self.fields['customer_name'].widget.attrs.update({'placeholder': 'Ej. Ana López', 'autocomplete': 'name'})
+        self.fields['customer_phone'].label = 'Teléfono o WhatsApp'
+        self.fields['customer_phone'].widget.attrs.update({'inputmode': 'tel', 'autocomplete': 'tel'})
+        self.fields['party_size'].label = '¿Cuántas personas?'
+        self.fields['party_size'].widget.attrs.update({'inputmode': 'numeric', 'placeholder': 'Ej. 4'})
         self.fields['table'].help_text = 'Primero elige fecha, hora y personas para consultar mesas disponibles. Volvemos a comprobar al guardar.'
         durations = [(60, '1 hora'), (90, '1 hora y media'), (120, '2 horas'), (180, '3 horas'), (240, '4 horas'), (360, '6 horas'), (480, '8 horas')]
         selected = self['duration'].value()

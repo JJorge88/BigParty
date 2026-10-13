@@ -41,14 +41,17 @@ def index(request):
     rows = Reservation.objects.select_related('table', 'area')
     live = rows.exclude(Q(status='PENDING_REVIEW', hold_expires_at__lte=now) | Q(status='AWAITING_PAYMENT', payment_expires_at__lte=now))
     counts = {'pending': live.filter(status='PENDING_REVIEW').count(), 'payment': live.filter(status='AWAITING_PAYMENT').count(),
+              'review': live.filter(status__in=('PENDING_REVIEW', 'PAYMENT_REVIEW')).count(),
               'today': live.filter(status='CONFIRMED', reservation_date=timezone.localdate()).count(),
               'upcoming': live.filter(status='CONFIRMED', starts_at__gte=now).count()}
     selected = request.GET.get('filter', '')
-    filters = [('', 'Todas'), ('PENDING_REVIEW', 'Pendientes'), ('AWAITING_PAYMENT', 'Esperando pago'),
+    filters = [('', 'Todas'), ('attention', 'Por atender'), ('AWAITING_PAYMENT', 'Esperando pago'),
                ('PAYMENT_REVIEW', 'Por verificar'), ('CONFIRMED', 'Confirmadas'), ('today', 'Hoy')]
     if selected == 'today':
         rows = rows.filter(reservation_date=timezone.localdate())
-    elif selected in dict(filters) and selected:
+    elif selected == 'attention':
+        rows = live.filter(status__in=('PENDING_REVIEW', 'PAYMENT_REVIEW'))
+    elif selected in Reservation.Status.values:
         rows = live.filter(status=selected)
     search = request.GET.get('q', '').strip()[:120]
     if search:
@@ -83,8 +86,12 @@ def create(request):
             return redirect('reservations:detail', code=row.public_code)
         except ValidationError as exc:
             error = ' '.join(exc.messages)
-    return page(request, 'form.html', {'form': form, 'error': error, 'title': 'Crear reserva', 'subtitle': 'Reserva interna · confirmación directa', 'button': 'Crear reserva', 'manual': True,
-        'groups': [(title, [form[key] for key in keys]) for title,keys in (('1. Fecha y grupo', ('date','time','duration','party_size')),('2. Mesa disponible', ('table',)),('3. Cliente', ('customer_name','customer_phone')),('4. Anticipo', ('payment_required','payment_type','payment_value','payment_application','payment_base_amount')))]})
+    return page(request, 'form.html', {'form': form, 'error': error, 'title': 'Crear reserva', 'subtitle': 'Reserva de mesa', 'button': 'Guardar y ver reserva', 'manual': True,
+        'groups': [(title, description, [form[key] for key in keys]) for title, description, keys in (
+            ('1. Cliente', '¿A nombre de quién guardamos la mesa?', ('customer_name','customer_phone','party_size')),
+            ('2. Fecha y hora', 'Indica cuándo llegará y cuánto tiempo ocupará la mesa.', ('date','time','duration')),
+            ('3. Mesa', 'Mostraremos únicamente las mesas disponibles para ese grupo.', ('table',)),
+            ('4. Anticipo (opcional)', 'Actívalo solo si pedirás un pago para confirmar.', ('payment_required','payment_type','payment_value','payment_application','payment_base_amount')))]})
 
 
 @security.required

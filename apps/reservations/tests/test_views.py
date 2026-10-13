@@ -35,6 +35,9 @@ class ViewTests(ReservationCase):
         row=self.request();self.login()
         response=self.client.get('/gerencia/reservas/')
         self.assertContains(response,'Ana López'); self.assertEqual(response.context['counts']['pending'],1)
+        self.assertEqual(response.context['counts']['review'],1)
+        self.assertContains(response,'Necesitan atención')
+        self.assertContains(self.client.get('/gerencia/reservas/?filter=attention'),'Ana López')
         self.assertContains(self.client.get('/gerencia/reservas/?q=BP-R-'),'Ana López')
         self.assertNotContains(self.client.get('/gerencia/reservas/?q=desconocido'),'Ana López')
         self.assertNotContains(self.client.get('/gerencia/reservas/?filter=CONFIRMED'),'Ana López')
@@ -124,7 +127,11 @@ class ViewTests(ReservationCase):
 
     def test_manual_and_settings_forms(self):
         self.login()
-        self.assertContains(self.client.get('/gerencia/reservas/nueva/'),'Crear reserva')
+        create_page=self.client.get('/gerencia/reservas/nueva/')
+        self.assertContains(create_page,'Crear reserva')
+        self.assertContains(create_page,'¿A nombre de quién guardamos la mesa?')
+        self.assertContains(create_page,'Guardar y ver reserva')
+        self.assertNotContains(create_page,'VIP 2')
         self.assertContains(self.client.get('/gerencia/reservas/configuracion/'),'Configuración de reservas')
         response=self.client.post('/gerencia/reservas/nueva/',{'table':self.table.pk,'customer_name':'Pedro',
             'customer_phone':'+50255555555','date':str(self.start.date()),'time':'20:00','duration':180,'party_size':4,
