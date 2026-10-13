@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.audit.models import AuditLog
 from apps.operations.models import OperationalDevice, PinAttempt, OperationalSession
 from apps.operations.security import DEVICE_COOKIE, SESSION_COOKIE, DEVICE_SALT, LOCKED_MESSAGE
+from apps.tables.models import VenueTable
 from .base import OperationsTestCase
 
 
@@ -32,6 +33,20 @@ class DeviceTests(OperationsTestCase):
         self.assertNotContains(response, self.waiter.get_full_name())
         self.assertEqual(self.login().status_code, 200)
         self.assertIn(DEVICE_COOKIE, self.client.cookies)
+
+    def test_waiter_assignment_selects_area_without_device_configuration(self):
+        VenueTable.objects.create(area=self.other_area, name='Mesa Premium', capacity=4)
+        self.waiter.work_area = self.other_area
+        self.waiter.save(update_fields=['work_area'])
+        client = Client()
+        response = self.login(client)
+        self.assertEqual(response.status_code, 200)
+        session = OperationalSession.objects.get(revoked_at__isnull=True)
+        self.assertEqual(session.area, self.other_area)
+        self.assertEqual(session.device.code, f'tablet-web-{self.other_area.pk}')
+        table_map = client.get('/operacion/mesas/', HTTP_ACCEPT='application/json').json()
+        self.assertTrue(any(table['area'] == self.other_area.name for group in table_map['groups'] for table in group['tables']))
+        self.assertFalse(any(table['area'] == self.area.name for group in table_map['groups'] for table in group['tables']))
 
     def test_configuration_requires_staff_and_specific_permission(self):
         self.assertEqual(self.client.get("/dispositivo/configurar/").status_code, 302)

@@ -20,6 +20,7 @@
 <th>Nombre</th>
 <th>Usuario</th>
 <th>Rol base</th>
+<th>Área</th>
 <th>Estado</th>
 <th>PIN</th>
 <th>Último acceso</th>
@@ -35,7 +36,7 @@
 </a>
 </td>
 <td>{{ row.username }}</td>
-<td>{{ row.get_role_display }}</td>
+<td>{{ row.get_role_display }}</td><td>{% if row.role == 'MESERO' %}{{ row.work_area.name|default:'Sin asignar' }}{% else %}—{% endif %}</td>
 <td>
 <span class="admin-badge {% if row.is_active %}available{% endif %}">{{ row.is_active|yesno:'Activo,Inactivo' }}</span>
 </td>
@@ -45,7 +46,7 @@
 <a class="admin-text-link" href="{% url 'management:user' row.pk %}">Ver usuario ↗</a>
 </td>
 </tr>{% empty %}<tr>
-<td colspan="7" class="admin-empty">No hay usuarios para estos filtros.</td>
+<td colspan="8" class="admin-empty">No hay usuarios para estos filtros.</td>
 </tr>{% endfor %}</tbody>
 </table>
 </div>{% include 'operations/management/partials/admin_pagination.html' %}</section>

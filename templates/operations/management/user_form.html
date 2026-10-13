@@ -9,7 +9,7 @@
 </header>
 <div class="admin-form-layout">
 <section class="admin-panel admin-form-panel">
-<div class="flow-form-guide"><span><strong>1.</strong> Datos de la persona</span><span><strong>2.</strong> Elige su función</span><span><strong>3.</strong> Define su acceso privado</span></div><form method="post" data-user-form data-flow-form>{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">{% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}{% include 'operations/management/partials/admin_fields.html' %}<div class="admin-form-footer">
+<div class="flow-form-guide"><span><strong>1.</strong> Datos de la persona</span><span><strong>2.</strong> Elige su función y área</span><span><strong>3.</strong> Define su acceso privado</span></div><form method="post" data-user-form data-flow-form>{% csrf_token %}<input type="hidden" name="revision" value="{{ revision }}">{% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}{% include 'operations/management/partials/admin_fields.html' %}<div class="admin-form-footer">
 <a href="{{ back }}">Cancelar</a>
 <button class="admin-button admin-button--primary">Guardar usuario</button>
 </div>
@@ -18,7 +18,7 @@
 <aside class="admin-panel admin-context">
 <span class="eyebrow">ACCESO SEGURO</span>
 <h2>Cada persona, su acceso</h2>
-<p>El cajero es la persona. La caja es la computadora o puesto donde trabaja.</p><p>El PIN del cajero se escribe en privado y nunca se vuelve a mostrar.</p>
+<p>El mesero puede quedar asignado a Discoteca, Barra u otra área. Al entrar en la tablet verá directamente las mesas de esa área.</p><p>El cajero es la persona. La caja es la computadora o puesto donde trabaja.</p><p>El PIN se escribe en privado y nunca se vuelve a mostrar.</p>
 <p>Gerentes y propietarios necesitan una contraseña segura para entrar a Gerencia.</p>
 <div class="admin-divider">
 </div>

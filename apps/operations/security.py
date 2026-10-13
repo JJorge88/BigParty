@@ -86,10 +86,16 @@ def audit(user, device, action, **data):
     AuditLog.objects.create(user=user, action="operations." + action, entity="operations.operationaldevice", entity_id=str(device.pk), data=data)
 
 
-def automatic_device():
+def automatic_device(area=None):
     """Obtiene la identidad técnica compartida; cada navegador conserva su vínculo secreto."""
-    device = OperationalDevice.objects.select_for_update().filter(
-        is_active=True, area__is_active=True).order_by("name", "pk").first()
+    if area is not None:
+        device, _ = OperationalDevice.objects.select_for_update().get_or_create(
+            code=f"{AUTOMATIC_DEVICE_CODE}-{area.pk}",
+            defaults={"name": f"Tablets web · {area.name}", "area": area},
+        )
+        return device if device.is_active and device.area.is_active else None
+    devices = OperationalDevice.objects.select_for_update().filter(is_active=True, area__is_active=True)
+    device = devices.order_by("name", "pk").first()
     if device:
         return device
     area = Area.objects.select_for_update().filter(is_active=True).order_by("name", "pk").first()
@@ -97,7 +103,7 @@ def automatic_device():
         return None
     device, _ = OperationalDevice.objects.get_or_create(
         code=AUTOMATIC_DEVICE_CODE,
-        defaults={"name": "Tablets web", "area": area},
+        defaults={"name": f"Tablets web · {area.name}", "area": area},
     )
     if not device.is_active or not device.area.is_active:
         return None
@@ -106,22 +112,23 @@ def automatic_device():
 
 @transaction.atomic
 def authenticate_pin(request, user_id, pin):
-    identity = device_identity(request, lock=True)
-    browser = None
-    if identity is None:
-        device = automatic_device()
-        if device is None:
-            return {"ok": False, "message": "Todavía no hay un área activa para mostrar las mesas.", "status": 409}
-        browser = secrets.token_urlsafe(32)
-        binding_hash = digest(browser)
-    else:
-        device, binding_hash = identity
     try:
         user = get_user_model().objects.get(pk=user_id)
     except (get_user_model().DoesNotExist, TypeError, ValueError, OverflowError):
         return {"ok": False, "message": PIN_MESSAGE, "status": 400}
     if not eligible(user):
         return {"ok": False, "message": PIN_MESSAGE, "status": 403}
+    assigned_area = user.work_area if user.work_area_id and user.work_area.is_active else None
+    identity = device_identity(request, lock=True)
+    browser = None
+    if identity is None or (assigned_area and identity[0].area_id != assigned_area.pk):
+        device = automatic_device(assigned_area)
+        if device is None:
+            return {"ok": False, "message": "Todavía no hay un área activa para mostrar las mesas.", "status": 409}
+        browser = secrets.token_urlsafe(32)
+        binding_hash = digest(browser)
+    else:
+        device, binding_hash = identity
     attempt, _ = PinAttempt.objects.get_or_create(device=device, user=user)
     now = timezone.now()
     if attempt.locked_until and attempt.locked_until > now:

@@ -29,7 +29,7 @@ def pin_configured(user):
 @security.required
 def users(request):
     security.require(request.user, 'accounts.view_user')
-    rows = User.objects.annotate(recent_access=Greatest('last_login',
+    rows = User.objects.select_related('work_area').annotate(recent_access=Greatest('last_login',
         Subquery(OperationalSession.objects.filter(user_id=OuterRef('pk')).order_by('-created_at').values('created_at')[:1]),
         Subquery(CashAccessSession.objects.filter(user_id=OuterRef('pk')).order_by('-created_at').values('created_at')[:1]))).order_by('first_name', 'last_name', 'username')
     role = request.GET.get('role', '')
@@ -49,6 +49,7 @@ def users(request):
 def detail_data(request, target):
     labels = {'user_created': 'Usuario creado', 'identity_changed': 'Información actualizada',
         'role_changed': 'Rol cambiado', 'activated': 'Usuario activado', 'deactivated': 'Usuario desactivado',
+        'area_changed': 'Área de trabajo cambiada',
         'pin_reset': 'PIN restablecido', 'password_reset': 'Contraseña actualizada',
         'permission_added': 'Permiso agregado', 'permission_removed': 'Permiso retirado',
         'preset_applied': 'Permisos sugeridos aplicados', 'login': 'Ingreso a Gerencia', 'logout': 'Salida de Gerencia'}
@@ -67,7 +68,7 @@ def detail_data(request, target):
 @security.required
 def user(request, pk):
     security.require(request.user, 'accounts.view_user')
-    target = get_object_or_404(User, pk=pk)
+    target = get_object_or_404(User.objects.select_related('work_area'), pk=pk)
     return page(request, 'user', detail_data(request, target), section='usuarios')
 
 
@@ -82,7 +83,7 @@ def user_edit(request, pk=None):
     target = get_object_or_404(User, pk=pk) if pk else None
     allowed_next = {reverse('management:registers'), reverse('cash_operations:access')}
     next_url = request.GET.get('next') if request.GET.get('next') in allowed_next else ''
-    initial = {'role': request.GET.get('role')} if not pk and request.GET.get('role') in ('GERENTE', 'CAJERO', 'PROPIETARIO') else None
+    initial = {'role': request.GET.get('role')} if not pk and request.GET.get('role') in ('MESERO', 'GERENTE', 'CAJERO', 'PROPIETARIO') else None
     form = forms.UserForm(request.POST or None, instance=target, actor=request.user, initial=initial)
     # Capturar antes de que ModelForm modifique la instancia en memoria.
     revision = services.revision(target) if target else ''

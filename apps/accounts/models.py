@@ -22,6 +22,8 @@ class User(AbstractUser):
 
     role = models.CharField("rol base", max_length=20, choices=Role.choices, default=Role.MESERO)
     pin_hash = models.CharField("hash del PIN", max_length=128, blank=True, editable=False)
+    work_area = models.ForeignKey('venues.Area', verbose_name='área de trabajo', related_name='waiters',
+        on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta(AbstractUser.Meta):
         verbose_name = "usuario"

@@ -227,12 +227,22 @@ class UserInterfaceTests(AdministrationCase):
             self.assertEqual(self.client.post(self.url('user-create'), {'username': 'invalid', 'is_active': 'on', **data}).status_code, 400)
         self.assertFalse(User.objects.filter(username='invalid').exists())
 
-    def test_creation_form_hides_technical_roles_and_explains_cashier(self):
+    def test_creation_form_offers_waiter_area_and_hides_guard(self):
         response = self.client.get(self.url('user-create'), {'role': 'CAJERO'})
         self.assertContains(response, 'Cajero')
+        self.assertContains(response, 'Mesero')
+        self.assertContains(response, 'Área del mesero')
         self.assertContains(response, 'El cajero es la persona')
-        self.assertNotContains(response, '<option value="MESERO"')
         self.assertNotContains(response, '<option value="GUARDIA"')
+
+    def test_create_waiter_with_area_and_show_it_in_users(self):
+        response = self.client.post(self.url('user-create'), {'username': 'luis.disco', 'first_name': 'Luis',
+            'role': 'MESERO', 'work_area': self.area.pk, 'is_active': 'on', 'pin': '1470', 'confirm': '1470'})
+        self.assertEqual(response.status_code, 302)
+        waiter = User.objects.get(username='luis.disco')
+        self.assertEqual(waiter.work_area, self.area)
+        self.assertContains(self.client.get(self.url('users'), {'role': 'MESERO'}), self.area.name)
+        self.assertContains(self.client.get(self.url('user', waiter.pk)), 'Área asignada')
 
     def test_reset_pin_hash_secret_free_and_post_only(self):
         url = self.url('user-pin', self.worker.pk)
@@ -262,9 +272,11 @@ class UserInterfaceTests(AdministrationCase):
     def test_role_change_preserves_permissions_and_audits(self):
         before = users.codes(self.worker)
         response = self.client.post(self.url('user-edit', self.worker.pk), {'username': self.worker.username,
-            'first_name': 'Carlos', 'last_name': 'Méndez', 'role': 'CAJERO', 'revision': users.revision(self.worker)})
+            'first_name': 'Carlos', 'last_name': 'Méndez', 'role': 'CAJERO', 'work_area': self.area.pk,
+            'revision': users.revision(self.worker)})
         self.assertEqual(response.status_code, 302)
-        self.worker.refresh_from_db(); self.assertEqual(self.worker.role, 'CAJERO'); self.assertEqual(users.codes(self.worker), before)
+        self.worker.refresh_from_db(); self.assertEqual(self.worker.role, 'CAJERO'); self.assertIsNone(self.worker.work_area)
+        self.assertEqual(users.codes(self.worker), before)
         self.assertTrue(AuditLog.objects.filter(action='accounts.role_changed').exists())
 
     def test_guard_role_requires_explicit_incompatible_permission_removal(self):

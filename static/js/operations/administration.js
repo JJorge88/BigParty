@@ -5,6 +5,11 @@ if (userForm) {
   const role = userForm.querySelector('[name="role"]');
   const update = () => {
     const manager = ['GERENTE', 'PROPIETARIO'].includes(role.value);
+    const area = userForm.querySelector('[data-field="work_area"]');
+    if (area) {
+      area.hidden = role.value !== 'MESERO';
+      area.querySelector('select').disabled = area.hidden;
+    }
     for (const key of ['pin', 'password']) {
       const field = userForm.querySelector(`[data-field="${key}"]`);
       if (!field) continue;

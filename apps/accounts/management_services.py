@@ -40,7 +40,7 @@ def group_codes(target):
 
 def revision(target):
     inherited = sorted(group_codes(target))
-    raw = repr((target.username, target.first_name, target.last_name, target.role, target.is_active,
+    raw = repr((target.username, target.first_name, target.last_name, target.role, target.work_area_id, target.is_active,
                 sorted(codes(target)), inherited, target.is_superuser, target.is_staff))
     return hashlib.sha256(raw.encode()).hexdigest()
 
@@ -80,7 +80,7 @@ def save_user(data, *, actor, pk=None, expected=None):
     if pk:
         protect_target(actor, target)
         check_revision(target, expected)
-    old = {f: getattr(target, f) for f in ('username', 'first_name', 'last_name', 'role', 'is_active')}
+    old = {f: getattr(target, f) for f in ('username', 'first_name', 'last_name', 'role', 'work_area_id', 'is_active')}
     new_role, new_active = data.get('role', target.role), data.get('is_active', target.is_active)
     if pk and new_role != target.role:
         require(actor, 'accounts.change_user_role')
@@ -91,6 +91,10 @@ def save_user(data, *, actor, pk=None, expected=None):
             raise ValidationError('No puedes desactivar ni cambiar el rol del último propietario activo.')
     if new_role == 'GUARDIA' and pk and (target.is_superuser or (codes(target) | group_codes(target)) - GUARD):
         raise ValidationError('Retira explícitamente los permisos incompatibles antes de cambiar a Guardia.')
+    if 'work_area' in data:
+        data['work_area_id'] = data['work_area'].pk if data['work_area'] else None
+    if new_role != User.Role.MESERO:
+        data['work_area_id'] = None
     for field in old:
         if field in data:
             setattr(target, field, data[field])
@@ -118,9 +122,9 @@ def save_user(data, *, actor, pk=None, expected=None):
         for field, before in old.items():
             after = getattr(target, field)
             if before != after:
-                action = 'role_changed' if field == 'role' else ('activated' if after else 'deactivated') if field == 'is_active' else 'identity_changed'
+                action = 'role_changed' if field == 'role' else ('area_changed' if field == 'work_area_id' else ('activated' if after else 'deactivated') if field == 'is_active' else 'identity_changed')
                 audit(actor, target, action, field=field, before=before, after=after)
-        if not target.is_active or old['role'] != target.role:
+        if not target.is_active or old['role'] != target.role or old['work_area_id'] != target.work_area_id:
             revoke_pin_sessions(target)
     return target
 
