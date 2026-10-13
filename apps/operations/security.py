@@ -59,7 +59,15 @@ def device_identity(request, *, lock=False):
 
 
 def set_device_cookie(response, device):
-    value = signing.dumps({"device_id": device.pk, "version": str(device.binding_version), "browser": secrets.token_urlsafe(32)}, salt=DEVICE_SALT)
+    browser = secrets.token_urlsafe(32)
+    value = signing.dumps({"device_id": device.pk, "version": str(device.binding_version), "browser": browser}, salt=DEVICE_SALT)
+    response.set_cookie(DEVICE_COOKIE, value, max_age=settings.OPERATIONAL_DEVICE_COOKIE_AGE,
+                        httponly=True, secure=settings.SESSION_COOKIE_SECURE, samesite="Lax", path="/")
+
+
+def set_automatic_device_cookie(response, device, browser):
+    value = signing.dumps({"device_id": device.pk, "version": str(device.binding_version),
+                           "browser": browser}, salt=DEVICE_SALT)
     response.set_cookie(DEVICE_COOKIE, value, max_age=settings.OPERATIONAL_DEVICE_COOKIE_AGE,
                         httponly=True, secure=settings.SESSION_COOKIE_SECURE, samesite="Lax", path="/")
 
@@ -79,9 +87,16 @@ def audit(user, device, action, **data):
 @transaction.atomic
 def authenticate_pin(request, user_id, pin):
     identity = device_identity(request, lock=True)
+    browser = None
     if identity is None:
-        return {"ok": False, "message": "Este dispositivo aún no está configurado.", "status": 403}
-    device, binding_hash = identity
+        device = OperationalDevice.objects.select_for_update().filter(
+            is_active=True, area__is_active=True).order_by("name", "pk").first()
+        if device is None:
+            return {"ok": False, "message": "Todavía no hay tablets activas. Pide al gerente crear una.", "status": 409}
+        browser = secrets.token_urlsafe(32)
+        binding_hash = digest(browser)
+    else:
+        device, binding_hash = identity
     try:
         user = get_user_model().objects.get(pk=user_id)
     except (get_user_model().DoesNotExist, TypeError, ValueError, OverflowError):
@@ -112,7 +127,7 @@ def authenticate_pin(request, user_id, pin):
     OperationalSession.objects.create(device=device, user=user, area=device.area,
         token_hash=digest(token), binding_hash=binding_hash, auth_hash=user_auth_hash(user), last_activity_at=now)
     audit(user, device, "access_granted")
-    return {"ok": True, "token": token}
+    return {"ok": True, "token": token, "device": device, "browser": browser}
 
 
 def operational_context(request, *, touch=False):

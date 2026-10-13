@@ -4,14 +4,13 @@
 
 
 {% block content %}<main id="main" class="access-shell">
-{% if device %}
 <div class="access-heading">
-<span class="area-label">
+{% if device %}<span class="area-label">
 <svg aria-hidden="true">
 <use href="#icon-area"/>
-</svg>{{ device.area.name }}</span>
+</svg>{{ device.area.name }}</span>{% endif %}
 <h1>Ingresa a la tablet</h1>
-<p class="muted">Escribe tu usuario y PIN para comenzar a operar.</p>
+<p class="muted">Escribe tu usuario y PIN. No necesitas configurar este dispositivo.</p>
 </div>
 {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
 <section class="card tablet-login"><form method="post" action="{{ access_url }}">{% csrf_token %}<label for="tablet-username">Usuario</label><input id="tablet-username" name="username" autocomplete="username" required autofocus><label for="tablet-pin">PIN</label><input id="tablet-pin" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,6}" maxlength="6" autocomplete="current-password" required><button class="button button--primary">Ingresar →</button></form></section>
@@ -20,16 +19,8 @@
 <svg aria-hidden="true">
 <use href="#icon-lock"/>
 </svg>Dispositivo compartido. Acceso personal.</span>
-<span>{{ device.name }}</span>
+{% if device %}<span>{{ device.name }}</span>{% endif %}
 </footer>
-{% else %}<div class="empty-state">
-<svg aria-hidden="true">
-<use href="#icon-area"/>
-</svg>
-<p class="eyebrow">PREPARAR DISPOSITIVO</p>
-<h1>Este dispositivo aún no está configurado.</h1>
-<p>Solicita a una persona autorizada asignar este navegador al área donde se utilizará.</p>{% if can_configure %}<a class="button button--primary" href="{% url 'operations:configure-device' %}">Configurar dispositivo</a>{% else %}<a class="button button--ghost" href="{% url 'operations:configure-device' %}">Configurar dispositivo</a>
-<p class="pin-note">Requiere acceso administrativo autorizado.</p>{% endif %}</div>{% endif %}
 <noscript>
 <p class="form-error">Activa JavaScript en este dispositivo para usar el teclado y el mapa de mesas.</p>
 </noscript>

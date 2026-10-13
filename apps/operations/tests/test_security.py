@@ -26,11 +26,12 @@ class DeviceTests(OperationsTestCase):
         with self.assertRaises(ValidationError):
             OperationalDevice.objects.create(name="Caja", code="NO-TYPE", area=self.area, device_type="CASH_REGISTER")
 
-    def test_unconfigured_shows_clean_message(self):
+    def test_unconfigured_browser_logs_in_and_is_assigned_automatically(self):
         response = self.client.get("/operacion/acceso/")
-        self.assertContains(response, "Este dispositivo aún no está configurado.")
+        self.assertContains(response, "No necesitas configurar este dispositivo.")
         self.assertNotContains(response, self.waiter.get_full_name())
-        self.assertEqual(self.login().status_code, 403)
+        self.assertEqual(self.login().status_code, 200)
+        self.assertIn(DEVICE_COOKIE, self.client.cookies)
 
     def test_configuration_requires_staff_and_specific_permission(self):
         self.assertEqual(self.client.get("/dispositivo/configurar/").status_code, 302)
@@ -58,31 +59,29 @@ class DeviceTests(OperationsTestCase):
     def test_tampered_cookie_does_not_identify_device(self):
         self.bind()
         self.client.cookies[DEVICE_COOKIE] = self.client.cookies[DEVICE_COOKIE].value + "x"
-        self.assertContains(self.client.get("/operacion/acceso/"), "Este dispositivo aún no está configurado.")
-        self.assertEqual(self.login().status_code, 403)
+        self.assertContains(self.client.get("/operacion/acceso/"), "No necesitas configurar este dispositivo.")
+        self.assertEqual(self.login().status_code, 200)
 
     def test_unsigned_id_is_not_a_device_binding(self):
         self.client.cookies[DEVICE_COOKIE] = str(self.device.pk)
-        self.assertEqual(self.login().status_code, 403)
+        self.assertEqual(self.login().status_code, 200)
 
     def test_disabled_device_invalidates_existing_access(self):
         self.enter()
         self.device.is_active = False
         self.device.save()
         self.assertEqual(self.client.get("/operacion/mesas/", HTTP_ACCEPT="application/json").status_code, 401)
-        self.assertContains(self.client.get("/operacion/acceso/"), "Este dispositivo aún no está configurado.")
+        self.assertContains(self.client.get("/operacion/acceso/"), "No necesitas configurar este dispositivo.")
         self.assertIsNotNone(OperationalSession.objects.get().revoked_at)
         self.device.is_active = True
         self.device.save()
-        self.assertEqual(self.login().status_code, 403)
+        self.assertEqual(self.login().status_code, 200)
 
     def test_area_change_requires_reconfiguration_and_revokes_session(self):
         self.enter()
         self.device.area = self.other_area
         self.device.save(update_fields=["area"])
         self.assertEqual(self.client.get("/operacion/mesas/", HTTP_ACCEPT="application/json").status_code, 401)
-        self.assertEqual(self.login().status_code, 403)
-        self.bind()
         self.assertEqual(self.login().status_code, 200)
         self.assertEqual(OperationalSession.objects.filter(revoked_at__isnull=True).get().area, self.other_area)
 

@@ -31,7 +31,7 @@ def _json(request):
 def _access_context(request, error=None):
     identity = security.device_identity(request)
     return {"device": identity[0] if identity else None,
-            "waiters": security.visible_waiters() if identity else [], "error": error,
+            "waiters": [], "error": error,
             "can_configure": request.user.is_authenticated and request.user.is_staff and request.user.has_perm("operations.configure_operational_device"),
             "access_url": request.path}
 
@@ -79,6 +79,8 @@ def access(request):
         return render(request, "operations/access.html", _access_context(request, result["message"]), status=result["status"])
     rotate_token(request)
     response = JsonResponse({"next": reverse("operations:tables")}) if _json(request) else redirect("operations:tables")
+    if result["browser"]:
+        security.set_automatic_device_cookie(response, result["device"], result["browser"])
     security.set_session_cookie(response, result["token"])
     return response
 
