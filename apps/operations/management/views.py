@@ -63,6 +63,21 @@ def home(request):
     day = queries.current_day()
     data = queries.dashboard(day,request.user) if day else {'day':None}
     data['daily_tasks'] = pending_tasks(request.user, data)
+    from apps.accounts.models import User
+    from apps.cash.models import CashRegister
+    from apps.catalog.models import Product
+    from apps.printing.models import Printer
+    from apps.tables.models import VenueTable
+    setup = [
+        ('Productos', Product.objects.filter(is_active=True, visible_in_pos=True).exists(), 'Crea lo que venderás.', 'management:product-create', 'catalog.add_product'),
+        ('Cajero', User.objects.filter(role='CAJERO', is_active=True, pin_hash__gt='').exists(), 'Crea a la persona que cobrará.', 'management:user-create', 'accounts.add_user'),
+        ('Cajas', CashRegister.objects.filter(is_active=True).exists(), 'Crea Caja 1 y Caja 2.', 'management:registers', 'cash.view_cashregister'),
+        ('Mesas', VenueTable.objects.filter(is_active=True).exists(), 'Agrega las mesas del primer y segundo nivel.', 'management:table-start', 'tables.add_venuetable'),
+        ('Impresoras', Printer.objects.filter(is_active=True).exists(), 'Conecta barra y cocina.', 'printing:printers', 'printing.manage_printers'),
+    ]
+    data['setup_steps'] = [dict(name=name, ready=ready, description=description,
+        url=reverse(route) if request.user.has_perm(permission) else '') for name,ready,description,route,permission in setup]
+    data['setup_complete'] = all(row['ready'] for row in data['setup_steps'])
     return page(request,'home',data)
 
 @require_GET

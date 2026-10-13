@@ -18,12 +18,14 @@ from .views import page
 
 def stock_state(product):
     if product.uses_recipe:
-        return ('recipe', 'Por receta')
+        return ('recipe', 'Descuenta ingredientes')
+    if product.is_combo:
+        return ('recipe', 'Descuenta productos')
     if product.is_out_of_stock:
         return ('out', 'Agotado')
     if product.is_low_stock:
         return ('low', 'Stock bajo')
-    return ('available', 'Disponible') if product.track_inventory else ('untracked', 'Sin control')
+    return ('available', 'Disponible') if product.track_inventory else ('untracked', 'No necesita conteo')
 
 
 def product_url(product):
@@ -75,10 +77,15 @@ def product(request, pk):
     obj.state_code, obj.state_label = stock_state(obj)
     overrides = {row.area_id: row.price for row in obj.area_prices.all()}
     maximum = services.get_combo_max_available(obj) if obj.is_combo else None
+    inventory_explanation = ('Descuenta los ingredientes de su receta.' if obj.uses_recipe else
+        'Descuenta los productos incluidos en el combo.' if obj.is_combo else
+        'Descuenta una unidad cada vez que se vende.' if obj.track_inventory else
+        'No descuenta inventario; se vende sin llevar conteo de unidades.')
     return page(request, 'product', {'product': obj, 'areas': [{'area': area, 'price': overrides.get(area.pk), 'special': area.pk in overrides} for area in Area.objects.all()],
         'history': obj.price_history.select_related('area', 'changed_by')[:15],
         'movements': obj.inventory_movements.select_related('user')[:10],
-        'maximum': maximum, 'combo_available': maximum is None or maximum > 0}, section='inventario')
+        'maximum': maximum, 'combo_available': maximum is None or maximum > 0,
+        'inventory_explanation': inventory_explanation}, section='inventario')
 
 
 @require_http_methods(['GET', 'POST'])
@@ -107,9 +114,9 @@ def product_edit(request, pk=None):
         'subtitle': 'Escribe el nombre, elige la categoría y coloca el precio.' if not pk else 'Actualiza sus datos. Para cambiar las existencias, registra una entrada o un ajuste.',
         'product': obj, 'back': product_url(obj) if obj else reverse('management:inventory'), 'submit': 'Guardar producto',
         'can_add_another': pk is None,
-        'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'base_price', 'sale_type') if key in form.fields])],
+        'fieldsets': [('Datos principales', [form[key] for key in ('name', 'category', 'base_price', 'sale_type', 'initial_stock') if key in form.fields])],
         'advanced_fields': [form[key] for key in ((('preparation_route', 'track_inventory', 'is_combo', 'uses_recipe') if pk else ()) +
-            ('initial_stock', 'minimum_stock', 'inventory_unit', 'purchase_size', 'purchase_label',
+            ('minimum_stock', 'inventory_unit', 'purchase_size', 'purchase_label',
              'image', 'is_active', 'visible_in_pos', 'slug')) if key in form.fields],
         'advanced_label': 'Opciones avanzadas: inventario, preparación y foto',
         'is_product_form': True}, section='inventario', status=400 if form.errors else 200)

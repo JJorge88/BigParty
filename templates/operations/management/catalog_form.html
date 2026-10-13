@@ -10,7 +10,7 @@
 </header>
 <div class="admin-form-layout {% if is_product_form or is_stock_entry or quick_edit %}simple-form{% endif %}">
 <section class="admin-panel admin-form-panel">
-<form method="post" enctype="multipart/form-data" data-flow-form {% if is_product_form %}data-product-setup{% endif %}>{% csrf_token %}<p class="flow-note">Solo necesitas nombre, categoría y precio. Abre las opciones avanzadas únicamente si llevarás inventario, recetas o preparación.</p>{% include 'operations/management/partials/admin_fields.html' %}{% if adjustment %}<p class="admin-help">Ejemplos de motivo: Conteo físico · Rotura · Pérdida · Corrección.</p>{% endif %}<div class="admin-form-footer">
+<form method="post" enctype="multipart/form-data" data-flow-form {% if is_product_form %}data-product-setup{% endif %}>{% csrf_token %}{% if is_product_form %}<p class="flow-note"><strong>Solo cuatro decisiones:</strong> nombre, categoría, precio y qué tipo de producto es. El sistema decide cómo manejar el inventario.</p><div class="product-type-help" data-product-type-help role="status"></div>{% endif %}{% include 'operations/management/partials/admin_fields.html' %}{% if adjustment %}<p class="admin-help">Ejemplos de motivo: Conteo físico · Rotura · Pérdida · Corrección.</p>{% endif %}<div class="admin-form-footer">
 <a href="{{ back }}">Cancelar</a>
 <button class="admin-button admin-button--primary">{{ submit }}</button>{% if can_add_another %}<button class="admin-button flow-secondary-submit" name="after_save" value="another">Guardar y agregar otro</button>{% endif %}
 </div>

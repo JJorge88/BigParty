@@ -35,11 +35,13 @@ if (sidebar) {
 
 const productSetup=document.querySelector('[data-product-setup]');
 if(productSetup){
+ const typeHelp={UNIT:'Se contará por unidades. Cada venta descuenta una.',DRINK:'Después de guardar elegirás los ingredientes y cantidades del trago.',FOOD:'Se enviará a Cocina y no exigirá conteo de inventario.',COMBO:'Después de guardar elegirás los productos y cantidades incluidos.'};
  const adaptStock=()=>{
   const tracking=productSetup.querySelector('#id_track_inventory');
-  const saleType=productSetup.querySelector('#id_sale_type');
+  const saleType=productSetup.querySelector('[name="sale_type"]:checked')||productSetup.querySelector('#id_sale_type');
   const tracked=tracking?tracking.checked:saleType?.value==='UNIT';
   for(const name of ['initial_stock','minimum_stock','inventory_unit','purchase_size','purchase_label']){const box=productSetup.querySelector(`[data-field="${name}"]`);if(box)box.hidden=!tracked;}
+  const help=productSetup.querySelector('[data-product-type-help]');if(help)help.textContent=typeHelp[saleType?.value]||'';
  };
  for(const name of ['track_inventory','uses_recipe','is_combo']) productSetup.querySelector(`[name="${name}"]`)?.addEventListener('change',event=>{
   if(event.target.name==='uses_recipe'&&event.target.checked){productSetup.querySelector('#id_track_inventory').checked=false;productSetup.querySelector('#id_is_combo').checked=false;}
@@ -47,7 +49,7 @@ if(productSetup){
   adaptStock();
  });
  adaptStock();
- productSetup.querySelector('#id_sale_type')?.addEventListener('change',adaptStock);
+ productSetup.querySelectorAll('[name="sale_type"]').forEach(field=>field.addEventListener('change',adaptStock));
 }
 
 // A readable summary before saving products or manual reservations.

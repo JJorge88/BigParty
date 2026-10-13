@@ -14,12 +14,13 @@
 <a href="{% url 'reservations:list' %}" {% if section == 'reservas' %}aria-current="page"{% endif %}>Reservas</a>
 <a href="{% url 'events:list' %}" {% if section == 'eventos' %}aria-current="page"{% endif %}>Eventos</a>
 <a href="{% url 'management:closures' %}" {% if section == 'cierres' %}aria-current="page"{% endif %}>Caja y cierres</a>
-{% if perms.cash.view_cashregister or perms.cash.add_cashregister or perms.cash.change_cashregister or perms.cash.configure_cash_register_device %}<a href="{% url 'management:registers' %}" {% if section == 'cajas' %}aria-current="page"{% endif %}>Cajas</a>{% endif %}
+{% if perms.cash.view_cashregister or perms.cash.add_cashregister or perms.cash.change_cashregister or perms.cash.configure_cash_register_device %}<a href="{% url 'management:registers' %}" {% if section == 'cajas' %}aria-current="page"{% endif %}>Cajas y cajeros</a>{% endif %}
 <details class="sidebar-admin" {% if section == 'usuarios' or section == 'reportes' or section == 'auditoria' or section == 'impresiones' or section == 'configuracion' %}open{% endif %}><summary>Administración</summary><div>
 {% if perms.accounts.view_user %}<a href="{% url 'management:users' %}" {% if section == 'usuarios' %}aria-current="page"{% endif %}>Usuarios y permisos</a>{% endif %}
 {% if perms.core.view_reports %}<a href="{% url 'management:reports' %}" {% if section == 'reportes' %}aria-current="page"{% endif %}>Reportes</a>{% endif %}
 {% if perms.audit.view_audit_log %}<a href="{% url 'management:audit' %}" {% if section == 'auditoria' %}aria-current="page"{% endif %}>Auditoría</a>{% endif %}
 {% if perms.printing.view_printjob or perms.printing.manage_printers %}<a href="{% url 'management:print-jobs' %}" {% if section == 'impresiones' %}aria-current="page"{% endif %}>Impresiones</a>{% endif %}
+{% if perms.printing.manage_printers %}<a href="{% url 'printing:printers' %}">Configurar impresoras</a>{% endif %}
 {% if perms.core.view_configuration %}<a href="{% url 'management:configuration' %}" {% if section == 'configuracion' %}aria-current="page"{% endif %}>Configuración</a>{% endif %}
 </div></details>
 {% endif %}

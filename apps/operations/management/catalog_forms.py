@@ -22,11 +22,11 @@ class AutomaticSlugForm(forms.ModelForm):
 
 class ProductForm(AutomaticSlugForm):
     sale_type = forms.ChoiceField(label='¿Qué tipo de producto es?', required=False, initial='UNIT', choices=(
-        ('UNIT', 'Producto por unidad · cerveza, botella, agua'),
-        ('DRINK', 'Trago preparado · descuenta sus ingredientes'),
-        ('FOOD', 'Comida · no descuenta inventario'),
-        ('COMBO', 'Combo · descuenta los productos que incluye'),
-    ))
+        ('UNIT', 'Producto por unidad'),
+        ('DRINK', 'Trago preparado'),
+        ('FOOD', 'Comida'),
+        ('COMBO', 'Combo'),
+    ), widget=forms.RadioSelect)
     initial_stock = forms.IntegerField(label='¿Cuántas unidades tienes ahora?', min_value=0, required=False, initial=0,
         help_text='Si activaste el conteo, escribe la cantidad disponible. Si aún no tienes, deja 0.')
 
@@ -59,6 +59,9 @@ class ProductForm(AutomaticSlugForm):
         self.fields['track_inventory'].help_text = 'Descuenta unidades con las ventas. Déjalo desactivado si no llevas conteo de este producto.'
         self.fields['preparation_route'].help_text = 'Indica dónde se prepara: barra, cocina o entrega directa.'
         self.fields['minimum_stock'].label = 'Avisar cuando queden estas unidades'
+        if 'sale_type' in self.fields:
+            self.fields['sale_type'].help_text = ('Unidad: cerveza, botella o agua. Trago: descuenta ingredientes. '
+                'Comida: no lleva conteo. Combo: descuenta los productos incluidos.')
         if self.instance.pk or not user.has_perm('inventory.receive_inventory'):
             del self.fields['initial_stock']
         self.fields['visible_in_pos'].label = 'Visible en punto de venta'

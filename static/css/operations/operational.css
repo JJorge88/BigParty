@@ -606,3 +606,4 @@
   }
 }
 .tablet-login{max-width:480px;margin:30px auto;padding:28px}.tablet-login form{display:grid;gap:12px}.tablet-login input{width:100%;box-sizing:border-box;background:#171b1c;color:var(--text);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:16px}.tablet-login .button{margin-top:10px}
+.level-switch{display:flex;gap:10px;overflow-x:auto;margin:16px 0 22px;padding-bottom:3px}.level-switch a{min-width:110px;padding:12px 18px;border:1px solid #343936;border-radius:999px;color:#d8d9d5;text-align:center;text-decoration:none;font-weight:650}.level-switch a[aria-current="page"]{background:#d6c59e;border-color:#d6c59e;color:#24271f}

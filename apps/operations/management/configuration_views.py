@@ -7,6 +7,7 @@ from django.http import Http404
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.db.models import Q
 from django.views.decorators.http import require_GET, require_http_methods
 from apps.core import configuration as config
 from apps.core.models import BusinessSettings, BusinessOpeningHours, BankTransferSettings
@@ -87,14 +88,15 @@ def hub(request):
         cards.append(dict(title=title, description=description,
                           url=reverse(route, args=args) if route and request.user.has_perm(permission) else ''))
     card('Negocio', f'{config.business().business_name} · Información, ubicación, horarios e ingreso.', 'core.change_business_configuration', 'management:configuration-business')
-    card('Operación', 'La jornada se abre y cierra manualmente. Las ventas conservan su jornada después de medianoche.', 'cash.view_cash_session_financials', 'management:closures')
+    card('Operación diaria', 'Cada cajero abre su caja con el fondo inicial. La jornada interna se administra automáticamente.', 'cash.view_cash_session_financials', 'management:closures')
     card('Métodos de pago', 'Efectivo, tarjeta, transferencia y depósito. Los cambios afectan únicamente nuevos cobros.', 'core.change_payment_method_configuration', 'management:configuration-edit', ['methods'])
     card('Datos de transferencia', 'Datos públicos para recibir pagos en reservas y eventos. ' + ('Configurados.' if config.bank() else 'Pendiente de configuración.'), 'core.change_bank_transfer_configuration', 'management:configuration-edit', ['bank'])
     card('Reservas', f'{"Habilitadas" if reserve.reservations_enabled else "Deshabilitadas"} · duración {reserve.default_duration_minutes} min · retención {reserve.public_hold_minutes} min · anticipo {"activo" if reserve.advance_payment_enabled else "inactivo"}', 'reservations.configure_reservations', 'reservations:configure')
     card('Eventos', f'Retención {event.purchase_hold_minutes} min · ventana de pago {event.payment_window_minutes} min', 'events.change_event', 'events:settings')
     card('Mesas', 'Crea mesas y organiza su ubicación, forma y capacidad por área.', 'tables.view_venuetable', 'management:tables')
-    card('Impresoras', f'{Printer.objects.count()} registradas · {Printer.objects.exclude(host="").count()} configuradas en red · {PrintJob.objects.filter(status="FAILED", printer__isnull=False, created_at__gte=timezone.now()-timedelta(days=7)).values("printer_id").distinct().count()} con fallos recientes (7 días)', 'printing.manage_printers', 'printing:printers')
-    card('Cajas y computadoras', f'{CashRegister.objects.count()} cajas registradas. Crea cajas y configura el navegador de cada computadora.', 'cash.view_cashregister', 'management:registers')
+    configured_printers = Printer.objects.filter(Q(host__gt='') | (Q(bridge__isnull=False) & Q(queue_name__gt=''))).count()
+    card('Impresoras', f'{Printer.objects.count()} registradas · {configured_printers} conectadas · {PrintJob.objects.filter(status="FAILED", printer__isnull=False, created_at__gte=timezone.now()-timedelta(days=7)).values("printer_id").distinct().count()} con fallos recientes (7 días)', 'printing.manage_printers', 'printing:printers')
+    card('Cajas y cajeros', f'{CashRegister.objects.count()} cajas registradas. El cajero entra con su usuario y PIN; no se configura el navegador.', 'cash.view_cashregister', 'management:registers')
     card('Seguridad y accesos', 'Usuarios, credenciales y permisos individuales.', 'accounts.view_user', 'management:users')
     if request.user.is_staff:
         if request.user.has_perm('operations.view_operationaldevice'):

@@ -3,7 +3,7 @@
 {% block title %}BIG PARTY · Mapa de mesas{% endblock %}
 
 
-{% block body_attributes %}data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'operations:lock' %}" data-activity-url="{% url 'operations:activity' %}" data-access-url="{% url 'operations:access' %}" data-map-url="{% url 'operations:tables' %}" data-can-open="{{ can_open|yesno:'true,false' }}"{% endblock %}
+{% block body_attributes %}data-idle-timeout="{{ idle_timeout }}" data-lock-url="{% url 'operations:lock' %}" data-activity-url="{% url 'operations:activity' %}" data-access-url="{% url 'operations:access' %}" data-map-url="{{ request.get_full_path }}" data-can-open="{{ can_open|yesno:'true,false' }}"{% endblock %}
 
 
 {% block topbar %}<div class="topbar-area">
@@ -72,6 +72,7 @@
 <i class="status-dot">
 </i>Fuera de servicio</span>
 </div>
+{% if map.levels|length > 1 %}<nav class="level-switch" aria-label="Nivel del local"><a href="{% url 'operations:tables' %}" {% if not map.level %}aria-current="page"{% endif %}>Todos</a>{% for row in map.levels %}<a href="{% url 'operations:tables' %}?level={{ row.value }}" {% if map.level == row.value %}aria-current="page"{% endif %}>{{ row.label }}</a>{% endfor %}</nav>{% endif %}
 <div id="map-groups">{% for group in map.groups %}<section class="map-zone" data-zone>
 <div class="zone-heading">
 <h2>{{ group.name }}</h2>

@@ -15,7 +15,7 @@
 <select id="inventory-state" name="state">
 <option value="">Todos los estados</option><option value="low" {% if request.GET.state == 'low' %}selected{% endif %}>Stock bajo</option>
 <option value="out" {% if request.GET.state == 'out' %}selected{% endif %}>Agotados</option>
-<option value="untracked" {% if request.GET.state == 'untracked' %}selected{% endif %}>Sin control</option>
+<option value="untracked" {% if request.GET.state == 'untracked' %}selected{% endif %}>No necesitan conteo</option>
 </select>
 <label class="sr-only" for="inventory-category">Categoría</label>
 <select id="inventory-category" name="category">

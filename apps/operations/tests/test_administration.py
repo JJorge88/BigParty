@@ -60,7 +60,7 @@ class InventoryInterfaceTests(AdministrationCase):
         Product.objects.create(name='Servicio', slug='servicio', category=self.category)
         Product.objects.create(name='Disponible', slug='disponible', category=self.category, track_inventory=True, stock_quantity=10)
         page = self.client.get(self.url('inventory'))
-        for label in ('Stock bajo', 'Agotado', 'Sin control', 'Disponible'):
+        for label in ('Stock bajo', 'Agotado', 'No necesita conteo', 'Disponible'):
             self.assertContains(page, label)
         for state, name in [('low', 'Gallo'), ('out', 'Agua'), ('untracked', 'Servicio')]:
             response = self.client.get(self.url('inventory'), {'state': state})

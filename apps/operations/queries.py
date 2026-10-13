@@ -45,8 +45,14 @@ def _has_layout(tables):
     return True
 
 
-def get_operational_map(area):
-    tables = list(VenueTable.objects.filter(area=area, is_active=True).select_related("area", "zone").order_by("zone__sort_order", "sort_order", "name", "pk"))
+def get_operational_map(area, level=''):
+    query = VenueTable.objects.filter(area=area, is_active=True)
+    levels = list(query.exclude(level='').values_list('level', flat=True).distinct().order_by('level'))
+    if level in dict(VenueTable._meta.get_field('level').choices):
+        query = query.filter(level=level)
+    else:
+        level = ''
+    tables = list(query.select_related("area", "zone").order_by("level", "zone__sort_order", "sort_order", "name", "pk"))
     links = OrderTableLink.objects.filter(table__in=tables, released_at__isnull=True, order__status__in=ACTIVE_STATUSES).select_related("order__responsible_waiter")
     orders = {link.table_id: link.order for link in links}
     from apps.reservations.queries import current_reserved_tables
@@ -59,6 +65,8 @@ def get_operational_map(area):
         groups[key]["tables"].append(table_data(table, orders.get(table.pk), table.pk in reserved))
     for group in groups.values():
         group["has_layout"] = _has_layout(group["tables"])
+    labels = dict(VenueTable._meta.get_field('level').choices)
     return {"groups": list(groups.values()), "has_open_day": BusinessDay.objects.filter(status="OPEN").exists(),
+            "levels": [{"value": value, "label": labels[value]} for value in levels], "level": level,
             "table_count": len(tables), "available_count": sum(t["state"] == "AVAILABLE" for g in groups.values() for t in g["tables"]),
             "occupied_count": sum(t["order_id"] is not None for g in groups.values() for t in g["tables"])}

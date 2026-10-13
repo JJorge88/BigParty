@@ -122,7 +122,7 @@ def activity(request):
 @operational_required
 def tables(request):
     context = request.operational
-    data = get_operational_map(context["area"])
+    data = get_operational_map(context["area"], request.GET.get('level', ''))
     if _json(request):
         return JsonResponse(data)
     return render(request, "operations/tables.html", {**context, "map": data,
