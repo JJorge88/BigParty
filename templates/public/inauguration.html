@@ -11,7 +11,7 @@
 <meta property="og:description" content="{{ invitation_starts_at|date:'l j \d\e F \d\e Y'|capfirst }} · {{ invitation_starts_at|date:'g:i a' }} · Celebremos el comienzo. Encuentra aquí la ubicación.">
 <meta property="og:url" content="{{ canonical }}"><meta property="og:image" content="{{ og_image }}"><meta property="og:image:alt" content="Logo dorado de BIG PARTY Discotec"><meta property="og:locale" content="es_GT">
 <link rel="preload" href="{% static 'fonts/InterVariable.woff2' %}" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="{% static 'css/public/invitation.css' %}?v=cosmos-credit-1">
+<link rel="stylesheet" href="{% static 'css/public/invitation.css' %}?v=programa-2">
 </head><body data-server-now="{{ server_now }}" data-invitation-date="{{ invitation_starts_at|date:'c' }}">
 <a class="skip-link" href="#invitacion">Ir a la invitación</a>
 <main class="invitation" id="invitacion">
@@ -25,6 +25,22 @@
       <span class="date-number">{{ invitation_starts_at|date:'d' }}</span>
       <div><span class="date-month">{{ invitation_starts_at|date:'F'|capfirst }} {{ invitation_starts_at|date:'Y' }}</span><span class="date-detail">{{ invitation_starts_at|date:'l'|capfirst }} · {{ invitation_starts_at|date:'g:i a' }}</span><span class="date-timezone">Hora de Guatemala</span></div>
     </div>
+    <section class="invitation-program" aria-labelledby="program-title">
+      <p class="eyebrow" id="program-title">PROGRAMA</p>
+      <div class="program-item">
+        <span class="program-time">2:00–5:00 p. m.</span>
+        <p>Acto de inauguración</p>
+      </div>
+      <div class="program-item">
+        <span class="program-time">5:00 p. m.–1:00 a. m.</span>
+        <p>Presentación y show de Grupo Bembé, Imperio Efectivo y DJ Chama</p>
+      </div>
+      <div class="program-admission">
+        <span class="admission-label">Entrada</span>
+        <strong>Q60</strong>
+        <span class="admission-time">A partir de las 6:00 p. m.</span>
+      </div>
+    </section>
     <div class="invitation-countdown" data-countdown aria-label="Tiempo para la inauguración"><p class="eyebrow">CADA VEZ MÁS CERCA</p><div class="countdown-values"><div><strong data-days>{{ invitation_countdown.days|stringformat:'02d' }}</strong><span>Días</span></div><i aria-hidden="true">:</i><div><strong data-hours>{{ invitation_countdown.hours|stringformat:'02d' }}</strong><span>Horas</span></div><i aria-hidden="true">:</i><div><strong data-minutes>{{ invitation_countdown.minutes|stringformat:'02d' }}</strong><span>Minutos</span></div><i aria-hidden="true">:</i><div><strong data-seconds>{{ invitation_countdown.seconds|stringformat:'02d' }}</strong><span>Segundos</span></div></div></div>
     <div class="invitation-actions"><a class="invitation-button primary" href="{{ venue_directions_url }}" target="_blank" rel="noopener noreferrer">Cómo llegar <span aria-hidden="true">↗</span><span class="sr-only"> (abre Google Maps)</span></a><button class="invitation-button secondary" type="button" data-share hidden>Compartir invitación <span aria-hidden="true">↗</span></button></div>
     <div class="share-fallback" hidden><label for="invitation-link">Enlace de la invitación</label><input id="invitation-link" readonly type="url"></div><p class="share-status" role="status" aria-live="polite"></p>

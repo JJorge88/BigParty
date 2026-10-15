@@ -104,6 +104,13 @@ class PublicComponentTests(EventCase):
         self.assertContains(page, 'data-countdown')
         for unit in ('data-days', 'data-hours', 'data-minutes', 'data-seconds'):
             self.assertContains(page, unit)
+        self.assertContains(page, '2:00–5:00 p. m.')
+        self.assertContains(page, '5:00 p. m.–1:00 a. m.')
+        self.assertContains(page, 'Acto de inauguración')
+        self.assertContains(page, 'Grupo Bembé, Imperio Efectivo y DJ Chama')
+        self.assertContains(page, '>Entrada<')
+        self.assertContains(page, '>Q60<')
+        self.assertContains(page, 'A partir de las 6:00 p. m.')
         self.assertContains(page, '/inauguracion/contador.js?v=live-countdown-3')
         script = self.client.get('/inauguracion/contador.js')
         self.assertEqual(script['Content-Type'], 'text/javascript; charset=utf-8')
